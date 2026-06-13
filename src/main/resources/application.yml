@@ -1,0 +1,25 @@
+micronaut:
+  application:
+    name: renalo
+  router:
+    static-resources:
+      default:
+        enabled: true
+        mapping: /**
+        paths: classpath:public
+
+datasources:
+  default:
+    url: ${JDBC_URL:`jdbc:postgresql://localhost:5432/renalo`}
+    username: ${JDBC_USER:renalo}
+    password: ${JDBC_PASSWORD:renalo}
+    driver-class-name: org.postgresql.Driver
+
+flyway:
+  datasources:
+    default:
+      enabled: true
+
+renalo:
+  default-admin:
+    username: ${RENALO_DEFAULT_ADMIN_USERNAME:admin}

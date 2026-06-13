@@ -1,0 +1,24 @@
+{
+  "name": "renalo-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build ./src/main.tsx --target=browser --outdir=dist --entry-naming=assets/index-[hash].[ext] --asset-naming=assets/[name]-[hash].[ext] && bun ./scripts/write-index.ts",
+    "check": "biome check . && tsc --noEmit",
+    "dev": "bun --hot ./scripts/dev-server.ts",
+    "format": "biome check --write ."
+  },
+  "dependencies": {
+    "@untitledui/icons": "^0.0.22",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-router": "7.17.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "typescript": "6.0.3"
+  }
+}
