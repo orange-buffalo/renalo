@@ -1,3 +1,62 @@
+@import "tailwindcss";
+@plugin "tailwindcss-react-aria-components";
+
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  --color-brand: #1570ef;
+  --color-brand-solid: #1570ef;
+  --color-brand-solid_hover: #175cd3;
+  --color-brand-secondary: #175cd3;
+  --color-brand-secondary_hover: #1849a9;
+  --color-bg-primary: #ffffff;
+  --color-bg-primary-solid: #0c111d;
+  --color-primary: #ffffff;
+  --color-primary_hover: #f9fafb;
+  --color-secondary: #344054;
+  --color-secondary_hover: #182230;
+  --color-tertiary: #475467;
+  --color-tertiary_hover: #344054;
+  --color-quaternary: #667085;
+  --color-placeholder: #667085;
+  --color-fg-quaternary: #667085;
+  --color-fg-quaternary_hover: #475467;
+  --color-fg-brand-secondary_alt: #175cd3;
+  --color-fg-brand-secondary_hover: #1849a9;
+  --color-fg-error-primary: #d92d20;
+  --color-fg-error-secondary: #f04438;
+  --color-error: #d92d20;
+  --color-error-primary: #fef3f2;
+  --color-error-primary_hover: #fee4e2;
+  --color-error-solid: #d92d20;
+  --color-error-solid_hover: #b42318;
+  --color-error_subtle: #fecdca;
+  --color-transparent: transparent;
+  --color-white: #ffffff;
+  --shadow-xs: 0 1px 2px 0 rgb(16 24 40 / 0.05);
+  --shadow-xs-skeuomorphic:
+    0 1px 2px 0 rgb(16 24 40 / 0.05), inset 0 -2px 0 0 rgb(16 24 40 / 0.05),
+    inset 0 0 0 1px rgb(16 24 40 / 0.18);
+  --text-md: 1rem;
+  --text-md--line-height: 1.5rem;
+  --spacing-0\.75: 0.1875rem;
+  --spacing-4\.5: 1.125rem;
+  --spacing-9\.5: 2.375rem;
+  --spacing-10\.5: 2.625rem;
+}
+
+@utility outline-brand {
+  outline-color: var(--color-brand);
+}
+
+@utility outline-error {
+  outline-color: var(--color-error);
+}
+
+@utility outline-focus-ring {
+  outline-color: var(--color-brand);
+}
+
 :root {
   color: #101828;
   background: #f8fafc;
@@ -71,97 +130,6 @@ input {
 .login-form {
   display: grid;
   gap: 18px;
-}
-
-.ui-field {
-  display: grid;
-  gap: 6px;
-}
-
-.ui-field__label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #344054;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.ui-field__hint {
-  margin: 0;
-  color: #475467;
-  font-size: 0.875rem;
-}
-
-.ui-field input {
-  width: 100%;
-  border: 1px solid #d0d5dd;
-  border-radius: 12px;
-  color: #101828;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
-}
-
-.ui-field--sm input {
-  min-height: 44px;
-  padding: 10px 14px;
-}
-
-.ui-field--md input {
-  min-height: 48px;
-  padding: 12px 16px;
-}
-
-.ui-field input:focus {
-  border-color: #84caff;
-  box-shadow: 0 0 0 4px #d1e9ff;
-  outline: none;
-}
-
-.ui-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 46px;
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.ui-button--md {
-  min-height: 46px;
-  padding: 10px 16px;
-}
-
-.ui-button--primary {
-  border: 1px solid #1570ef;
-  color: #fff;
-  background: #1570ef;
-}
-
-.ui-button--primary:hover {
-  background: #175cd3;
-}
-
-.ui-button--secondary {
-  border: 1px solid #d0d5dd;
-  color: #344054;
-  background: #fff;
-}
-
-.ui-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.ui-button__spinner {
-  width: 1em;
-  height: 1em;
-  border: 2px solid currentcolor;
-  border-top-color: transparent;
-  border-radius: 999px;
 }
 
 @media (max-width: 520px) {

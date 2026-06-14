@@ -4,7 +4,7 @@
 
 - Java package root is `io.orangebuffalo.renalo`.
 - Gradle group is `io.orange-buffalo`.
-- Use Java 25. Run `source "/usr/local/sdkman/bin/sdkman-init.sh" && sdk env` from the repo before Gradle commands when the shell has not loaded SDKMAN.
+- Use Java 25.
 - Use `./gradlew build` as the main verification command before finishing changes.
 
 ## Backend
@@ -19,10 +19,14 @@
 
 - Use Bun's bundler. Do not add Vite.
 - Keep UI build, lint, and format tasks wired through Gradle.
-- Untitled UI React is copy/CLI based. Local components under `ui/src/components/untitled/` should follow the documented Untitled UI APIs instead of inventing incompatible props.
+- Always run `bun run format` from `ui/` after UI source changes, then run Gradle verification.
+- Untitled UI React is copy/CLI based, not an npm component-library import.
+- Add Untitled UI components with `npx untitledui@latest add <component> --yes` from `ui/`. Do not hand-write replacements for components that Untitled UI provides.
+- Components copied by the CLI should live under `ui/src/components/untitled/` and keep the documented Untitled UI APIs and implementation patterns.
 - Button usage should follow the documented shape: `color`, `size`, optional `iconLeading`/`iconTrailing`, `isDisabled`, and `isLoading`.
-- Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, and icon/tooltip-style props when added.
-- Keep custom CSS minimal and scoped. Prefer extending local Untitled-style primitives over page-specific element selectors.
+- Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
+- Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
+- Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 
 ## Testing
 

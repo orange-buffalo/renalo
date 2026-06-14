@@ -9,11 +9,6 @@ Renalo is a Micronaut/Kotlin budgeting application scaffold for tracking expense
 - Docker, only when building or running container images.
 - PostgreSQL for normal application runtime.
 
-## Running Locally
-
-- `./gradlew run` starts the app locally.
-- `/workspace/renalo-local-state/start-renalo.sh` starts the app against the shared local PostgreSQL instance on port `8484`.
-
 ## Database
 
 Default runtime configuration expects PostgreSQL:

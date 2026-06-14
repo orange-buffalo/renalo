@@ -23,7 +23,7 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
 
         assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible();
         assertThat(page.getByLabel("Username")).isVisible();
-        assertThat(page.getByLabel("Password")).isVisible();
+        assertThat(page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Password"))).isVisible();
         assertThat(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in"))).isVisible();
     }
 }

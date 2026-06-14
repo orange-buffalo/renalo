@@ -1,12 +1,23 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
   "files": {
-    "includes": ["**", "!dist", "!node_modules"]
+    "includes": [
+      "**",
+      "!dist",
+      "!node_modules",
+      "!src/components/untitled",
+      "!src/utils/is-react-component.ts"
+    ]
   },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
   },
   "linter": {
     "enabled": true,

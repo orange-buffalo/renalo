@@ -1,0 +1,10 @@
+{
+  "aliases": {
+    "components": "@/components/untitled",
+    "hooks": "@/hooks",
+    "styles": "@/styles",
+    "utils": "@/utils"
+  },
+  "framework": "vite",
+  "version": "8"
+}

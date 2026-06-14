@@ -1,5 +1,5 @@
-import { Button } from "../components/untitled/Button.tsx";
-import { TextField } from "../components/untitled/TextField.tsx";
+import { Button } from "@/components/untitled/base/buttons/button";
+import { Input } from "@/components/untitled/base/input/input";
 
 export function LoginPage() {
   return (
@@ -12,8 +12,8 @@ export function LoginPage() {
           Sign-in behavior will be wired next.
         </p>
         <form className="login-form">
-          <TextField label="Username" name="username" autoComplete="username" />
-          <TextField
+          <Input label="Username" name="username" autoComplete="username" />
+          <Input
             label="Password"
             name="password"
             type="password"
