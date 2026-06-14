@@ -23,6 +23,14 @@ On startup, if no admin user exists, the app creates a default admin and logs th
 
 Deployments must provide a PostgreSQL database through `JDBC_URL`, `JDBC_USER`, and `JDBC_PASSWORD`. Flyway migrations run automatically at startup.
 
+Deployments must also provide `RENALO_JWT_SECRET`, which signs authentication tokens. Generate a strong value with:
+
+```bash
+openssl rand -base64 64
+```
+
+Keep this value stable across application restarts and across all Renalo instances in the same environment. Changing it invalidates existing signed-in sessions.
+
 When the first instance starts with an empty database, Renalo creates a default admin account and prints a boxed log entry containing the generated username and password. Capture these credentials from application logs immediately; the generated password is only logged at creation time. If an admin already exists, no password is generated or printed.
 
 ## Docker
@@ -40,5 +48,6 @@ docker run --rm -p 8080:8080 \
   -e JDBC_URL=jdbc:postgresql://host.docker.internal:5432/renalo \
   -e JDBC_USER=renalo \
   -e JDBC_PASSWORD=renalo \
+  -e RENALO_JWT_SECRET="$(openssl rand -base64 64)" \
   ghcr.io/orange-buffalo/renalo:latest
 ```
