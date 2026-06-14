@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useAppState } from "@/AppState";
 import { createAuthToken, fetchProfile } from "@/api/auth";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { setProfile } = useAppState();
   const [error, setError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -21,8 +23,8 @@ export function LoginPage() {
     try {
       await createAuthToken(username, password);
       const profile = await fetchProfile();
+      setProfile(profile);
       navigate(profile.type === "ADMIN" ? "/user-management" : "/tracking", {
-        state: { profile },
         replace: true,
       });
     } catch {

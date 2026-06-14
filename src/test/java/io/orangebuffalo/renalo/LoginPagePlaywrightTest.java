@@ -45,23 +45,6 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
     }
 
     @Test
-    void logsUserIntoTrackingPageOnMobile(Page page) {
-        saveUser("alice", "password", UserType.USER);
-        page.setViewportSize(390, 844);
-
-        page.navigate(server.getURL() + "/");
-        page.getByLabel("Username").fill("alice");
-        page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Password")).fill("password");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in")).click();
-
-        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"));
-        assertThat(heading).isVisible();
-        assertThat(page.getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Main navigation"))).isVisible();
-        assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Tracking"))).isVisible();
-        heading.hover();
-    }
-
-    @Test
     void logsAdminIntoUserManagementPage(Page page) {
         saveUser("admin", "password", UserType.ADMIN);
 

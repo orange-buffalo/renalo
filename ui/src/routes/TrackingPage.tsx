@@ -1,13 +1,8 @@
-import type { Profile } from "@/api/auth";
 import { PageLayout } from "@/components/PageLayout";
 
-type TrackingPageProps = {
-  profile?: Profile;
-};
-
-export function TrackingPage({ profile }: TrackingPageProps) {
+export function TrackingPage() {
   return (
-    <PageLayout profile={profile} eyebrow="Tracking" title="Expense tracking">
+    <PageLayout eyebrow="Tracking" title="Expense tracking">
       <section className="standard-page-panel">
         <h2>Today&apos;s budget activity</h2>
         <p>

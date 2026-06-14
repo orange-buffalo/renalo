@@ -29,6 +29,7 @@
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Functional UI changes must be covered with Playwright tests. Do not add Playwright assertions solely for visual styling; use trace screenshots for visual review instead.
+- Do not add permanent mobile-specific Playwright tests unless mobile behavior is the core functional contract being changed. Temporary mobile Playwright checks may be used for verification, but remove them before finishing unless they are necessary regression coverage.
 - UI changes must be checked with the Playwright traces produced by the relevant Playwright test task; inspect the trace screenshots for visual regressions such as broken layout, missing styling, overlap, clipping, poor spacing, or inconsistent Untitled UI styling.
 - When UI trace screenshots are inspected, extract the reviewed screenshots into the project `build/` directory and include those `build/` paths in the final response so the user can review the same evidence.
 

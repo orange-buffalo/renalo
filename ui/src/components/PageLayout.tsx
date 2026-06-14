@@ -1,29 +1,55 @@
-import { BarChartSquare02, Users01 } from "@untitledui/icons";
+import { BarChartSquare02, Menu02, Users01, X } from "@untitledui/icons";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { useLocation } from "react-router";
-import type { Profile } from "@/api/auth";
+import { useAppState } from "@/AppState";
+import type { UserType } from "@/api/auth";
 import { NavList } from "@/components/untitled/application/app-navigation/base-components/nav-list";
 import type { NavItemType } from "@/components/untitled/application/app-navigation/config";
 
 type PageLayoutProps = {
-  profile?: Profile;
   eyebrow: string;
   title: string;
   children?: ReactNode;
 };
 
-export function PageLayout({
-  profile,
-  eyebrow,
-  title,
-  children,
-}: PageLayoutProps) {
+export function PageLayout({ eyebrow, title, children }: PageLayoutProps) {
+  const { profile } = useAppState();
   const location = useLocation();
-  const navigationItems = getNavigationItems(profile);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigationItems = getNavigationItems(profile?.type);
 
   return (
-    <div className="standard-page-shell">
-      <aside className="standard-page-sidebar">
+    <div
+      className="standard-page-shell"
+      data-menu-open={isMenuOpen || undefined}
+    >
+      <header className="standard-page-mobile-header">
+        <button
+          type="button"
+          className="standard-page-menu-button"
+          aria-label={
+            isMenuOpen ? "Close navigation menu" : "Open navigation menu"
+          }
+          aria-expanded={isMenuOpen}
+          aria-controls="standard-page-navigation"
+          onClick={() => setIsMenuOpen((current) => !current)}
+        >
+          {isMenuOpen ? (
+            <X aria-hidden="true" />
+          ) : (
+            <Menu02 aria-hidden="true" />
+          )}
+        </button>
+        <div className="standard-page-mobile-brand">
+          <span className="standard-page-logo" aria-hidden="true">
+            R
+          </span>
+          <span>Renalo</span>
+        </div>
+      </header>
+
+      <aside className="standard-page-sidebar" id="standard-page-navigation">
         <div className="standard-page-brand">
           <span className="standard-page-logo" aria-hidden="true">
             R
@@ -65,8 +91,8 @@ export function PageLayout({
   );
 }
 
-function getNavigationItems(profile?: Profile): NavItemType[] {
-  if (profile?.type === "ADMIN") {
+function getNavigationItems(userType?: UserType): NavItemType[] {
+  if (userType === "ADMIN") {
     return [
       {
         label: "User management",
