@@ -28,7 +28,7 @@
 - Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
-- Every UI change must be covered with Playwright tests.
+- Functional UI changes must be covered with Playwright tests. Do not add Playwright assertions solely for visual styling; use trace screenshots for visual review instead.
 - UI changes must be checked with the Playwright traces produced by the relevant Playwright test task; inspect the trace screenshots for visual regressions such as broken layout, missing styling, overlap, clipping, poor spacing, or inconsistent Untitled UI styling.
 
 ## Testing

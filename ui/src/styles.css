@@ -11,14 +11,24 @@
   --color-brand-secondary_hover: #1849a9;
   --color-bg-primary: #ffffff;
   --color-bg-primary-solid: #0c111d;
-  --color-primary: #ffffff;
-  --color-primary_hover: #f9fafb;
-  --color-secondary: #344054;
-  --color-secondary_hover: #182230;
-  --color-tertiary: #475467;
-  --color-tertiary_hover: #344054;
-  --color-quaternary: #667085;
-  --color-placeholder: #667085;
+  --background-color-primary: #ffffff;
+  --background-color-primary_hover: #f9fafb;
+  --background-color-brand-solid: #1570ef;
+  --background-color-brand-solid_hover: #175cd3;
+  --text-color-primary: #101828;
+  --text-color-secondary: #344054;
+  --text-color-secondary_hover: #182230;
+  --text-color-tertiary: #475467;
+  --text-color-tertiary_hover: #344054;
+  --text-color-quaternary: #667085;
+  --text-color-placeholder: #667085;
+  --ring-color-primary: #d0d5dd;
+  --ring-color-secondary: #d0d5dd;
+  --ring-color-error_subtle: #fecdca;
+  --ring-color-error: #d92d20;
+  --ring-color-brand: #1570ef;
+  --outline-color-brand: #1570ef;
+  --outline-color-error: #d92d20;
   --color-fg-quaternary: #667085;
   --color-fg-quaternary_hover: #475467;
   --color-fg-brand-secondary_alt: #175cd3;
@@ -46,15 +56,15 @@
 }
 
 @utility outline-brand {
-  outline-color: var(--color-brand);
+  outline-color: var(--outline-color-brand);
 }
 
 @utility outline-error {
-  outline-color: var(--color-error);
+  outline-color: var(--outline-color-error);
 }
 
 @utility outline-focus-ring {
-  outline-color: var(--color-brand);
+  outline-color: var(--outline-color-brand);
 }
 
 :root {

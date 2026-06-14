@@ -39,20 +39,12 @@ export function LoginPage() {
         <h1 id="login-heading">Sign in to Renalo</h1>
         <p className="intro">Sign in to continue to your budget workspace.</p>
         <form className="login-form" onSubmit={handleSubmit}>
-          <Input
-            label="Username"
-            name="username"
-            autoComplete="username"
-            wrapperClassName="bg-white ring-[#d0d5dd]"
-            inputClassName="text-[#101828] placeholder:text-[#667085]"
-          />
+          <Input label="Username" name="username" autoComplete="username" />
           <Input
             label="Password"
             name="password"
             type="password"
             autoComplete="current-password"
-            wrapperClassName="bg-white ring-[#d0d5dd]"
-            inputClassName="text-[#101828] placeholder:text-[#667085]"
           />
           {error && <p className="form-error">{error}</p>}
           <Button color="primary" size="md" type="submit" isLoading={isLoading}>

@@ -14,8 +14,6 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -34,7 +32,6 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
         saveUser("alice", "password", UserType.USER);
 
         page.navigate(server.getURL() + "/");
-        assertLoginInputsAreReadable(page);
         page.getByLabel("Username").fill("alice");
         page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Password")).fill("password");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in")).click();
@@ -60,14 +57,5 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
 
     private void saveUser(String username, String password, UserType type) {
         userRepository.save(new User(null, username, passwordHasher.hash(password), type));
-    }
-
-    private void assertLoginInputsAreReadable(Page page) {
-        var usernameInput = page.locator("input[name='username']");
-        var usernameInputWrapper = usernameInput.locator("xpath=..");
-
-        assertEquals("rgb(16, 24, 40)", usernameInput.evaluate("element => getComputedStyle(element).color"));
-        assertEquals("rgb(255, 255, 255)", usernameInputWrapper.evaluate("element => getComputedStyle(element).backgroundColor"));
-        assertNotEquals("none", usernameInputWrapper.evaluate("element => getComputedStyle(element).boxShadow"));
     }
 }

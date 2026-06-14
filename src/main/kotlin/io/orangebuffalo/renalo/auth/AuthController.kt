@@ -13,13 +13,14 @@ import io.micronaut.security.token.generator.TokenGenerator
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
-import java.time.Instant
+import io.orangebuffalo.renalo.time.TimeProvider
 
 @Controller("/api")
 class AuthController(
     private val userRepository: UserRepository,
     private val passwordHasher: PasswordHasher,
     private val tokenGenerator: TokenGenerator,
+    private val timeProvider: TimeProvider,
     @Value("\${renalo.auth.access-token-expiration-seconds}")
     private val accessTokenExpirationSeconds: Long,
 ) {
@@ -38,7 +39,7 @@ class AuthController(
             "sub" to user.username,
             "roles" to roles,
             "userType" to user.type.name,
-            "exp" to Instant.now().plusSeconds(accessTokenExpirationSeconds).epochSecond,
+            "exp" to timeProvider.now().plusSeconds(accessTokenExpirationSeconds).epochSecond,
         )
         val token = tokenGenerator.generateToken(claims)
             .orElseThrow { IllegalStateException("JWT token could not be generated") }

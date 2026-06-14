@@ -1,17 +1,23 @@
 package io.orangebuffalo.renalo;
 
+import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.annotation.Property;
+import io.micronaut.context.annotation.Replaces;
 import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import io.orangebuffalo.renalo.test.ApiTestClient;
 import io.orangebuffalo.renalo.test.IntegrationTestSupport;
+import io.orangebuffalo.renalo.time.SystemTimeProvider;
+import io.orangebuffalo.renalo.time.TimeProvider;
 import io.orangebuffalo.renalo.user.PasswordHasher;
 import io.orangebuffalo.renalo.user.User;
 import io.orangebuffalo.renalo.user.UserRepository;
 import io.orangebuffalo.renalo.user.UserType;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import jakarta.inject.Singleton;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -23,6 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
 class AuthApiTest extends IntegrationTestSupport {
+    private static final MutableTimeProvider TEST_TIME_PROVIDER = new MutableTimeProvider();
+    private static final Instant FIXED_BUSINESS_TIME = Instant.parse("2099-06-14T08:00:00Z");
+
     @Inject
     EmbeddedServer server;
 
@@ -31,6 +40,11 @@ class AuthApiTest extends IntegrationTestSupport {
 
     @Inject
     PasswordHasher passwordHasher;
+
+    @BeforeEach
+    void resetBusinessTime() {
+        TEST_TIME_PROVIDER.setNow(FIXED_BUSINESS_TIME);
+    }
 
     @Test
     void rejectsInvalidCredentials() throws Exception {
@@ -79,14 +93,11 @@ class AuthApiTest extends IntegrationTestSupport {
     void issuesTokenWithConfiguredExpiration() throws Exception {
         saveUser("alice", "correct-password", UserType.USER);
 
-        long beforeExpectedExpiration = Instant.now().plusSeconds(1800).getEpochSecond();
         String token = api().login("alice", "correct-password");
-        long afterExpectedExpiration = Instant.now().plusSeconds(1800).getEpochSecond();
 
         String payloadJson = new String(Base64.getUrlDecoder().decode(token.split("\\.")[1]), StandardCharsets.UTF_8);
         long expiration = Long.parseLong(payloadJson.replaceAll(".*\"exp\":([0-9]+).*", "$1"));
-        assertTrue(expiration >= beforeExpectedExpiration);
-        assertTrue(expiration <= afterExpectedExpiration);
+        assertEquals(FIXED_BUSINESS_TIME.plusSeconds(1800).getEpochSecond(), expiration);
     }
 
     private void saveUser(String username, String password, UserType type) {
@@ -95,5 +106,27 @@ class AuthApiTest extends IntegrationTestSupport {
 
     private ApiTestClient api() {
         return new ApiTestClient(server);
+    }
+
+    @Factory
+    static class TestTimeProviderFactory {
+        @Singleton
+        @Replaces(SystemTimeProvider.class)
+        TimeProvider timeProvider() {
+            return TEST_TIME_PROVIDER;
+        }
+    }
+
+    private static class MutableTimeProvider implements TimeProvider {
+        private Instant now = FIXED_BUSINESS_TIME;
+
+        @Override
+        public Instant now() {
+            return now;
+        }
+
+        void setNow(Instant now) {
+            this.now = now;
+        }
     }
 }
