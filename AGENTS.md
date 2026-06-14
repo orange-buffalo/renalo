@@ -21,7 +21,7 @@
 - Keep UI build, lint, and format tasks wired through Gradle.
 - Always run `bun run format` from `ui/` after UI source changes, then run Gradle verification.
 - Untitled UI React is copy/CLI based, not an npm component-library import.
-- Add Untitled UI components with `npx untitledui@latest add <component> --yes` from `ui/`. Do not hand-write replacements for components that Untitled UI provides.
+- Add Untitled UI components with `bunx untitledui@latest add <component> --yes` from `ui/`. Do not hand-write replacements for components that Untitled UI provides.
 - Components copied by the CLI should live under `ui/src/components/untitled/` and keep the documented Untitled UI APIs and implementation patterns.
 - Button usage should follow the documented shape: `color`, `size`, optional `iconLeading`/`iconTrailing`, `isDisabled`, and `isLoading`.
 - Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
