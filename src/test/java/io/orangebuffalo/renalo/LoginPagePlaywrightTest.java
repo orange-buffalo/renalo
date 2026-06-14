@@ -55,6 +55,20 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
         page.waitForTimeout(250);
     }
 
+    @Test
+    void showsErrorForWrongPassword(Page page) {
+        saveUser("alice", "password", UserType.USER);
+
+        page.navigate(server.getURL() + "/");
+        page.getByLabel("Username").fill("alice");
+        page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Password")).fill("wrong-password");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in")).click();
+
+        assertThat(page.getByText("Invalid username or password.")).isVisible();
+        assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible();
+        page.waitForTimeout(250);
+    }
+
     private void saveUser(String username, String password, UserType type) {
         userRepository.save(new User(null, username, passwordHasher.hash(password), type));
     }

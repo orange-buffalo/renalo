@@ -45,8 +45,9 @@ export function LoginPage() {
             name="password"
             type="password"
             autoComplete="current-password"
+            isInvalid={Boolean(error)}
+            hint={error}
           />
-          {error && <p className="form-error">{error}</p>}
           <Button color="primary" size="md" type="submit" isLoading={isLoading}>
             Sign in
           </Button>

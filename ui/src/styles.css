@@ -22,6 +22,7 @@
   --text-color-tertiary_hover: #344054;
   --text-color-quaternary: #667085;
   --text-color-placeholder: #667085;
+  --text-color-error-primary: #d92d20;
   --ring-color-primary: #d0d5dd;
   --ring-color-secondary: #d0d5dd;
   --ring-color-error_subtle: #fecdca;
@@ -29,6 +30,10 @@
   --ring-color-brand: #1570ef;
   --outline-color-brand: #1570ef;
   --outline-color-error: #d92d20;
+  --background-color-error-primary: #fef3f2;
+  --background-color-error-primary_hover: #fee4e2;
+  --background-color-error-solid: #d92d20;
+  --background-color-error-solid_hover: #b42318;
   --color-fg-quaternary: #667085;
   --color-fg-quaternary_hover: #475467;
   --color-fg-brand-secondary_alt: #175cd3;
@@ -36,11 +41,6 @@
   --color-fg-error-primary: #d92d20;
   --color-fg-error-secondary: #f04438;
   --color-error: #d92d20;
-  --color-error-primary: #fef3f2;
-  --color-error-primary_hover: #fee4e2;
-  --color-error-solid: #d92d20;
-  --color-error-solid_hover: #b42318;
-  --color-error_subtle: #fecdca;
   --color-transparent: transparent;
   --color-white: #ffffff;
   --shadow-xs: 0 1px 2px 0 rgb(16 24 40 / 0.05);
@@ -140,13 +140,6 @@ input {
 .login-form {
   display: grid;
   gap: 18px;
-}
-
-.form-error {
-  margin: 0;
-  color: #b42318;
-  font-size: 0.875rem;
-  font-weight: 600;
 }
 
 .app-page {
