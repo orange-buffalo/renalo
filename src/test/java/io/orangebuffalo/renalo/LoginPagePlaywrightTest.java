@@ -38,7 +38,6 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
 
         assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"))).isVisible();
         assertThat(page.getByText("Signed in as alice")).isVisible();
-        page.waitForTimeout(250);
     }
 
     @Test
@@ -52,7 +51,6 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
 
         assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("User management"))).isVisible();
         assertThat(page.getByText("Signed in as admin")).isVisible();
-        page.waitForTimeout(250);
     }
 
     @Test
@@ -66,7 +64,6 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
 
         assertThat(page.getByText("Invalid username or password.")).isVisible();
         assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible();
-        page.waitForTimeout(250);
     }
 
     private void saveUser(String username, String password, UserType type) {
