@@ -21,4 +21,4 @@ jobs:
       - name: Build
         run: ./gradlew build
       - name: Build container image tarball
-        run: ./gradlew jibBuildTar
+        run: ./gradlew --no-configuration-cache jibBuildTar
