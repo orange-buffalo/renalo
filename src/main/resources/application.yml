@@ -1,6 +1,18 @@
 micronaut:
   application:
     name: renalo
+  security:
+    authentication: bearer
+    intercept-url-map:
+      - pattern: /assets/**
+        access:
+          - isAnonymous()
+    token:
+      jwt:
+        signatures:
+          secret:
+            generator:
+              secret: ${JWT_GENERATOR_SIGNATURE_SECRET:`change-this-development-secret-change-before-production`}
   router:
     static-resources:
       default:

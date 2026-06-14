@@ -132,6 +132,27 @@ input {
   gap: 18px;
 }
 
+.form-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.app-page {
+  min-height: 100vh;
+  padding: 48px;
+  background: linear-gradient(135deg, #f9fafb 0%, #eef4ff 100%);
+}
+
+.app-page h1 {
+  margin: 0;
+  color: #101828;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
 @media (max-width: 520px) {
   .login-shell {
     align-items: stretch;
@@ -145,5 +166,9 @@ input {
     min-height: 100vh;
     border: 0;
     border-radius: 0;
+  }
+
+  .app-page {
+    padding: 24px;
   }
 }

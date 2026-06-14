@@ -7,4 +7,6 @@ import io.micronaut.data.repository.CrudRepository
 @JdbcRepository(dialect = Dialect.POSTGRES)
 interface UserRepository : CrudRepository<User, Long> {
     fun countByType(type: UserType): Long
+
+    fun findByUsername(username: String): User?
 }
