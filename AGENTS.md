@@ -27,8 +27,12 @@
 - Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
+- UI changes must be checked with the Playwright traces produced by `./gradlew build`; inspect the trace screenshots for visual regressions such as broken layout, missing styling, overlap, clipping, poor spacing, or inconsistent Untitled UI styling.
 
 ## Testing
 
 - Java Playwright setup lives in reusable JUnit extension infrastructure under `src/test/java/io/orangebuffalo/renalo/test`.
 - Install only the Chromium headless shell for tests with Playwright's `--only-shell` option. Do not use `--with-deps` in the Gradle task because it requires privileged package installation.
+- Playwright tests always save traces with screenshots under `build/playwright-traces/`; CI uploads those traces when the build fails.
+- When troubleshooting a Playwright failure, open the relevant trace with `bunx playwright show-trace build/playwright-traces/<trace>.zip` and inspect the DOM snapshot, network requests/responses, console output, and screenshots before changing code.
+- Use trace screenshots as visual evidence for UI work, even when tests pass; verify styling consistency, responsive layout, and absence of visual glitches before finishing frontend changes.

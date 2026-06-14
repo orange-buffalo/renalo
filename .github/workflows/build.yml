@@ -20,5 +20,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       - name: Build
         run: ./gradlew build
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: build/playwright-traces/**/*.zip
+          if-no-files-found: ignore
       - name: Build container image tarball
         run: ./gradlew --no-configuration-cache jibBuildTar
