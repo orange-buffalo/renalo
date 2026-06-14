@@ -36,8 +36,29 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
         page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Password")).fill("password");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in")).click();
 
-        assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"))).isVisible();
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"));
+        assertThat(heading).isVisible();
         assertThat(page.getByText("Signed in as alice")).isVisible();
+        assertThat(page.getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Main navigation"))).isVisible();
+        assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Tracking"))).isVisible();
+        heading.hover();
+    }
+
+    @Test
+    void logsUserIntoTrackingPageOnMobile(Page page) {
+        saveUser("alice", "password", UserType.USER);
+        page.setViewportSize(390, 844);
+
+        page.navigate(server.getURL() + "/");
+        page.getByLabel("Username").fill("alice");
+        page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Password")).fill("password");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in")).click();
+
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"));
+        assertThat(heading).isVisible();
+        assertThat(page.getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Main navigation"))).isVisible();
+        assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Tracking"))).isVisible();
+        heading.hover();
     }
 
     @Test
@@ -49,8 +70,12 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
         page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Password")).fill("password");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in")).click();
 
-        assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("User management"))).isVisible();
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("User management"));
+        assertThat(heading).isVisible();
         assertThat(page.getByText("Signed in as admin")).isVisible();
+        assertThat(page.getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Main navigation"))).isVisible();
+        assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("User management"))).isVisible();
+        heading.hover();
     }
 
     @Test
@@ -63,7 +88,9 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in")).click();
 
         assertThat(page.getByText("Invalid username or password.")).isVisible();
-        assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible();
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Sign in to Renalo"));
+        assertThat(heading).isVisible();
+        heading.hover();
     }
 
     private void saveUser(String username, String password, UserType type) {

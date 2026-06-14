@@ -1,4 +1,5 @@
 import type { Profile } from "@/api/auth";
+import { PageLayout } from "@/components/PageLayout";
 
 type UserManagementPageProps = {
   profile?: Profile;
@@ -6,10 +7,15 @@ type UserManagementPageProps = {
 
 export function UserManagementPage({ profile }: UserManagementPageProps) {
   return (
-    <main className="app-page">
-      <p className="eyebrow">Administration</p>
-      <h1>User management</h1>
-      {profile && <p className="intro">Signed in as {profile.username}</p>}
-    </main>
+    <PageLayout
+      profile={profile}
+      eyebrow="Administration"
+      title="User management"
+    >
+      <section className="standard-page-panel">
+        <h2>Workspace access</h2>
+        <p>Manage Renalo users and keep administrative access organized.</p>
+      </section>
+    </PageLayout>
   );
 }

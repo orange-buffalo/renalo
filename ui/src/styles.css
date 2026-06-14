@@ -10,9 +10,14 @@
   --color-brand-secondary: #175cd3;
   --color-brand-secondary_hover: #1849a9;
   --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-bg-secondary_hover: #f2f4f7;
   --color-bg-primary-solid: #0c111d;
+  --color-bg-overlay: #0c111d;
   --background-color-primary: #ffffff;
   --background-color-primary_hover: #f9fafb;
+  --background-color-secondary: #f9fafb;
+  --background-color-secondary_hover: #f2f4f7;
   --background-color-brand-solid: #1570ef;
   --background-color-brand-solid_hover: #175cd3;
   --text-color-primary: #101828;
@@ -25,17 +30,24 @@
   --text-color-error-primary: #d92d20;
   --ring-color-primary: #d0d5dd;
   --ring-color-secondary: #d0d5dd;
+  --ring-color-secondary_alt: #eaecf0;
   --ring-color-error_subtle: #fecdca;
   --ring-color-error: #d92d20;
   --ring-color-brand: #1570ef;
+  --border-color-secondary: #eaecf0;
+  --color-border-secondary: #eaecf0;
   --outline-color-brand: #1570ef;
   --outline-color-error: #d92d20;
+  --background-color-secondary_alt: #f9fafb;
   --background-color-error-primary: #fef3f2;
   --background-color-error-primary_hover: #fee4e2;
   --background-color-error-solid: #d92d20;
   --background-color-error-solid_hover: #b42318;
   --color-fg-quaternary: #667085;
   --color-fg-quaternary_hover: #475467;
+  --color-fg-secondary: #344054;
+  --color-fg-secondary_hover: #182230;
+  --color-fg-white: #ffffff;
   --color-fg-brand-secondary_alt: #175cd3;
   --color-fg-brand-secondary_hover: #1849a9;
   --color-fg-error-primary: #d92d20;
@@ -43,6 +55,9 @@
   --color-error: #d92d20;
   --color-transparent: transparent;
   --color-white: #ffffff;
+  --font-body:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   --shadow-xs: 0 1px 2px 0 rgb(16 24 40 / 0.05);
   --shadow-xs-skeuomorphic:
     0 1px 2px 0 rgb(16 24 40 / 0.05), inset 0 -2px 0 0 rgb(16 24 40 / 0.05),
@@ -53,6 +68,12 @@
   --spacing-4\.5: 1.125rem;
   --spacing-9\.5: 2.375rem;
   --spacing-10\.5: 2.625rem;
+}
+
+@utility transition-inherit-all {
+  transition-property: inherit;
+  transition-duration: inherit;
+  transition-timing-function: inherit;
 }
 
 @utility outline-brand {
@@ -142,18 +163,110 @@ input {
   gap: 18px;
 }
 
-.app-page {
+.standard-page-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
   min-height: 100vh;
-  padding: 48px;
   background: linear-gradient(135deg, #f9fafb 0%, #eef4ff 100%);
 }
 
-.app-page h1 {
+.standard-page-sidebar {
+  position: sticky;
+  top: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+  border-right: 1px solid #eaecf0;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(18px);
+}
+
+.standard-page-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: #101828;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.standard-page-logo {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 12px;
+  color: #ffffff;
+  background: #1570ef;
+  box-shadow: 0 12px 28px rgba(21, 112, 239, 0.28);
+}
+
+.standard-page-nav {
+  padding-top: 0;
+}
+
+.standard-page-sidebar-footer {
+  margin: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #eaecf0;
+  color: #667085;
+  font-size: 0.875rem;
+}
+
+.standard-page-content {
+  min-width: 0;
+  padding: 48px;
+}
+
+.standard-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.standard-page-header h1 {
   margin: 0;
   color: #101828;
   font-size: clamp(2rem, 6vw, 3.5rem);
   line-height: 1;
   letter-spacing: -0.04em;
+}
+
+.standard-page-user {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #eaecf0;
+  border-radius: 999px;
+  color: #344054;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.standard-page-main {
+  margin-top: 40px;
+}
+
+.standard-page-panel {
+  max-width: 760px;
+  padding: 28px;
+  border: 1px solid #eaecf0;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 20px 60px rgba(16, 24, 40, 0.08);
+}
+
+.standard-page-panel h2 {
+  margin: 0 0 8px;
+  color: #101828;
+  font-size: 1.25rem;
+}
+
+.standard-page-panel p {
+  margin: 0;
+  color: #475467;
 }
 
 @media (max-width: 520px) {
@@ -171,7 +284,35 @@ input {
     border-radius: 0;
   }
 
-  .app-page {
+  .standard-page-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .standard-page-sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid #eaecf0;
+  }
+
+  .standard-page-brand {
+    padding: 16px 24px 8px;
+  }
+
+  .standard-page-sidebar-footer {
+    display: none;
+  }
+
+  .standard-page-content {
     padding: 24px;
+  }
+
+  .standard-page-header {
+    display: block;
+  }
+
+  .standard-page-user {
+    display: inline-block;
+    margin-top: 20px;
   }
 }

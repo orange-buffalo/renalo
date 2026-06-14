@@ -30,7 +30,7 @@
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Functional UI changes must be covered with Playwright tests. Do not add Playwright assertions solely for visual styling; use trace screenshots for visual review instead.
 - UI changes must be checked with the Playwright traces produced by the relevant Playwright test task; inspect the trace screenshots for visual regressions such as broken layout, missing styling, overlap, clipping, poor spacing, or inconsistent Untitled UI styling.
-- When UI trace screenshots are inspected, include the screenshot file paths in the final response so the user can review the same evidence.
+- When UI trace screenshots are inspected, extract the reviewed screenshots into the project `build/` directory and include those `build/` paths in the final response so the user can review the same evidence.
 
 ## Testing
 
@@ -44,4 +44,4 @@
 - Playwright tests always save traces with screenshots under `build/playwright-traces/`; CI uploads those traces when the build fails.
 - When troubleshooting a Playwright failure, open the relevant trace with `bunx playwright show-trace build/playwright-traces/<trace>.zip` and inspect the DOM snapshot, network requests/responses, console output, and screenshots before changing code.
 - Use trace screenshots as visual evidence for UI work, even when tests pass; verify styling consistency, responsive layout, and absence of visual glitches before finishing frontend changes.
-- Include inspected screenshot file paths in the final response after UI work.
+- Include inspected screenshot paths from the project `build/` directory in the final response after UI work.
