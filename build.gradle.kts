@@ -12,7 +12,7 @@ plugins {
     id("com.google.cloud.tools.jib") version "3.5.3"
 }
 
-group = "app.renalo"
+group = "io.orange-buffalo"
 version = "0.1.0-SNAPSHOT"
 
 val javaVersion = 25
@@ -23,7 +23,7 @@ micronaut {
     testRuntime("junit5")
     processing {
         incremental(true)
-        annotations("app.renalo.*")
+        annotations("io.orangebuffalo.renalo.*")
     }
 }
 
@@ -38,7 +38,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("app.renalo.ApplicationKt")
+    mainClass.set("io.orangebuffalo.renalo.ApplicationKt")
 }
 
 dependencies {
@@ -65,7 +65,8 @@ dependencies {
     testImplementation("com.microsoft.playwright:playwright:1.60.0")
     testImplementation("io.micronaut.test:micronaut-test-junit5")
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("com.h2database:h2")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5")
+    testImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -79,7 +80,6 @@ val uiInstall by tasks.registering(Exec::class) {
     commandLine("bun", "install", "--frozen-lockfile")
     inputs.file(uiDir.file("bun.lock"))
     inputs.file(uiDir.file("package.json"))
-    outputs.dir(uiDir.dir("node_modules"))
 }
 
 val uiCheck by tasks.registering(Exec::class) {
@@ -97,7 +97,6 @@ val uiBuild by tasks.registering(Exec::class) {
     commandLine("bun", "run", "build")
     inputs.dir(uiDir.dir("src"))
     inputs.dir(uiDir.dir("scripts"))
-    inputs.file(uiDir.file("index.html"))
     outputs.dir(uiBuildDir)
 }
 
@@ -109,10 +108,10 @@ val copyUi by tasks.registering(Copy::class) {
 
 val playwrightInstall by tasks.registering(JavaExec::class) {
     group = "verification"
-    description = "Installs the Chromium browser used by Playwright Java tests."
+    description = "Installs the Chromium headless shell used by Playwright Java tests."
     classpath = sourceSets.test.get().runtimeClasspath
     mainClass.set("com.microsoft.playwright.CLI")
-    args("install", "chromium")
+    args("install", "--only-shell", "chromium")
 }
 
 sourceSets {
@@ -146,11 +145,11 @@ jib {
         image = "eclipse-temurin:25-jre"
     }
     to {
-        image = "renalo:latest"
+        image = "ghcr.io/orange-buffalo/renalo:latest"
     }
     container {
         ports = listOf("8080")
-        mainClass = "app.renalo.ApplicationKt"
+        mainClass = "io.orangebuffalo.renalo.ApplicationKt"
         creationTime = "USE_CURRENT_TIMESTAMP"
         environment = mapOf("MICRONAUT_ENVIRONMENTS" to "prod")
     }

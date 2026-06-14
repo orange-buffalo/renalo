@@ -19,7 +19,9 @@ export function LoginPage() {
             type="password"
             autoComplete="current-password"
           />
-          <Button type="button">Sign in</Button>
+          <Button color="primary" size="md" type="button">
+            Sign in
+          </Button>
         </form>
       </section>
     </main>

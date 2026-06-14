@@ -5,7 +5,6 @@ out/
 .idea/
 ui/dist/
 ui/node_modules/
-ui/.vite/
 ui/.bun-install-cache/
 playwright-report/
 test-results/

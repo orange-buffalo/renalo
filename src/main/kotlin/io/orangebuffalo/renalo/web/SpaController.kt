@@ -1,6 +1,7 @@
-package app.renalo.web
+package io.orangebuffalo.renalo.web
 
 import io.micronaut.core.io.ResourceResolver
+import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.MediaType
 import io.micronaut.http.annotation.Controller
@@ -19,5 +20,8 @@ class SpaController(private val resourceResolver: ResourceResolver) {
         val resource = resourceResolver.getResource("classpath:public/index.html")
             .orElseThrow { IllegalStateException("UI index.html was not found on the classpath") }
         return HttpResponse.ok(StreamedFile(resource.openStream(), MediaType.TEXT_HTML_TYPE))
+            .header(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0")
+            .header(HttpHeaders.PRAGMA, "no-cache")
+            .header(HttpHeaders.EXPIRES, "0")
     }
 }

@@ -1,4 +1,4 @@
-package app.renalo.user
+package io.orangebuffalo.renalo.user
 
 import java.security.SecureRandom
 import java.util.Base64

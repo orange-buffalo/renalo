@@ -1,4 +1,4 @@
-package app.renalo.user
+package io.orangebuffalo.renalo.user
 
 import io.micronaut.data.jdbc.annotation.JdbcRepository
 import io.micronaut.data.model.query.builder.sql.Dialect

@@ -1,4 +1,4 @@
-package app.renalo.user
+package io.orangebuffalo.renalo.user
 
 import io.micronaut.data.annotation.GeneratedValue
 import io.micronaut.data.annotation.Id

@@ -6,7 +6,6 @@
   "scripts": {
     "build": "bun build ./src/main.tsx --target=browser --outdir=dist --entry-naming=assets/index-[hash].[ext] --asset-naming=assets/[name]-[hash].[ext] && bun ./scripts/write-index.ts",
     "check": "biome check . && tsc --noEmit",
-    "dev": "bun --hot ./scripts/dev-server.ts",
     "format": "biome check --write ."
   },
   "dependencies": {

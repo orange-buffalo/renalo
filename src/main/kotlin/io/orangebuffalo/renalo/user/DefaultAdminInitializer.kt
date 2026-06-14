@@ -1,4 +1,4 @@
-package app.renalo.user
+package io.orangebuffalo.renalo.user
 
 import io.micronaut.context.annotation.Value
 import io.micronaut.context.event.ApplicationEventListener
@@ -31,8 +31,20 @@ class DefaultAdminInitializer(
             ),
         )
 
-        logger.warn("Created default admin user. username={} password={}", adminUsername, password)
-        logger.warn("Store these credentials now; the generated password is only logged at creation time.")
+        logger.warn(
+            """
+
+            ============================================================
+            Renalo default admin user created
+            ------------------------------------------------------------
+            Username: $adminUsername
+            Password: $password
+            ------------------------------------------------------------
+            Store these credentials now. The generated password is only
+            logged at creation time.
+            ============================================================
+            """.trimIndent(),
+        )
     }
 
     private fun generatedPassword(): String {

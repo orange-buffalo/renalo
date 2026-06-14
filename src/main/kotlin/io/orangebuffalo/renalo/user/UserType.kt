@@ -1,4 +1,4 @@
-package app.renalo.user
+package io.orangebuffalo.renalo.user
 
 enum class UserType {
     USER,
