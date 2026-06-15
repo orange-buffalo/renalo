@@ -1,7 +1,6 @@
 package io.orangebuffalo.renalo;
 
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.assertions.LocatorAssertions;
 import com.microsoft.playwright.options.AriaRole;
 import io.micronaut.context.annotation.Property;
 import io.micronaut.runtime.server.EmbeddedServer;
@@ -121,13 +120,13 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
             page.evaluate("setTimeout(() => { window.location.href = '/tracking'; }, 0)");
 
             try {
-                assertThat(page.getByText("Renalo")).isVisible(visibleWithin10Seconds());
-                assertThat(page.getByText("Loading your workspace...")).isVisible(visibleWithin10Seconds());
+                assertThat(page.getByText("Renalo")).isVisible();
+                assertThat(page.getByText("Loading your workspace...")).isVisible();
             } finally {
                 releaseProfileRequest.countDown();
             }
             assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking")))
-                    .isVisible(visibleWithin10Seconds());
+                    .isVisible();
             assertEquals(null, routeFailure.get());
         } finally {
             releaseProfileRequest.countDown();
@@ -212,9 +211,5 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
 
     private void setStoredToken(Page page, String token) {
         page.addInitScript("window.localStorage.setItem('renalo.authToken', '%s');".formatted(token));
-    }
-
-    private LocatorAssertions.IsVisibleOptions visibleWithin10Seconds() {
-        return new LocatorAssertions.IsVisibleOptions().setTimeout(10_000);
     }
 }
