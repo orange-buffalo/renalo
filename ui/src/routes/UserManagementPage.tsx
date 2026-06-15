@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { clearAuthToken, getAuthToken, type UserType } from "@/api/auth";
+import type { UserType } from "@/api/auth";
+import { apiRequest } from "@/api/client";
 import { PageLayout } from "@/components/PageLayout";
 import {
   Dialog,
@@ -229,38 +230,9 @@ async function fetchUsers(page: number, size: number) {
     size: String(size),
   });
 
-  return userManagementRequest<UsersPage>(`/api/users?${query}`);
+  return apiRequest<UsersPage>(`/api/users?${query}`);
 }
 
 async function deleteUser(id: number) {
-  await userManagementRequest<void>(`/api/users/${id}`, { method: "DELETE" });
-}
-
-async function userManagementRequest<T>(
-  path: string,
-  options: RequestInit = {},
-) {
-  const token = getAuthToken();
-  const headers = new Headers(options.headers);
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  const response = await fetch(path, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      clearAuthToken();
-    }
-    throw new Error("User management request failed");
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return (await response.json()) as T;
+  await apiRequest<void>(`/api/users/${id}`, { method: "DELETE" });
 }

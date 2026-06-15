@@ -29,8 +29,8 @@ class UserManagementApiTest : IntegrationTestSupport() {
 
         val userToken = api().login("alice", "password")
 
-        api().get("/api/users", null).statusCode() shouldBe 401
-        api().get("/api/users", userToken).statusCode() shouldBe 403
+        api().get("/api/users", null).statusCode().shouldBe(401)
+        api().get("/api/users", userToken).statusCode().shouldBe(403)
     }
 
     @Test
@@ -43,8 +43,8 @@ class UserManagementApiTest : IntegrationTestSupport() {
 
         val response = api().get("/api/users?page=0&size=2", adminToken)
 
-        response.statusCode() shouldBe 200
-        response.body() shouldEqualJson
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
             """
                 {
                   "users": [
@@ -66,7 +66,8 @@ class UserManagementApiTest : IntegrationTestSupport() {
                   "totalElements": 3,
                   "totalPages": 2
                 }
-            """.trimIndent()
+            """.trimIndent(),
+        )
     }
 
     @Test
@@ -74,9 +75,9 @@ class UserManagementApiTest : IntegrationTestSupport() {
         saveUser("admin", "password", UserType.ADMIN)
         val adminToken = api().login("admin", "password")
 
-        api().get("/api/users?page=-1&size=10", adminToken).statusCode() shouldBe 400
-        api().get("/api/users?page=0&size=0", adminToken).statusCode() shouldBe 400
-        api().get("/api/users?page=0&size=101", adminToken).statusCode() shouldBe 400
+        api().get("/api/users?page=-1&size=10", adminToken).statusCode().shouldBe(400)
+        api().get("/api/users?page=0&size=0", adminToken).statusCode().shouldBe(400)
+        api().get("/api/users?page=0&size=101", adminToken).statusCode().shouldBe(400)
     }
 
     @Test
@@ -86,8 +87,8 @@ class UserManagementApiTest : IntegrationTestSupport() {
 
         val userToken = api().login("alice", "password")
 
-        api().delete("/api/users/${alice.id}", null).statusCode() shouldBe 401
-        api().delete("/api/users/${alice.id}", userToken).statusCode() shouldBe 403
+        api().delete("/api/users/${alice.id}", null).statusCode().shouldBe(401)
+        api().delete("/api/users/${alice.id}", userToken).statusCode().shouldBe(403)
     }
 
     @Test
@@ -99,7 +100,7 @@ class UserManagementApiTest : IntegrationTestSupport() {
 
         val response = api().delete("/api/users/${alice.id}", adminToken)
 
-        response.statusCode() shouldBe 204
+        response.statusCode().shouldBe(204)
         userRepository.findByUsername("alice").shouldBeNull()
     }
 
@@ -111,14 +112,15 @@ class UserManagementApiTest : IntegrationTestSupport() {
 
         val response = api().delete("/api/users/${admin.id}", adminToken)
 
-        response.statusCode() shouldBe 409
-        response.body() shouldEqualJson
+        response.statusCode().shouldBe(409)
+        response.body().shouldEqualJson(
             """
                 {
                   "code": "CURRENT_USER"
                 }
-            """.trimIndent()
-        userRepository.findByUsername("admin")?.username shouldBe "admin"
+            """.trimIndent(),
+        )
+        userRepository.findByUsername("admin")?.username.shouldBe("admin")
     }
 
     @Test
@@ -126,7 +128,7 @@ class UserManagementApiTest : IntegrationTestSupport() {
         saveUser("admin", "password", UserType.ADMIN)
         val adminToken = api().login("admin", "password")
 
-        api().delete("/api/users/999999", adminToken).statusCode() shouldBe 404
+        api().delete("/api/users/999999", adminToken).statusCode().shouldBe(404)
     }
 
     private fun saveUser(username: String, password: String, type: UserType): User {

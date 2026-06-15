@@ -43,8 +43,9 @@
 ## Testing
 
 - Java Playwright setup lives in reusable JUnit extension infrastructure under `src/test/java/io/orangebuffalo/renalo/test`.
-- Use Kotest assertions in tests except for Playwright locator assertions, where Playwright assertions should be used.
+- Use Kotest assertions in tests except for Playwright locator assertions, where Playwright assertions should be used. Prefer extension-function call notation, for example `actual.shouldBe(expected)`, instead of infix/postfix notation.
 - API tests must assert complete JSON response bodies with Kotest JSON assertions instead of checking individual JSON fragments. Status-only assertions are acceptable for responses without JSON bodies.
+- Playwright tests must use full-content assertions for composite UI surfaces such as tables, lists, and cards. Extract the rendered content into data objects and assert the complete collection, for example `actualRows.shouldContainExactly(UserRow("name", "type", "actions"))`; partial assertions are acceptable only when a test is focused on one dedicated aspect. Wrap extracted-content assertions in asynchronous polling such as Kotest `eventually` or Awaitility `await().pollInSameThread().untilAsserted()` so UI updates are synchronized.
 - Run targeted tests with Gradle's `test` task and `--tests`. Use class filters for related test classes, or method filters for narrowly scoped fixes.
 - Example API verification: `./gradlew test --tests 'io.orangebuffalo.renalo.AuthApiTest'`.
 - Example UI verification: `./gradlew test --tests 'io.orangebuffalo.renalo.LoginPagePlaywrightTest'`.

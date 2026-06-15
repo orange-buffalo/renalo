@@ -5,13 +5,11 @@ import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
-import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -25,14 +23,6 @@ class AuthApiTest : IntegrationTestSupport() {
     @Inject
     lateinit var passwordHasher: PasswordHasher
 
-    @Inject
-    lateinit var testTimeProvider: TestTimeProvider
-
-    @BeforeEach
-    fun resetBusinessTime() {
-        testTimeProvider.reset()
-    }
-
     @Test
     fun rejectsInvalidCredentials() {
         saveUser("alice", "correct-password", UserType.USER)
@@ -45,7 +35,7 @@ class AuthApiTest : IntegrationTestSupport() {
             null,
         )
 
-        response.statusCode() shouldBe 401
+        response.statusCode().shouldBe(401)
     }
 
     @Test
@@ -55,21 +45,22 @@ class AuthApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "correct-password")
         val profileResponse = api().get("/api/profile", token)
 
-        profileResponse.statusCode() shouldBe 200
-        profileResponse.body() shouldEqualJson
+        profileResponse.statusCode().shouldBe(200)
+        profileResponse.body().shouldEqualJson(
             """
                 {
                   "username": "alice",
                   "type": "USER"
                 }
-            """.trimIndent()
+            """.trimIndent(),
+        )
     }
 
     @Test
     fun requiresTokenForProfile() {
         val response = api().get("/api/profile", null)
 
-        response.statusCode() shouldBe 401
+        response.statusCode().shouldBe(401)
     }
 
     @Test
@@ -81,23 +72,25 @@ class AuthApiTest : IntegrationTestSupport() {
         val adminToken = api().login("admin", "admin-password")
 
         val trackingResponse = api().get("/api/tracking", userToken)
-        trackingResponse.statusCode() shouldBe 200
-        trackingResponse.body() shouldEqualJson
+        trackingResponse.statusCode().shouldBe(200)
+        trackingResponse.body().shouldEqualJson(
             """
                 {
                   "name": "tracking"
                 }
-            """.trimIndent()
+            """.trimIndent(),
+        )
 
-        api().get("/api/user-management", userToken).statusCode() shouldBe 403
+        api().get("/api/user-management", userToken).statusCode().shouldBe(403)
         val userManagementResponse = api().get("/api/user-management", adminToken)
-        userManagementResponse.statusCode() shouldBe 200
-        userManagementResponse.body() shouldEqualJson
+        userManagementResponse.statusCode().shouldBe(200)
+        userManagementResponse.body().shouldEqualJson(
             """
                 {
                   "name": "user-management"
                 }
-            """.trimIndent()
+            """.trimIndent(),
+        )
     }
 
     @Test
@@ -108,7 +101,7 @@ class AuthApiTest : IntegrationTestSupport() {
 
         val payloadJson = String(Base64.getUrlDecoder().decode(token.split(".")[1]), StandardCharsets.UTF_8)
         val expiration = payloadJson.replace(Regex(".*\"exp\":([0-9]+).*"), "$1").toLong()
-        expiration shouldBe TestTimeProvider.DEFAULT_TIME.plusSeconds(1800).epochSecond
+        expiration.shouldBe(testTimeProvider.now().plusSeconds(1800).epochSecond)
     }
 
     private fun saveUser(username: String, password: String, type: UserType) {

@@ -1,0 +1,188 @@
+package io.orangebuffalo.renalo
+
+import com.microsoft.playwright.Page
+import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
+import com.microsoft.playwright.options.AriaRole
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import io.micronaut.context.annotation.Property
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest
+import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.test.TestAuthTokens
+import io.orangebuffalo.renalo.user.PasswordHasher
+import io.orangebuffalo.renalo.user.User
+import io.orangebuffalo.renalo.user.UserRepository
+import io.orangebuffalo.renalo.user.UserType
+import jakarta.inject.Inject
+import org.junit.jupiter.api.Test
+import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+
+@MicronautTest(transactional = false)
+@Property(name = "micronaut.server.port", value = "-1")
+class LoginPagePlaywrightTest : IntegrationTestSupport() {
+    @Inject
+    lateinit var userRepository: UserRepository
+
+    @Inject
+    lateinit var passwordHasher: PasswordHasher
+
+    @Inject
+    lateinit var testAuthTokens: TestAuthTokens
+
+    @Test
+    fun logsUserIntoTrackingPage(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+
+        page.navigate(server.url.toString() + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByText("Signed in as alice")).isVisible()
+        assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))).isVisible()
+        assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Tracking"))).isVisible()
+    }
+
+    @Test
+    fun keepsUserOnTrackingPageAfterRefresh(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+
+        page.navigate(server.url.toString() + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+
+        page.reload()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByText("Signed in as alice")).isVisible()
+    }
+
+    @Test
+    fun initializesProfileForDirectRequestedRouteWithStoredToken(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByText("Signed in as alice")).isVisible()
+    }
+
+    @Test
+    fun showsLoadingContentDuringProfileBootstrap(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        val releaseProfileRequest = CountDownLatch(1)
+        val routeFailure = AtomicReference<Throwable>()
+        val profileRequestGate = Executors.newSingleThreadExecutor()
+        try {
+            page.route("**/api/profile") { route ->
+                profileRequestGate.submit {
+                    try {
+                        if (!releaseProfileRequest.await(10, TimeUnit.SECONDS)) {
+                            routeFailure.set(AssertionError("Timed out waiting to release /api/profile request"))
+                        }
+                    } catch (interruptedException: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        routeFailure.set(interruptedException)
+                    } finally {
+                        route.resume()
+                    }
+                }
+            }
+
+            page.navigate(server.url.toString() + "/")
+            page.evaluate("token => window.localStorage.setItem('renalo.authToken', token)", testAuthTokens.issueToken("alice", UserType.USER))
+            page.evaluate("setTimeout(() => { window.location.href = '/tracking'; }, 0)")
+
+            try {
+                assertThat(page.getByText("Renalo")).isVisible()
+                assertThat(page.getByText("Loading your workspace...")).isVisible()
+            } finally {
+                releaseProfileRequest.countDown()
+            }
+            assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+            routeFailure.get().shouldBeNull()
+        } finally {
+            releaseProfileRequest.countDown()
+            profileRequestGate.shutdown()
+            profileRequestGate.awaitTermination(10, TimeUnit.SECONDS).shouldBe(true)
+        }
+    }
+
+    @Test
+    fun redirectsAdminAwayFromTrackingPage(page: Page) {
+        saveUser("admin", "password", UserType.ADMIN)
+        setStoredToken(page, testAuthTokens.issueToken("admin", UserType.ADMIN))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("User management"))).isVisible()
+        assertThat(page.getByText("Signed in as admin")).isVisible()
+    }
+
+    @Test
+    fun clearsExpiredStoredTokenAndShowsLoginPage(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        testTimeProvider.setNow(Instant.parse("2020-06-14T08:00:00Z"))
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+        page.evaluate("window.localStorage.getItem('renalo.authToken')").shouldBeNull()
+    }
+
+    @Test
+    fun usesClientSideNavigationForMainNavigationLinks(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.navigate(server.url.toString() + "/tracking")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+
+        page.evaluate("window.__renaloNavProbe = 'kept' ")
+        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Tracking")).click()
+
+        page.evaluate("window.__renaloNavProbe").shouldBe("kept")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+    }
+
+    @Test
+    fun logsAdminIntoUserManagementPage(page: Page) {
+        saveUser("admin", "password", UserType.ADMIN)
+
+        page.navigate(server.url.toString() + "/")
+        page.getByLabel("Username").fill("admin")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("User management"))).isVisible()
+        assertThat(page.getByText("Signed in as admin")).isVisible()
+        assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))).isVisible()
+        assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("User management"))).isVisible()
+    }
+
+    @Test
+    fun showsErrorForWrongPassword(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+
+        page.navigate(server.url.toString() + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("wrong-password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+
+        assertThat(page.getByText("Invalid username or password.")).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+    }
+
+    private fun saveUser(username: String, password: String, type: UserType): User {
+        return userRepository.save(User(null, username, passwordHasher.hash(password), type))
+    }
+}

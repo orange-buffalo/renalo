@@ -23,24 +23,24 @@ class CacheHeadersTest : IntegrationTestSupport() {
             HttpResponse.BodyHandlers.ofString(),
         )
 
-        indexResponse.statusCode() shouldBe 200
-        indexResponse.headers().firstValue("cache-control").orElseThrow() shouldBe
-            "no-store, no-cache, must-revalidate, max-age=0"
+        indexResponse.statusCode().shouldBe(200)
+        indexResponse.headers().firstValue("cache-control").orElseThrow()
+            .shouldBe("no-store, no-cache, must-revalidate, max-age=0")
 
         val scriptPath = Regex("src=\"([^\"]*index-[^\"]*\\.js)\"")
             .find(indexResponse.body())
             ?.groupValues
             ?.get(1)
             ?: error("Expected index.html to reference a built JavaScript asset")
-        indexResponse.body() shouldContain scriptPath
+        indexResponse.body().shouldContain(scriptPath)
 
         val assetResponse = httpClient.send(
             HttpRequest.newBuilder(URI.create(server.url.toString() + scriptPath)).GET().build(),
             HttpResponse.BodyHandlers.discarding(),
         )
 
-        assetResponse.statusCode() shouldBe 200
-        assetResponse.headers().firstValue("cache-control").orElseThrow() shouldBe
-            "public, max-age=31536000, immutable"
+        assetResponse.statusCode().shouldBe(200)
+        assetResponse.headers().firstValue("cache-control").orElseThrow()
+            .shouldBe("public, max-age=31536000, immutable")
     }
 }

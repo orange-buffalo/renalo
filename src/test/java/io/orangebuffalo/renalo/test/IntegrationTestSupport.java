@@ -1,8 +1,10 @@
 package io.orangebuffalo.renalo.test;
 
+import com.microsoft.playwright.Page;
 import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.support.TestPropertyProvider;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -14,6 +16,14 @@ import java.util.Map;
 public abstract class IntegrationTestSupport implements TestPropertyProvider {
     @Inject
     protected EmbeddedServer server;
+
+    @Inject
+    protected TestTimeProvider testTimeProvider;
+
+    @BeforeEach
+    void resetBusinessTime() {
+        testTimeProvider.reset();
+    }
 
     @Override
     public Map<String, String> getProperties() {
@@ -28,5 +38,9 @@ public abstract class IntegrationTestSupport implements TestPropertyProvider {
 
     protected ApiTestClient api() {
         return new ApiTestClient(server);
+    }
+
+    protected void setStoredToken(Page page, String token) {
+        page.addInitScript("window.localStorage.setItem('renalo.authToken', '%s');".formatted(token));
     }
 }
