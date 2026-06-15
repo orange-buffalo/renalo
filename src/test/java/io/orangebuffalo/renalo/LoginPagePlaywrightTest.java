@@ -5,15 +5,21 @@ import com.microsoft.playwright.options.AriaRole;
 import io.micronaut.context.annotation.Property;
 import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import io.orangebuffalo.renalo.test.ApiTestClient;
 import io.orangebuffalo.renalo.test.IntegrationTestSupport;
+import io.orangebuffalo.renalo.test.TestTimeProvider;
 import io.orangebuffalo.renalo.user.PasswordHasher;
 import io.orangebuffalo.renalo.user.User;
 import io.orangebuffalo.renalo.user.UserRepository;
 import io.orangebuffalo.renalo.user.UserType;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -26,6 +32,14 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
 
     @Inject
     PasswordHasher passwordHasher;
+
+    @Inject
+    TestTimeProvider testTimeProvider;
+
+    @BeforeEach
+    void resetBusinessTime() {
+        testTimeProvider.reset();
+    }
 
     @Test
     void logsUserIntoTrackingPage(Page page) {
@@ -41,6 +55,67 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
         assertThat(page.getByText("Signed in as alice")).isVisible();
         assertThat(page.getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Main navigation"))).isVisible();
         assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Tracking"))).isVisible();
+        heading.hover();
+    }
+
+    @Test
+    void keepsUserOnTrackingPageAfterRefresh(Page page) {
+        saveUser("alice", "password", UserType.USER);
+
+        page.navigate(server.getURL() + "/");
+        page.getByLabel("Username").fill("alice");
+        page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Password")).fill("password");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sign in")).click();
+        assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"))).isVisible();
+
+        page.reload();
+
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"));
+        assertThat(heading).isVisible();
+        assertThat(page.getByText("Signed in as alice")).isVisible();
+        heading.hover();
+    }
+
+    @Test
+    void initializesProfileForDirectRequestedRouteWithStoredToken(Page page) throws Exception {
+        saveUser("alice", "password", UserType.USER);
+        setStoredToken(page, api().login("alice", "password"));
+
+        page.navigate(server.getURL() + "/tracking");
+
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"));
+        assertThat(heading).isVisible();
+        assertThat(page.getByText("Signed in as alice")).isVisible();
+        heading.hover();
+    }
+
+    @Test
+    void clearsExpiredStoredTokenAndShowsLoginPage(Page page) throws Exception {
+        saveUser("alice", "password", UserType.USER);
+        testTimeProvider.setNow(Instant.parse("2020-06-14T08:00:00Z"));
+        setStoredToken(page, api().login("alice", "password"));
+
+        page.navigate(server.getURL() + "/tracking");
+
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Sign in to Renalo"));
+        assertThat(heading).isVisible();
+        assertEquals(null, page.evaluate("window.localStorage.getItem('renalo.authToken')"));
+        heading.hover();
+    }
+
+    @Test
+    void usesClientSideNavigationForMainNavigationLinks(Page page) throws Exception {
+        saveUser("alice", "password", UserType.USER);
+        setStoredToken(page, api().login("alice", "password"));
+        page.navigate(server.getURL() + "/tracking");
+        assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"))).isVisible();
+
+        page.evaluate("window.__renaloNavProbe = 'kept' ");
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Tracking")).click();
+
+        assertEquals("kept", page.evaluate("window.__renaloNavProbe"));
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"));
+        assertThat(heading).isVisible();
         heading.hover();
     }
 
@@ -78,5 +153,13 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
 
     private void saveUser(String username, String password, UserType type) {
         userRepository.save(new User(null, username, passwordHasher.hash(password), type));
+    }
+
+    private void setStoredToken(Page page, String token) {
+        page.addInitScript("window.localStorage.setItem('renalo.authToken', '%s');".formatted(token));
+    }
+
+    private ApiTestClient api() {
+        return new ApiTestClient(server);
     }
 }

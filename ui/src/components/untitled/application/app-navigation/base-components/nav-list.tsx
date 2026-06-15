@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { cx } from "@/utils/cx";
 import type { NavItemDividerType, NavItemType } from "../config";
 import { NavItemBase } from "./nav-item";
@@ -11,9 +12,11 @@ interface NavListProps {
     className?: string;
     /** List of items to display. */
     items: (NavItemType | NavItemDividerType)[];
+    /** Handler for internal app navigation. */
+    onNavigate?: (event: MouseEvent, href?: string) => void;
 }
 
-export const NavList = ({ activeUrl, items, className }: NavListProps) => {
+export const NavList = ({ activeUrl, items, className, onNavigate }: NavListProps) => {
     const activeItem = items.find((item) => item.href === activeUrl || item.items?.some((subItem) => subItem.href === activeUrl));
 
     return (
@@ -43,6 +46,7 @@ export const NavList = ({ activeUrl, items, className }: NavListProps) => {
                                                 badge={childItem.badge}
                                                 type="collapsible-child"
                                                 current={activeUrl === childItem.href}
+                                                onClick={(event) => onNavigate?.(event, childItem.href)}
                                             >
                                                 {childItem.label}
                                             </NavItemBase>
@@ -56,7 +60,7 @@ export const NavList = ({ activeUrl, items, className }: NavListProps) => {
 
                 return (
                     <li key={item.label} className="py-px">
-                        <NavItemBase type="link" badge={item.badge} icon={item.icon} href={item.href} current={activeUrl === item.href}>
+                        <NavItemBase type="link" badge={item.badge} icon={item.icon} href={item.href} current={activeUrl === item.href} onClick={(event) => onNavigate?.(event, item.href)}>
                             {item.label}
                         </NavItemBase>
                     </li>

@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
-import { createAuthToken, fetchProfile } from "@/api/auth";
+import { clearAuthToken, createAuthToken, fetchProfile } from "@/api/auth";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { setProfile } = useAppState();
+  const { authStatus, profile, setProfile } = useAppState();
   const [error, setError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    navigate(profile.type === "ADMIN" ? "/user-management" : "/tracking", {
+      replace: true,
+    });
+  }, [navigate, profile]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,10 +38,25 @@ export function LoginPage() {
         replace: true,
       });
     } catch {
+      clearAuthToken();
+      setProfile(undefined);
       setError("Invalid username or password.");
     } finally {
       setIsLoading(false);
     }
+  }
+
+  if (authStatus === "checking") {
+    return (
+      <main className="loading-shell" aria-label="Loading Renalo">
+        <section className="loading-card">
+          <span className="standard-page-logo" aria-hidden="true">
+            R
+          </span>
+          <p>Loading Renalo...</p>
+        </section>
+      </main>
+    );
   }
 
   return (

@@ -1,8 +1,12 @@
 import type { ReactNode } from "react";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { Profile } from "@/api/auth";
+import { clearAuthToken, fetchProfile, getAuthToken } from "@/api/auth";
+
+type AuthStatus = "checking" | "authenticated" | "anonymous";
 
 type AppState = {
+  authStatus: AuthStatus;
   profile?: Profile;
   setProfile: (profile: Profile | undefined) => void;
 };
@@ -11,9 +15,47 @@ const AppStateContext = createContext<AppState | undefined>(undefined);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | undefined>();
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+
+  useEffect(() => {
+    if (!getAuthToken()) {
+      setAuthStatus("anonymous");
+      return;
+    }
+
+    let isActive = true;
+
+    fetchProfile()
+      .then((restoredProfile) => {
+        if (!isActive) {
+          return;
+        }
+        setProfile(restoredProfile);
+        setAuthStatus("authenticated");
+      })
+      .catch(() => {
+        if (!isActive) {
+          return;
+        }
+        clearAuthToken();
+        setProfile(undefined);
+        setAuthStatus("anonymous");
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  function updateProfile(nextProfile: Profile | undefined) {
+    setProfile(nextProfile);
+    setAuthStatus(nextProfile ? "authenticated" : "anonymous");
+  }
 
   return (
-    <AppStateContext.Provider value={{ profile, setProfile }}>
+    <AppStateContext.Provider
+      value={{ authStatus, profile, setProfile: updateProfile }}
+    >
       {children}
     </AppStateContext.Provider>
   );

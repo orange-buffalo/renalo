@@ -112,6 +112,26 @@ input {
   font: inherit;
 }
 
+.loading-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #f9fafb 0%, #eef4ff 100%);
+}
+
+.loading-card {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  color: #475467;
+  font-weight: 600;
+}
+
+.loading-card p {
+  margin: 0;
+}
+
 .login-shell {
   display: grid;
   min-height: 100vh;
@@ -165,7 +185,7 @@ input {
 
 .standard-page-shell {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 224px minmax(0, 1fr);
   min-height: 100vh;
   background: linear-gradient(135deg, #f9fafb 0%, #eef4ff 100%);
 }
@@ -345,7 +365,7 @@ input {
     bottom: 0;
     left: 0;
     z-index: 10;
-    width: min(100%, 320px);
+    width: 100%;
     height: auto;
     min-height: calc(100vh - 64px);
     border-right: 1px solid #eaecf0;

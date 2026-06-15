@@ -1,7 +1,7 @@
 import { BarChartSquare02, Menu02, Users01, X } from "@untitledui/icons";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
 import type { UserType } from "@/api/auth";
 import { NavList } from "@/components/untitled/application/app-navigation/base-components/nav-list";
@@ -16,8 +16,19 @@ type PageLayoutProps = {
 export function PageLayout({ eyebrow, title, children }: PageLayoutProps) {
   const { profile } = useAppState();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigationItems = getNavigationItems(profile?.type);
+
+  function handleNavigate(event: React.MouseEvent, href?: string) {
+    if (!href?.startsWith("/")) {
+      return;
+    }
+
+    event.preventDefault();
+    setIsMenuOpen(false);
+    navigate(href);
+  }
 
   return (
     <div
@@ -62,6 +73,7 @@ export function PageLayout({ eyebrow, title, children }: PageLayoutProps) {
             activeUrl={location.pathname}
             className="standard-page-nav"
             items={navigationItems}
+            onNavigate={handleNavigate}
           />
         </nav>
 
