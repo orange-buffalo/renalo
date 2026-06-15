@@ -55,4 +55,12 @@ public class ApiTestClient {
         }
         return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
     }
+
+    public HttpResponse<String> delete(String path, String token) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(server.getURL() + path)).DELETE();
+        if (token != null) {
+            builder.header("Authorization", "Bearer " + token);
+        }
+        return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+    }
 }

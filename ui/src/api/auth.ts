@@ -7,6 +7,21 @@ export type Profile = {
   type: UserType;
 };
 
+export type ManagedUser = {
+  id: number;
+  username: string;
+  type: UserType;
+  currentUser: boolean;
+};
+
+export type UsersPage = {
+  users: ManagedUser[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -36,6 +51,19 @@ export async function fetchProfile() {
   return apiRequest<Profile>("/api/profile");
 }
 
+export async function fetchUsers(page: number, size: number) {
+  const query = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+  });
+
+  return apiRequest<UsersPage>(`/api/users?${query}`);
+}
+
+export async function deleteUser(id: number) {
+  await apiRequest<void>(`/api/users/${id}`, { method: "DELETE" });
+}
+
 export function getAuthToken() {
   return localStorage.getItem(authTokenStorageKey);
 }
@@ -44,10 +72,16 @@ export function clearAuthToken() {
   localStorage.removeItem(authTokenStorageKey);
 }
 
-async function apiRequest<T>(path: string) {
+async function apiRequest<T>(path: string, options: RequestInit = {}) {
   const token = getAuthToken();
+  const headers = new Headers(options.headers);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const response = await fetch(path, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    ...options,
+    headers,
   });
 
   if (!response.ok) {
@@ -55,6 +89,10 @@ async function apiRequest<T>(path: string) {
       clearAuthToken();
     }
     throw new ApiError("API request failed", response.status);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return (await response.json()) as T;

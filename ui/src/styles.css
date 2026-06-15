@@ -344,6 +344,116 @@ input {
   color: #475467;
 }
 
+.user-management-panel {
+  max-width: 960px;
+}
+
+.user-management-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.user-management-total {
+  padding: 8px 12px;
+  border: 1px solid #eaecf0;
+  border-radius: 999px;
+  background: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.standard-page-panel .user-management-error,
+.standard-page-panel .user-management-loading,
+.standard-page-panel .user-management-empty {
+  margin-top: 20px;
+}
+
+.standard-page-panel .user-management-error {
+  color: #d92d20;
+}
+
+.user-management-table-scroll {
+  margin-top: 24px;
+  overflow-x: auto;
+  border: 1px solid #eaecf0;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.user-management-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+
+.user-management-table th,
+.user-management-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #eaecf0;
+  text-align: left;
+}
+
+.user-management-table th {
+  color: #475467;
+  background: #f9fafb;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.user-management-table td {
+  color: #344054;
+  font-size: 0.9375rem;
+}
+
+.user-management-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.user-management-current-user {
+  color: #667085;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.user-management-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 18px;
+  color: #475467;
+  font-size: 0.875rem;
+}
+
+.user-management-confirmation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid #fecdca;
+  border-radius: 18px;
+  background: #fffbfa;
+}
+
+.user-management-confirmation h3 {
+  margin: 0 0 4px;
+  color: #101828;
+  font-size: 1rem;
+}
+
+.user-management-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 @media (max-width: 520px) {
   .anonymous-page-shell {
     align-items: stretch;
@@ -434,5 +544,16 @@ input {
   .standard-page-user {
     display: inline-block;
     margin-top: 20px;
+  }
+
+  .user-management-panel-header,
+  .user-management-confirmation,
+  .user-management-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-management-pagination {
+    justify-content: flex-start;
   }
 }

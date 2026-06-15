@@ -7,6 +7,10 @@
 - Use Java 25.
 - Do not run the full test suite by default. Verify changes with the smallest relevant Gradle `test` selection.
 
+## Git
+
+- When a commit is requested, use a Conventional Commit message, for example `feat: add user management table` or `fix: correct auth bootstrap loading state`.
+
 ## Backend
 
 - Micronaut serves the Bun-compiled frontend from `classpath:public` as an SPA.
