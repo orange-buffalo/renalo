@@ -26,13 +26,16 @@
 - Keep UI build, lint, and format tasks wired through Gradle.
 - Always run `bun run format` from `ui/` after UI source changes, then run targeted Gradle verification.
 - Untitled UI React is copy/CLI based, not an npm component-library import.
-- Add Untitled UI components with `bunx untitledui@latest add <component> --yes` from `ui/`. Do not hand-write replacements for components that Untitled UI provides.
+- Use Untitled UI components for UI implementation unless explicitly requested otherwise. Do not hand-write replacements for components that Untitled UI provides.
+- Before building custom UI, check the Untitled UI component library website for an existing component. Use pages such as `https://www.untitledui.com/react/components/tables`, `https://www.untitledui.com/react/components/pagination`, or the component sidebar at `https://www.untitledui.com/react/components` to identify the component name and documented API.
+- Add Untitled UI components with `bunx untitledui@latest add <component> --yes` from `ui/`. Use the CLI component name from the docs, for example `table` or `pagination`.
 - Components copied by the CLI should live under `ui/src/components/untitled/` and keep the documented Untitled UI APIs and implementation patterns.
 - Button usage should follow the documented shape: `color`, `size`, optional `iconLeading`/`iconTrailing`, `isDisabled`, and `isLoading`.
 - Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Functional UI changes must be covered with Playwright tests. Do not add Playwright assertions solely for visual styling; use trace screenshots for visual review instead.
+- Maintain one Playwright test class per page or route-level surface, for example `LoginPagePlaywrightTest` for login flows and `UserManagementPagePlaywrightTest` for user-management page flows.
 - Do not add permanent mobile-specific Playwright tests unless mobile behavior is the core functional contract being changed. Temporary mobile Playwright checks may be used for verification, but remove them before finishing unless they are necessary regression coverage.
 - UI changes must be checked with the Playwright traces produced by the relevant Playwright test task; inspect the trace screenshots for visual regressions such as broken layout, missing styling, overlap, clipping, poor spacing, or inconsistent Untitled UI styling.
 - When UI trace screenshots are inspected, extract the reviewed screenshots into the project `build/` directory and include those `build/` paths in the final response so the user can review the same evidence.
@@ -40,6 +43,8 @@
 ## Testing
 
 - Java Playwright setup lives in reusable JUnit extension infrastructure under `src/test/java/io/orangebuffalo/renalo/test`.
+- Use Kotest assertions in tests except for Playwright locator assertions, where Playwright assertions should be used.
+- API tests must assert complete JSON response bodies with Kotest JSON assertions instead of checking individual JSON fragments. Status-only assertions are acceptable for responses without JSON bodies.
 - Run targeted tests with Gradle's `test` task and `--tests`. Use class filters for related test classes, or method filters for narrowly scoped fixes.
 - Example API verification: `./gradlew test --tests 'io.orangebuffalo.renalo.AuthApiTest'`.
 - Example UI verification: `./gradlew test --tests 'io.orangebuffalo.renalo.LoginPagePlaywrightTest'`.

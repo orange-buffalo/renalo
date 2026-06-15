@@ -8,8 +8,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.regex.Pattern;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static io.orangebuffalo.renalo.test.KotestAssertions.shouldBe;
+import static io.orangebuffalo.renalo.test.KotestAssertions.shouldNotBeBlank;
 
 public class ApiTestClient {
     private static final Pattern TOKEN_PATTERN = Pattern.compile("\"token\"\\s*:\\s*\"([^\"]+)\"");
@@ -26,15 +26,15 @@ public class ApiTestClient {
                 {"username":"%s","password":"%s"}
                 """.formatted(username, password), null);
 
-        assertEquals(200, response.statusCode());
+        shouldBe(response.statusCode(), 200);
         String token = extractToken(response.body());
-        assertFalse(token.isBlank());
+        shouldNotBeBlank(token);
         return token;
     }
 
     public String extractToken(String responseBody) {
         var tokenMatcher = TOKEN_PATTERN.matcher(responseBody);
-        assertEquals(true, tokenMatcher.find());
+        shouldBe(tokenMatcher.find(), true);
         return tokenMatcher.group(1);
     }
 

@@ -1,14 +1,34 @@
 import { useEffect, useState } from "react";
-import {
-  deleteUser,
-  fetchUsers,
-  type ManagedUser,
-  type UsersPage,
-} from "@/api/auth";
+import { clearAuthToken, getAuthToken, type UserType } from "@/api/auth";
 import { PageLayout } from "@/components/PageLayout";
+import {
+  Dialog,
+  Modal,
+  ModalOverlay,
+} from "@/components/untitled/application/modals/modal";
+import { PaginationCardDefault } from "@/components/untitled/application/pagination/pagination";
+import {
+  Table,
+  TableCard,
+} from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
 
 const pageSize = 5;
+
+type ManagedUser = {
+  id: number;
+  username: string;
+  type: UserType;
+  currentUser: boolean;
+};
+
+type UsersPage = {
+  users: ManagedUser[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
 
 export function UserManagementPage() {
   const [usersPage, setUsersPage] = useState<UsersPage>();
@@ -79,44 +99,46 @@ export function UserManagementPage() {
 
   return (
     <PageLayout eyebrow="Administration" title="User management">
-      <section className="standard-page-panel user-management-panel">
-        <div className="user-management-panel-header">
-          <div>
-            <h2>Workspace access</h2>
-            <p>Manage Renalo users and keep administrative access organized.</p>
-          </div>
-          {usersPage && (
-            <p className="user-management-total">
-              {usersPage.totalElements} user
-              {usersPage.totalElements === 1 ? "" : "s"}
+      <section className="user-management-panel">
+        <TableCard.Root size="sm">
+          <TableCard.Header
+            title="Workspace access"
+            description="Manage Renalo users and keep administrative access organized."
+            badge={
+              usersPage
+                ? `${usersPage.totalElements} user${usersPage.totalElements === 1 ? "" : "s"}`
+                : undefined
+            }
+          />
+
+          {error && (
+            <p
+              className="user-management-message user-management-error"
+              role="alert"
+            >
+              {error}
             </p>
           )}
-        </div>
 
-        {error && (
-          <p className="user-management-error" role="alert">
-            {error}
-          </p>
-        )}
-
-        {isLoading && !usersPage ? (
-          <p className="user-management-loading">Loading users...</p>
-        ) : (
-          <div className="user-management-table-scroll">
-            <table className="user-management-table" aria-label="Users">
-              <thead>
-                <tr>
-                  <th scope="col">Username</th>
-                  <th scope="col">Type</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          {isLoading && !usersPage ? (
+            <p className="user-management-message">Loading users...</p>
+          ) : (
+            <Table aria-label="Users" size="sm">
+              <Table.Header>
+                <Table.Head id="username" label="Username" isRowHeader />
+                <Table.Head id="type" label="Type" />
+                <Table.Head id="actions" label="Actions" />
+              </Table.Header>
+              <Table.Body>
                 {users.map((user) => (
-                  <tr key={user.id} data-testid={`user-row-${user.id}`}>
-                    <td>{user.username}</td>
-                    <td>{user.type}</td>
-                    <td>
+                  <Table.Row
+                    id={user.id}
+                    key={user.id}
+                    data-testid={`user-row-${user.id}`}
+                  >
+                    <Table.Cell>{user.username}</Table.Cell>
+                    <Table.Cell>{user.type}</Table.Cell>
+                    <Table.Cell>
                       {user.currentUser ? (
                         <span className="user-management-current-user">
                           Current user
@@ -131,73 +153,114 @@ export function UserManagementPage() {
                           Remove
                         </Button>
                       )}
-                    </td>
-                  </tr>
+                    </Table.Cell>
+                  </Table.Row>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </Table.Body>
+            </Table>
+          )}
 
-        {usersPage && users.length === 0 && !isLoading && (
-          <p className="user-management-empty">No users found.</p>
-        )}
+          {usersPage && users.length === 0 && !isLoading && (
+            <p className="user-management-message">No users found.</p>
+          )}
 
-        {usersPage && (
-          <div className="user-management-pagination">
-            <Button
-              color="secondary"
-              size="sm"
-              onPress={() => setPage((current) => Math.max(current - 1, 0))}
-              isDisabled={page === 0 || isLoading}
-            >
-              Previous
-            </Button>
-            <span>
-              Page {page + 1} of {displayTotalPages}
-            </span>
-            <Button
-              color="secondary"
-              size="sm"
-              onPress={() => setPage((current) => current + 1)}
-              isDisabled={page + 1 >= displayTotalPages || isLoading}
-            >
-              Next
-            </Button>
-          </div>
-        )}
+          {usersPage && (
+            <PaginationCardDefault
+              page={page + 1}
+              total={displayTotalPages}
+              onPageChange={(nextPage) => setPage(nextPage - 1)}
+            />
+          )}
+        </TableCard.Root>
 
-        {confirmingUser && (
-          <div
-            className="user-management-confirmation"
-            role="dialog"
-            aria-labelledby="remove-user-title"
-          >
-            <div>
-              <h3 id="remove-user-title">Remove {confirmingUser.username}?</h3>
-              <p>This user will lose access to Renalo immediately.</p>
-            </div>
-            <div className="user-management-confirmation-actions">
-              <Button
-                color="secondary"
-                size="sm"
-                onPress={() => setConfirmingUser(undefined)}
-                isDisabled={deletingUserId === confirmingUser.id}
-              >
-                Cancel
-              </Button>
-              <Button
-                color="primary-destructive"
-                size="sm"
-                onPress={handleDeleteConfirmed}
-                isLoading={deletingUserId === confirmingUser.id}
-              >
-                Remove user
-              </Button>
-            </div>
-          </div>
-        )}
+        <ModalOverlay
+          isOpen={Boolean(confirmingUser)}
+          isDismissable
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              setConfirmingUser(undefined);
+            }
+          }}
+        >
+          {confirmingUser && (
+            <Modal className="w-full max-w-md">
+              <Dialog aria-labelledby="remove-user-title">
+                <div className="p-6">
+                  <h2
+                    id="remove-user-title"
+                    className="m-0 text-lg font-semibold text-primary"
+                  >
+                    Remove {confirmingUser.username}?
+                  </h2>
+                  <p className="mt-2 mb-0 text-sm text-tertiary">
+                    This user will lose access to Renalo immediately.
+                  </p>
+                </div>
+                <div className="flex justify-end gap-3 border-t border-secondary px-6 py-4">
+                  <Button
+                    color="secondary"
+                    size="sm"
+                    onPress={() => setConfirmingUser(undefined)}
+                    isDisabled={deletingUserId === confirmingUser.id}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    color="primary-destructive"
+                    size="sm"
+                    onPress={handleDeleteConfirmed}
+                    isLoading={deletingUserId === confirmingUser.id}
+                  >
+                    Remove user
+                  </Button>
+                </div>
+              </Dialog>
+            </Modal>
+          )}
+        </ModalOverlay>
       </section>
     </PageLayout>
   );
+}
+
+async function fetchUsers(page: number, size: number) {
+  const query = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+  });
+
+  return userManagementRequest<UsersPage>(`/api/users?${query}`);
+}
+
+async function deleteUser(id: number) {
+  await userManagementRequest<void>(`/api/users/${id}`, { method: "DELETE" });
+}
+
+async function userManagementRequest<T>(
+  path: string,
+  options: RequestInit = {},
+) {
+  const token = getAuthToken();
+  const headers = new Headers(options.headers);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken();
+    }
+    throw new Error("User management request failed");
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
 }
