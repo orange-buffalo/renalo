@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { Profile } from "@/api/auth";
 import { clearAuthToken, fetchProfile, getAuthToken } from "@/api/auth";
+import { LoadingPage } from "@/components/AnonymousPage";
 
 type AuthStatus = "checking" | "authenticated" | "anonymous";
 
@@ -18,32 +19,34 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
 
   useEffect(() => {
-    if (!getAuthToken()) {
-      setAuthStatus("anonymous");
-      return;
-    }
-
     let isActive = true;
-
-    fetchProfile()
-      .then((restoredProfile) => {
-        if (!isActive) {
-          return;
-        }
-        setProfile(restoredProfile);
-        setAuthStatus("authenticated");
-      })
-      .catch(() => {
-        if (!isActive) {
-          return;
-        }
-        clearAuthToken();
-        setProfile(undefined);
+    const bootstrapFrame = requestAnimationFrame(() => {
+      if (!getAuthToken()) {
         setAuthStatus("anonymous");
-      });
+        return;
+      }
+
+      fetchProfile()
+        .then((restoredProfile) => {
+          if (!isActive) {
+            return;
+          }
+          setProfile(restoredProfile);
+          setAuthStatus("authenticated");
+        })
+        .catch(() => {
+          if (!isActive) {
+            return;
+          }
+          clearAuthToken();
+          setProfile(undefined);
+          setAuthStatus("anonymous");
+        });
+    });
 
     return () => {
       isActive = false;
+      cancelAnimationFrame(bootstrapFrame);
     };
   }, []);
 
@@ -56,7 +59,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     <AppStateContext.Provider
       value={{ authStatus, profile, setProfile: updateProfile }}
     >
-      {children}
+      {authStatus === "checking" ? <LoadingPage /> : children}
     </AppStateContext.Provider>
   );
 }

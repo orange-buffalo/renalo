@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { AppStateProvider, useAppState } from "./AppState.tsx";
 import type { UserType } from "./api/auth.ts";
+import { LoadingPage } from "./components/AnonymousPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
 import { TrackingPage } from "./routes/TrackingPage.tsx";
 import { UserManagementPage } from "./routes/UserManagementPage.tsx";
@@ -71,22 +72,6 @@ function ProtectedRoute({
   }
 
   return children;
-}
-
-function LoadingPage() {
-  return (
-    <main className="loading-shell" aria-label="Loading Renalo">
-      <section className="loading-card">
-        <div className="loading-brand">
-          <span className="loading-logo" aria-hidden="true">
-            R
-          </span>
-          <span>Renalo</span>
-        </div>
-        <p>Loading your workspace...</p>
-      </section>
-    </main>
-  );
 }
 
 function defaultRouteFor(userType: UserType) {

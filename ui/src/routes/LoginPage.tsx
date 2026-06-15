@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
 import { clearAuthToken, createAuthToken, fetchProfile } from "@/api/auth";
+import { AnonymousPage } from "@/components/AnonymousPage";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { authStatus, profile, setProfile } = useAppState();
+  const { profile, setProfile } = useAppState();
   const [error, setError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -46,24 +47,8 @@ export function LoginPage() {
     }
   }
 
-  if (authStatus === "checking") {
-    return (
-      <main className="loading-shell" aria-label="Loading Renalo">
-        <section className="loading-card">
-          <div className="loading-brand">
-            <span className="loading-logo" aria-hidden="true">
-              R
-            </span>
-            <span>Renalo</span>
-          </div>
-          <p>Loading your workspace...</p>
-        </section>
-      </main>
-    );
-  }
-
   return (
-    <main className="login-shell">
+    <AnonymousPage className="anonymous-page-shell--login">
       <section className="login-card" aria-labelledby="login-heading">
         <p className="eyebrow">Budgeting starts here</p>
         <h1 id="login-heading">Sign in to Renalo</h1>
@@ -83,6 +68,6 @@ export function LoginPage() {
           </Button>
         </form>
       </section>
-    </main>
+    </AnonymousPage>
   );
 }

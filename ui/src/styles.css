@@ -112,12 +112,22 @@ input {
   font: inherit;
 }
 
-.loading-shell {
+.anonymous-page-shell {
   display: grid;
   min-height: 100vh;
   place-items: center;
   padding: 24px;
   background: linear-gradient(135deg, #f9fafb 0%, #eef4ff 100%);
+}
+
+.anonymous-page-shell--login {
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(21, 112, 239, 0.18),
+      transparent 30rem
+    ),
+    linear-gradient(135deg, #f9fafb 0%, #eef4ff 100%);
 }
 
 .loading-card {
@@ -157,20 +167,6 @@ input {
 
 .loading-card p {
   margin: 0;
-}
-
-.login-shell {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 24px;
-  background:
-    radial-gradient(
-      circle at top left,
-      rgba(21, 112, 239, 0.18),
-      transparent 30rem
-    ),
-    linear-gradient(135deg, #f9fafb 0%, #eef4ff 100%);
 }
 
 .login-card {
@@ -347,7 +343,7 @@ input {
 }
 
 @media (max-width: 520px) {
-  .login-shell {
+  .anonymous-page-shell--login {
     align-items: stretch;
     padding: 0;
   }
