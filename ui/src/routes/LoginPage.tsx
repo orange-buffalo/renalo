@@ -50,10 +50,13 @@ export function LoginPage() {
     return (
       <main className="loading-shell" aria-label="Loading Renalo">
         <section className="loading-card">
-          <span className="standard-page-logo" aria-hidden="true">
-            R
-          </span>
-          <p>Loading Renalo...</p>
+          <div className="loading-brand">
+            <span className="loading-logo" aria-hidden="true">
+              R
+            </span>
+            <span>Renalo</span>
+          </div>
+          <p>Loading your workspace...</p>
         </section>
       </main>
     );

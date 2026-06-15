@@ -90,6 +90,41 @@ class LoginPagePlaywrightTest extends IntegrationTestSupport {
     }
 
     @Test
+    void showsLoadingContentDuringProfileBootstrap(Page page) throws Exception {
+        saveUser("alice", "password", UserType.USER);
+        setStoredToken(page, api().login("alice", "password"));
+        page.route("**/api/profile", route -> {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            route.resume();
+        });
+
+        page.navigate(server.getURL() + "/tracking");
+
+        assertThat(page.getByText("Renalo")).isVisible();
+        assertThat(page.getByText("Loading your workspace...")).isVisible();
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Expense tracking"));
+        assertThat(heading).isVisible();
+        heading.hover();
+    }
+
+    @Test
+    void redirectsAdminAwayFromTrackingPage(Page page) throws Exception {
+        saveUser("admin", "password", UserType.ADMIN);
+        setStoredToken(page, api().login("admin", "password"));
+
+        page.navigate(server.getURL() + "/tracking");
+
+        var heading = page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("User management"));
+        assertThat(heading).isVisible();
+        assertThat(page.getByText("Signed in as admin")).isVisible();
+        heading.hover();
+    }
+
+    @Test
     void clearsExpiredStoredTokenAndShowsLoginPage(Page page) throws Exception {
         saveUser("alice", "password", UserType.USER);
         testTimeProvider.setNow(Instant.parse("2020-06-14T08:00:00Z"));
