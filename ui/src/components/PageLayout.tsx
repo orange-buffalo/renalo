@@ -90,11 +90,6 @@ export function PageLayout({ eyebrow, title, children }: PageLayoutProps) {
             <p className="eyebrow">{eyebrow}</p>
             <h1>{title}</h1>
           </div>
-          {profile && (
-            <p className="standard-page-user">
-              Signed in as {profile.username}
-            </p>
-          )}
         </header>
 
         <main className="standard-page-main">{children}</main>

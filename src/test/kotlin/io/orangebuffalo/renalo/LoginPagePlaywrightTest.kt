@@ -44,7 +44,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
-        assertThat(page.getByText("Signed in as alice")).isVisible()
+        assertThat(page.getByText("alice · USER")).isVisible()
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))).isVisible()
         assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Tracking"))).isVisible()
     }
@@ -62,7 +62,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.reload()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
-        assertThat(page.getByText("Signed in as alice")).isVisible()
+        assertThat(page.getByText("alice · USER")).isVisible()
     }
 
     @Test
@@ -73,7 +73,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
-        assertThat(page.getByText("Signed in as alice")).isVisible()
+        assertThat(page.getByText("alice · USER")).isVisible()
     }
 
     @Test
@@ -125,7 +125,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("User management"))).isVisible()
-        assertThat(page.getByText("Signed in as admin")).isVisible()
+        assertThat(page.getByText("admin · ADMIN")).isVisible()
     }
 
     @Test
@@ -164,7 +164,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("User management"))).isVisible()
-        assertThat(page.getByText("Signed in as admin")).isVisible()
+        assertThat(page.getByText("admin · ADMIN")).isVisible()
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))).isVisible()
         assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("User management"))).isVisible()
     }
@@ -183,6 +183,6 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     private fun saveUser(username: String, password: String, type: UserType): User {
-        return userRepository.save(User(null, username, passwordHasher.hash(password), type))
+        return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
     }
 }

@@ -12,4 +12,5 @@ data class User(
     var username: String,
     var passwordHash: String,
     var type: UserType,
+    var active: Boolean = true,
 )

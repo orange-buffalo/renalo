@@ -30,7 +30,7 @@ class AuthController(
         val user = userRepository.findByUsername(request.username)
             ?: return HttpResponse.unauthorized()
 
-        if (!passwordHasher.verify(request.password, user.passwordHash)) {
+        if (!user.active || !passwordHasher.verify(request.password, user.passwordHash)) {
             return HttpResponse.unauthorized()
         }
 

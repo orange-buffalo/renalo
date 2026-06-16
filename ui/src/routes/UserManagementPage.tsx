@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { Plus, Trash01 } from "@untitledui/icons";
+import { type ComponentProps, useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import type { UserType } from "@/api/auth";
 import { apiRequest } from "@/api/client";
 import { PageLayout } from "@/components/PageLayout";
@@ -21,6 +23,7 @@ type ManagedUser = {
   username: string;
   type: UserType;
   currentUser: boolean;
+  active: boolean;
 };
 
 type UsersPage = {
@@ -32,6 +35,7 @@ type UsersPage = {
 };
 
 export function UserManagementPage() {
+  const navigate = useNavigate();
   const [usersPage, setUsersPage] = useState<UsersPage>();
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -105,6 +109,16 @@ export function UserManagementPage() {
           <TableCard.Header
             title="Workspace access"
             description="Manage Renalo users and keep administrative access organized."
+            contentTrailing={
+              <Button
+                color="primary"
+                size="sm"
+                iconLeading={Plus}
+                onPress={() => navigate("/user-management/create")}
+              >
+                Create user
+              </Button>
+            }
             badge={
               usersPage
                 ? `${usersPage.totalElements} user${usersPage.totalElements === 1 ? "" : "s"}`
@@ -140,19 +154,15 @@ export function UserManagementPage() {
                     <Table.Cell>{user.username}</Table.Cell>
                     <Table.Cell>{user.type}</Table.Cell>
                     <Table.Cell>
-                      {user.currentUser ? (
-                        <span className="user-management-current-user">
-                          Current user
-                        </span>
-                      ) : (
+                      {!user.currentUser && (
                         <Button
-                          color="link-destructive"
+                          aria-label={`Remove ${user.username}`}
+                          color="tertiary-destructive"
                           size="sm"
+                          iconLeading={TrashActionIcon}
                           onPress={() => setConfirmingUser(user)}
                           isDisabled={deletingUserId === user.id}
-                        >
-                          Remove
-                        </Button>
+                        />
                       )}
                     </Table.Cell>
                   </Table.Row>
@@ -235,4 +245,8 @@ async function fetchUsers(page: number, size: number) {
 
 async function deleteUser(id: number) {
   await apiRequest<void>(`/api/users/${id}`, { method: "DELETE" });
+}
+
+function TrashActionIcon(props: ComponentProps<typeof Trash01>) {
+  return <Trash01 {...props} data-action-icon="trash" aria-hidden="true" />;
 }

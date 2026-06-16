@@ -52,19 +52,88 @@ class UserManagementApiTest : IntegrationTestSupport() {
                       "id": ${admin.id},
                       "username": "admin",
                       "type": "ADMIN",
-                      "currentUser": true
+                      "currentUser": true,
+                      "active": true
                     },
                     {
                       "id": ${alice.id},
                       "username": "alice",
                       "type": "USER",
-                      "currentUser": false
+                      "currentUser": false,
+                      "active": true
                     }
                   ],
                   "page": 0,
                   "size": 2,
                   "totalElements": 3,
                   "totalPages": 2
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun requiresAdminForCreatingUsers() {
+        saveUser("alice", "password", UserType.USER)
+        saveUser("admin", "password", UserType.ADMIN)
+
+        val userToken = api().login("alice", "password")
+
+        val body = """
+            {"username":"bob","type":"USER"}
+        """.trimIndent()
+        api().postJson("/api/users", body, null).statusCode().shouldBe(401)
+        api().postJson("/api/users", body, userToken).statusCode().shouldBe(403)
+    }
+
+    @Test
+    fun createsInactiveUserForAdmin() {
+        saveUser("admin", "password", UserType.ADMIN)
+        val adminToken = api().login("admin", "password")
+
+        val response = api().postJson(
+            "/api/users",
+            """
+                {"username":" alice ","type":"USER"}
+            """.trimIndent(),
+            adminToken,
+        )
+
+        response.statusCode().shouldBe(201)
+        val alice = userRepository.findByUsername("alice")!!
+        response.body().shouldEqualJson(
+            """
+                {
+                  "id": ${alice.id},
+                  "username": "alice",
+                  "type": "USER",
+                  "currentUser": false,
+                  "active": false
+                }
+            """.trimIndent(),
+        )
+        alice.active.shouldBe(false)
+    }
+
+    @Test
+    fun rejectsDuplicateUsernameOnCreate() {
+        saveUser("admin", "password", UserType.ADMIN)
+        saveUser("alice", "password", UserType.USER)
+        val adminToken = api().login("admin", "password")
+
+        val response = api().postJson(
+            "/api/users",
+            """
+                {"username":"alice","type":"USER"}
+            """.trimIndent(),
+            adminToken,
+        )
+
+        response.statusCode().shouldBe(409)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "code": "USERNAME_EXISTS"
                 }
             """.trimIndent(),
         )
@@ -132,6 +201,6 @@ class UserManagementApiTest : IntegrationTestSupport() {
     }
 
     private fun saveUser(username: String, password: String, type: UserType): User {
-        return userRepository.save(User(null, username, passwordHasher.hash(password), type))
+        return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
     }
 }

@@ -5,6 +5,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { AppStateProvider, useAppState } from "./AppState.tsx";
 import type { UserType } from "./api/auth.ts";
 import { LoadingPage } from "./components/AnonymousPage.tsx";
+import { CreateUserPage } from "./routes/CreateUserPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
 import { TrackingPage } from "./routes/TrackingPage.tsx";
 import { UserManagementPage } from "./routes/UserManagementPage.tsx";
@@ -27,6 +28,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["ADMIN"]}>
         <UserManagementPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/user-management/create",
+    element: (
+      <ProtectedRoute allowedTypes={["ADMIN"]}>
+        <CreateUserPage />
       </ProtectedRoute>
     ),
   },

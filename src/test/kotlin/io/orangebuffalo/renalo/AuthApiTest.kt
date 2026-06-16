@@ -39,6 +39,28 @@ class AuthApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun rejectsInactiveUsersAsInvalidCredentials() {
+        userRepository.save(
+            User(
+                username = "alice",
+                passwordHash = passwordHasher.hash("correct-password"),
+                type = UserType.USER,
+                active = false,
+            ),
+        )
+
+        val response = api().postJson(
+            "/api/create-auth-token",
+            """
+                {"username":"alice","password":"correct-password"}
+            """.trimIndent(),
+            null,
+        )
+
+        response.statusCode().shouldBe(401)
+    }
+
+    @Test
     fun issuesTokenAndReturnsProfile() {
         saveUser("alice", "correct-password", UserType.USER)
 
@@ -105,6 +127,6 @@ class AuthApiTest : IntegrationTestSupport() {
     }
 
     private fun saveUser(username: String, password: String, type: UserType) {
-        userRepository.save(User(null, username, passwordHasher.hash(password), type))
+        userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
     }
 }
