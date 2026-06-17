@@ -85,14 +85,16 @@ export function PageLayout({ eyebrow, title, children }: PageLayoutProps) {
       </aside>
 
       <div className="standard-page-content">
-        <header className="standard-page-header">
-          <div>
-            <p className="eyebrow">{eyebrow}</p>
-            <h1>{title}</h1>
-          </div>
-        </header>
+        <div className="standard-page-surface">
+          <header className="standard-page-header">
+            <div>
+              <p className="eyebrow">{eyebrow}</p>
+              <h1>{title}</h1>
+            </div>
+          </header>
 
-        <main className="standard-page-main">{children}</main>
+          <main className="standard-page-main">{children}</main>
+        </div>
       </div>
     </div>
   );

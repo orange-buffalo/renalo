@@ -18,6 +18,11 @@ import { Button } from "@/components/untitled/base/buttons/button";
 
 const pageSize = 5;
 
+const userTypeLabels: Record<UserType, string> = {
+  USER: "User",
+  ADMIN: "Admin",
+};
+
 type ManagedUser = {
   id: number;
   username: string;
@@ -152,7 +157,7 @@ export function UserManagementPage() {
                     data-testid={`user-row-${user.id}`}
                   >
                     <Table.Cell>{user.username}</Table.Cell>
-                    <Table.Cell>{user.type}</Table.Cell>
+                    <Table.Cell>{userTypeLabels[user.type]}</Table.Cell>
                     <Table.Cell>
                       {!user.currentUser && (
                         <Button

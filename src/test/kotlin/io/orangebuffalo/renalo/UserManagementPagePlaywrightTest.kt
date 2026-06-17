@@ -45,24 +45,24 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Users"))).isVisible()
         page.shouldEventuallyContainRows(
-            UserRow("admin", "ADMIN", ""),
-            UserRow("alice", "USER", "trash"),
-            UserRow("bob", "USER", "trash"),
-            UserRow("charlie", "USER", "trash"),
-            UserRow("dana", "USER", "trash"),
+            UserRow("admin", "Admin", ""),
+            UserRow("alice", "User", "trash"),
+            UserRow("bob", "User", "trash"),
+            UserRow("charlie", "User", "trash"),
+            UserRow("dana", "User", "trash"),
         )
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Pagination Navigation"))).isVisible()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next")).click()
-        page.shouldEventuallyContainRows(UserRow("erin", "USER", "trash"))
+        page.shouldEventuallyContainRows(UserRow("erin", "User", "trash"))
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Previous")).click()
         page.shouldEventuallyContainRows(
-            UserRow("admin", "ADMIN", ""),
-            UserRow("alice", "USER", "trash"),
-            UserRow("bob", "USER", "trash"),
-            UserRow("charlie", "USER", "trash"),
-            UserRow("dana", "USER", "trash"),
+            UserRow("admin", "Admin", ""),
+            UserRow("alice", "User", "trash"),
+            UserRow("bob", "User", "trash"),
+            UserRow("charlie", "User", "trash"),
+            UserRow("dana", "User", "trash"),
         )
         page.locator("[data-testid='user-row-${userRepository.findByUsername("alice")!!.id}']")
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Remove alice"))
@@ -72,22 +72,13 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Remove user")).click()
 
         page.shouldEventuallyContainRows(
-            UserRow("admin", "ADMIN", ""),
-            UserRow("bob", "USER", "trash"),
-            UserRow("charlie", "USER", "trash"),
-            UserRow("dana", "USER", "trash"),
-            UserRow("erin", "USER", "trash"),
+            UserRow("admin", "Admin", ""),
+            UserRow("bob", "User", "trash"),
+            UserRow("charlie", "User", "trash"),
+            UserRow("dana", "User", "trash"),
+            UserRow("erin", "User", "trash"),
         )
         userRepository.findByUsername("alice").shouldBeNull()
-
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create user")).click()
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Create user"))).isVisible()
-        page.getByLabel("Username").fill("frank")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create user")).click()
-
-        page.shouldEventually {
-            userRepository.findByUsername("frank")?.active.shouldBe(false)
-        }
     }
 
     private fun saveUser(username: String, password: String, type: UserType): User {

@@ -290,10 +290,21 @@ input {
 }
 
 .standard-page-content {
-  width: min(100%, 1120px);
+  display: grid;
+  width: 100%;
   min-width: 0;
-  margin: 0 auto;
   padding: 48px;
+  place-items: start center;
+}
+
+.standard-page-surface {
+  width: min(100%, 1180px);
+  min-height: calc(100vh - 96px);
+  padding: 48px;
+  border: 1px solid #eaecf0;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 80px rgba(16, 24, 40, 0.08);
 }
 
 .standard-page-header {
@@ -317,11 +328,6 @@ input {
 
 .standard-page-panel {
   max-width: 760px;
-  padding: 28px;
-  border: 1px solid #eaecf0;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.06);
 }
 
 .standard-page-panel h2 {
@@ -353,12 +359,13 @@ input {
 }
 
 .create-user-panel {
-  width: min(100%, 560px);
+  width: min(100%, 480px);
 }
 
 .create-user-form {
   display: grid;
-  gap: 20px;
+  max-width: 420px;
+  gap: 24px;
 }
 
 .create-user-password-note {
@@ -369,7 +376,8 @@ input {
 .create-user-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 16px;
+  padding-top: 8px;
 }
 
 @media (min-width: 521px) {
@@ -419,6 +427,8 @@ input {
   .standard-page-content {
     width: 100%;
     margin: 0;
+    padding: 24px;
+    place-items: stretch;
   }
 
   .standard-page-mobile-header {
@@ -471,8 +481,10 @@ input {
     display: none;
   }
 
-  .standard-page-content {
-    padding: 24px;
+  .standard-page-surface {
+    min-height: calc(100vh - 112px);
+    padding: 28px 20px;
+    border-radius: 24px;
   }
 
   .standard-page-header {
