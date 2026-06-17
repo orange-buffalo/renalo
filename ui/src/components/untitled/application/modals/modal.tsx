@@ -17,7 +17,7 @@ export const ModalOverlay = (props: AriaModalOverlayProps) => {
                     "pt-(--modal-pt) pb-(--modal-pb) [--modal-pb:clamp(16px,8vh,64px)] [--modal-pt:16px] sm:[--modal-pb:32px] sm:[--modal-pt:32px]",
                     // Animations
                     state.isEntering && "duration-300 ease-out animate-in fade-in",
-                    state.isExiting && "duration-200 ease-in animate-out fade-out",
+                    state.isExiting && "hidden pointer-events-none bg-transparent backdrop-blur-none",
                     typeof props.className === "function" ? props.className(state) : props.className,
                 )
             }

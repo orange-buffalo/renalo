@@ -92,7 +92,7 @@ export function CreateUserPage() {
 
           {error && (
             <p
-              className="user-management-message user-management-error"
+              className="create-user-form-error user-management-error"
               role="alert"
             >
               {error}
@@ -101,7 +101,7 @@ export function CreateUserPage() {
 
           <div className="create-user-actions">
             <Button
-              color="secondary"
+              color="link-gray"
               size="sm"
               onPress={() => navigate("/user-management")}
               isDisabled={isSaving}

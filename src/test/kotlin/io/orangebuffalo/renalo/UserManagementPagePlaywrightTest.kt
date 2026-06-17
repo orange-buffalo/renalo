@@ -45,38 +45,47 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Users"))).isVisible()
         page.shouldEventuallyContainRows(
-            UserRow("admin", "Admin", ""),
-            UserRow("alice", "User", "trash"),
-            UserRow("bob", "User", "trash"),
-            UserRow("charlie", "User", "trash"),
-            UserRow("dana", "User", "trash"),
+            UserRow("admin", "Admin", "Active", ""),
+            UserRow("alice", "User", "Active", "trash"),
+            UserRow("bob", "User", "Active", "trash"),
+            UserRow("charlie", "User", "Active", "trash"),
+            UserRow("dana", "User", "Active", "trash"),
         )
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Pagination Navigation"))).isVisible()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next")).click()
-        page.shouldEventuallyContainRows(UserRow("erin", "User", "trash"))
+        page.shouldEventuallyContainRows(UserRow("erin", "User", "Active", "trash"))
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Previous")).click()
         page.shouldEventuallyContainRows(
-            UserRow("admin", "Admin", ""),
-            UserRow("alice", "User", "trash"),
-            UserRow("bob", "User", "trash"),
-            UserRow("charlie", "User", "trash"),
-            UserRow("dana", "User", "trash"),
+            UserRow("admin", "Admin", "Active", ""),
+            UserRow("alice", "User", "Active", "trash"),
+            UserRow("bob", "User", "Active", "trash"),
+            UserRow("charlie", "User", "Active", "trash"),
+            UserRow("dana", "User", "Active", "trash"),
         )
         page.locator("[data-testid='user-row-${userRepository.findByUsername("alice")!!.id}']")
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Remove alice"))
             .click()
 
         assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Remove alice?"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Cancel")).click()
+        assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Remove alice?"))).not().isVisible()
+        assertThat(page.locator("[data-testid='remove-user-overlay']")).not().isVisible()
+        assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Users"))).isVisible()
+
+        page.locator("[data-testid='user-row-${userRepository.findByUsername("alice")!!.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Remove alice"))
+            .click()
+        assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Remove alice?"))).isVisible()
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Remove user")).click()
 
         page.shouldEventuallyContainRows(
-            UserRow("admin", "Admin", ""),
-            UserRow("bob", "User", "trash"),
-            UserRow("charlie", "User", "trash"),
-            UserRow("dana", "User", "trash"),
-            UserRow("erin", "User", "trash"),
+            UserRow("admin", "Admin", "Active", ""),
+            UserRow("bob", "User", "Active", "trash"),
+            UserRow("charlie", "User", "Active", "trash"),
+            UserRow("dana", "User", "Active", "trash"),
+            UserRow("erin", "User", "Active", "trash"),
         )
         userRepository.findByUsername("alice").shouldBeNull()
     }
@@ -98,7 +107,8 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
             UserRow(
                 username = cells.getOrElse(0) { "" },
                 type = cells.getOrElse(1) { "" },
-                action = cells.getOrElse(2) { "" },
+                active = cells.getOrElse(2) { "" },
+                action = cells.getOrElse(3) { "" },
             )
         }
     }
@@ -113,5 +123,6 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
 private data class UserRow(
     val username: String,
     val type: String,
+    val active: String,
     val action: String,
 )

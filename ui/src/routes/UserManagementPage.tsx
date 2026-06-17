@@ -14,6 +14,7 @@ import {
   Table,
   TableCard,
 } from "@/components/untitled/application/table/table";
+import { BadgeWithDot } from "@/components/untitled/base/badges/badges";
 import { Button } from "@/components/untitled/base/buttons/button";
 
 const pageSize = 5;
@@ -147,7 +148,12 @@ export function UserManagementPage() {
               <Table.Header>
                 <Table.Head id="username" label="Username" isRowHeader />
                 <Table.Head id="type" label="Type" />
-                <Table.Head id="actions" label="Actions" />
+                <Table.Head id="active" label="Active" />
+                <Table.Head
+                  id="actions"
+                  label="Actions"
+                  className="[&>div]:justify-end"
+                />
               </Table.Header>
               <Table.Body>
                 {users.map((user) => (
@@ -159,15 +165,25 @@ export function UserManagementPage() {
                     <Table.Cell>{user.username}</Table.Cell>
                     <Table.Cell>{userTypeLabels[user.type]}</Table.Cell>
                     <Table.Cell>
+                      <BadgeWithDot
+                        color={user.active ? "success" : "gray"}
+                        size="sm"
+                      >
+                        {user.active ? "Active" : "Inactive"}
+                      </BadgeWithDot>
+                    </Table.Cell>
+                    <Table.Cell>
                       {!user.currentUser && (
-                        <Button
-                          aria-label={`Remove ${user.username}`}
-                          color="tertiary-destructive"
-                          size="sm"
-                          iconLeading={TrashActionIcon}
-                          onPress={() => setConfirmingUser(user)}
-                          isDisabled={deletingUserId === user.id}
-                        />
+                        <div className="user-management-actions-cell">
+                          <Button
+                            aria-label={`Remove ${user.username}`}
+                            color="tertiary-destructive"
+                            size="sm"
+                            iconLeading={TrashActionIcon}
+                            onPress={() => setConfirmingUser(user)}
+                            isDisabled={deletingUserId === user.id}
+                          />
+                        </div>
                       )}
                     </Table.Cell>
                   </Table.Row>
@@ -190,8 +206,10 @@ export function UserManagementPage() {
         </TableCard.Root>
 
         <ModalOverlay
+          data-testid="remove-user-overlay"
           isOpen={Boolean(confirmingUser)}
           isDismissable
+          className={(state) => (state.isExiting ? "hidden" : "")}
           onOpenChange={(isOpen) => {
             if (!isOpen) {
               setConfirmingUser(undefined);
@@ -212,9 +230,9 @@ export function UserManagementPage() {
                     This user will lose access to Renalo immediately.
                   </p>
                 </div>
-                <div className="flex justify-end gap-3 border-t border-secondary px-6 py-4">
+                <div className="flex justify-between gap-3 border-t border-secondary px-6 py-4">
                   <Button
-                    color="secondary"
+                    color="link-gray"
                     size="sm"
                     onPress={() => setConfirmingUser(undefined)}
                     isDisabled={deletingUserId === confirmingUser.id}

@@ -34,6 +34,13 @@ class CacheHeadersTest : IntegrationTestSupport() {
             ?: error("Expected index.html to reference a built JavaScript asset")
         indexResponse.body().shouldContain(scriptPath)
 
+        val stylesheetPath = Regex("href=\"([^\"]*styles-[a-f0-9]{8}\\.css)\"")
+            .find(indexResponse.body())
+            ?.groupValues
+            ?.get(1)
+            ?: error("Expected index.html to reference a fingerprinted CSS asset")
+        indexResponse.body().shouldContain(stylesheetPath)
+
         val assetResponse = httpClient.send(
             HttpRequest.newBuilder(URI.create(server.url.toString() + scriptPath)).GET().build(),
             HttpResponse.BodyHandlers.discarding(),
@@ -41,6 +48,15 @@ class CacheHeadersTest : IntegrationTestSupport() {
 
         assetResponse.statusCode().shouldBe(200)
         assetResponse.headers().firstValue("cache-control").orElseThrow()
+            .shouldBe("public, max-age=31536000, immutable")
+
+        val stylesheetResponse = httpClient.send(
+            HttpRequest.newBuilder(URI.create(server.url.toString() + stylesheetPath)).GET().build(),
+            HttpResponse.BodyHandlers.discarding(),
+        )
+
+        stylesheetResponse.statusCode().shouldBe(200)
+        stylesheetResponse.headers().firstValue("cache-control").orElseThrow()
             .shouldBe("public, max-age=31536000, immutable")
     }
 }
