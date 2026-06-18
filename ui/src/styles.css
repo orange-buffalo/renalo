@@ -191,6 +191,10 @@ input {
   backdrop-filter: blur(16px);
 }
 
+.activation-error-card {
+  width: min(100%, 720px);
+}
+
 .eyebrow {
   margin: 0 0 12px;
   color: #175cd3;

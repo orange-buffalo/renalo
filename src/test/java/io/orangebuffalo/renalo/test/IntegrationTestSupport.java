@@ -32,7 +32,8 @@ public abstract class IntegrationTestSupport implements TestPropertyProvider {
                 "datasources.default.url", postgres.getJdbcUrl(),
                 "datasources.default.username", postgres.getUsername(),
                 "datasources.default.password", postgres.getPassword(),
-                "datasources.default.driver-class-name", "org.postgresql.Driver"
+                "datasources.default.driver-class-name", "org.postgresql.Driver",
+                "renalo.activation-token.delay", "PT0.01S"
         );
     }
 

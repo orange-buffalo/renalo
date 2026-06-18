@@ -9,7 +9,11 @@ import java.time.Instant
 interface UserActivationTokenRepository : CrudRepository<UserActivationToken, Long> {
     fun findByUserId(userId: Long): UserActivationToken?
 
+    fun findByToken(token: String): UserActivationToken?
+
     fun deleteByUserId(userId: Long)
+
+    fun deleteByToken(token: String)
 
     fun deleteByExpiresAtLessThanEquals(expiresAt: Instant)
 }

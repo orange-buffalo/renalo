@@ -22,6 +22,11 @@ class UserActivationTokenService(
         return userActivationTokenRepository.findByUserId(userId)
     }
 
+    fun findValidToken(token: String): UserActivationToken? {
+        cleanupExpiredTokens()
+        return userActivationTokenRepository.findByToken(token)
+    }
+
     fun generateTokenForUser(userId: Long): UserActivationToken {
         cleanupExpiredTokens()
         userActivationTokenRepository.deleteByUserId(userId)
@@ -37,6 +42,11 @@ class UserActivationTokenService(
     fun deleteTokenForUser(userId: Long) {
         cleanupExpiredTokens()
         userActivationTokenRepository.deleteByUserId(userId)
+    }
+
+    fun deleteToken(token: String) {
+        cleanupExpiredTokens()
+        userActivationTokenRepository.deleteByToken(token)
     }
 
     private fun generatedToken(): String {

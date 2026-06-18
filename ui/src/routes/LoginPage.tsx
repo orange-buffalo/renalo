@@ -1,17 +1,35 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
 import { clearAuthToken, createAuthToken, fetchProfile } from "@/api/auth";
 import { fetchSystemSettings } from "@/api/system";
 import { AnonymousPage } from "@/components/AnonymousPage";
+import { showNotification } from "@/components/untitled/application/notifications/notifications";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile, setProfile, setSettings } = useAppState();
   const [error, setError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const state = location.state as {
+      notification?: {
+        title: string;
+        description?: string;
+        tone?: "success" | "info";
+      };
+    } | null;
+    if (!state?.notification) {
+      return;
+    }
+
+    showNotification(state.notification);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
     if (!profile) {
