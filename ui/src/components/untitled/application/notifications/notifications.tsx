@@ -35,7 +35,7 @@ export function Notifications() {
         unstyled: true,
         duration: 10_000,
         classNames: {
-          toast: "w-full max-w-md",
+          toast: "w-full max-w-lg",
         },
       }}
     />
@@ -56,12 +56,12 @@ export function showNotification({
   toast.custom(
     (toastId) => (
       <div
-        className="flex w-full gap-5 rounded-2xl border border-[#d5d7da] bg-white p-6 pr-5 shadow-lg"
+        className="flex w-full gap-4 rounded-2xl border border-[#d5d7da] bg-white p-5 pr-4 shadow-lg"
         role="status"
       >
         <span
           className={cx(
-            "mt-1 flex size-8 shrink-0 items-center justify-center rounded-full ring-4",
+            "mt-1 flex size-7 shrink-0 items-center justify-center rounded-full ring-4",
             styles.ringInner,
           )}
         >
@@ -85,7 +85,7 @@ export function showNotification({
         <button
           type="button"
           aria-label="Dismiss notification"
-          className="-m-2 size-9 shrink-0 rounded-lg p-2 text-[#a4a7ae] transition hover:bg-[#fafafa] hover:text-[#717680]"
+          className="-m-1 size-8 shrink-0 rounded-lg p-1.5 text-[#a4a7ae] transition hover:bg-[#fafafa] hover:text-[#717680]"
           onClick={() => toast.dismiss(toastId)}
         >
           <XClose className="size-5" />

@@ -94,6 +94,8 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
             UserRow("dana", "User", "Active", "edit trash"),
             UserRow("erin", "User", "Active", "edit trash"),
         )
+        assertThat(page.getByText("User removed.")).isVisible()
+        assertThat(page.getByText("alice no longer has access to Renalo.")).isVisible()
         userRepository.findByUsername("alice").shouldBeNull()
     }
 

@@ -101,6 +101,7 @@ export function UserManagementPage() {
     setError(undefined);
 
     try {
+      const removedUsername = confirmingUser.username;
       await deleteUser(confirmingUser.id);
       setConfirmingUser(undefined);
       const nextPage =
@@ -111,6 +112,10 @@ export function UserManagementPage() {
         setIsLoading(true);
         setUsersPage(await fetchUsers(nextPage, pageSize));
       }
+      showNotification({
+        title: "User removed.",
+        description: `${removedUsername} no longer has access to Renalo.`,
+      });
     } catch {
       setError("User could not be removed. Try again in a moment.");
     } finally {
