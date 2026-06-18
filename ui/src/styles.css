@@ -377,6 +377,7 @@ input {
 
 .user-management-actions-cell {
   display: flex;
+  gap: 8px;
   justify-content: flex-end;
 }
 
@@ -413,6 +414,30 @@ input {
 .create-user-actions {
   display: flex;
   grid-column: 1 / -1;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.edit-user-panel {
+  max-width: none;
+  width: 100%;
+}
+
+.edit-user-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  gap: 28px 32px;
+}
+
+.edit-user-form-error,
+.edit-user-actions {
+  grid-column: 1 / -1;
+}
+
+.edit-user-actions {
+  display: flex;
   justify-content: space-between;
   gap: 16px;
   padding-top: 8px;
@@ -542,7 +567,8 @@ input {
     margin-top: 20px;
   }
 
-  .create-user-form {
+  .create-user-form,
+  .edit-user-form {
     grid-template-columns: 1fr;
   }
 }

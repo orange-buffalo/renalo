@@ -1,11 +1,13 @@
 package io.orangebuffalo.renalo.user
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Delete
 import io.micronaut.http.annotation.Get
+import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
 import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
@@ -54,6 +56,14 @@ class UserManagementController(
         )
     }
 
+    @Get("/{id}")
+    fun getUser(id: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findById(id).orElse(null)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(user.toManagedUserResponse(authentication.name))
+    }
+
     @Post
     fun createUser(@Body request: CreateUserRequest): HttpResponse<*> {
         val username = request.username.trim()
@@ -84,6 +94,35 @@ class UserManagementController(
                 active = user.active,
             ),
         )
+    }
+
+    @Patch("/{id}")
+    fun updateUser(
+        id: Long,
+        authentication: Authentication,
+        @Body request: UpdateUserRequest,
+    ): HttpResponse<*> {
+        val user = userRepository.findById(id).orElse(null)
+            ?: return HttpResponse.notFound<Any>()
+
+        if (request.type != null || request.active != null) {
+            return HttpResponse.badRequest<Any>()
+        }
+
+        val username = request.username.trim()
+        if (username.isBlank()) {
+            return HttpResponse.badRequest<Any>()
+        }
+
+        val existingUser = userRepository.findByUsername(username)
+        if (existingUser != null && existingUser.id != user.id) {
+            return HttpResponse.status<Any>(HttpStatus.CONFLICT)
+                .body(UpdateUserErrorResponse("USERNAME_EXISTS"))
+        }
+
+        val updatedUser = userRepository.update(user.copy(username = username))
+
+        return HttpResponse.ok(updatedUser.toManagedUserResponse(authentication.name))
     }
 
     @Delete("/{id}")
@@ -120,6 +159,13 @@ data class CreateUserRequest(
     val type: UserType,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = false)
+data class UpdateUserRequest(
+    val username: String,
+    val type: UserType? = null,
+    val active: Boolean? = null,
+)
+
 data class UsersPageResponse(
     val users: List<ManagedUserResponse>,
     val page: Int,
@@ -141,5 +187,9 @@ data class CreateUserErrorResponse(
 )
 
 data class DeleteUserErrorResponse(
+    val code: String,
+)
+
+data class UpdateUserErrorResponse(
     val code: String,
 )

@@ -6,6 +6,7 @@ import { AppStateProvider, useAppState } from "./AppState.tsx";
 import type { UserType } from "./api/auth.ts";
 import { LoadingPage } from "./components/AnonymousPage.tsx";
 import { CreateUserPage } from "./routes/CreateUserPage.tsx";
+import { EditUserPage } from "./routes/EditUserPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
 import { TrackingPage } from "./routes/TrackingPage.tsx";
 import { UserManagementPage } from "./routes/UserManagementPage.tsx";
@@ -36,6 +37,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["ADMIN"]}>
         <CreateUserPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/user-management/:userId",
+    element: (
+      <ProtectedRoute allowedTypes={["ADMIN"]}>
+        <EditUserPage />
       </ProtectedRoute>
     ),
   },

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
-class CreateUserPagePlaywrightTest : IntegrationTestSupport() {
+class EditUserPagePlaywrightTest : IntegrationTestSupport() {
     @Inject
     lateinit var userRepository: UserRepository
 
@@ -29,24 +29,21 @@ class CreateUserPagePlaywrightTest : IntegrationTestSupport() {
     lateinit var testAuthTokens: TestAuthTokens
 
     @Test
-    fun createsUserFromCreateUserPage(page: Page) {
+    fun updatesUsernameFromEditUserPage(page: Page) {
         saveUser("admin", "password", UserType.ADMIN)
-        saveUser("alice", "password", UserType.USER)
+        val alice = saveUser("alice", "password", UserType.USER, active = false)
         setStoredToken(page, testAuthTokens.issueToken("admin", UserType.ADMIN))
 
-        page.navigate(server.url.toString() + "/user-management/create")
+        page.navigate(server.url.toString() + "/user-management/${alice.id}")
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Create user"))).isVisible()
-
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create user")).click()
-        assertThat(page.getByText("Enter a username.")).isVisible()
-
-        page.getByLabel("Username").fill("alice")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create user")).click()
-        assertThat(page.getByText("A user with this username already exists.")).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit alice"))).isVisible()
+        assertThat(page.locator("[data-testid='user-status-badge']")).containsText("Inactive")
+        assertThat(page.getByLabel("Type")).hasValue("User")
+        assertThat(page.getByLabel("Type")).isDisabled()
+        assertThat(page.getByLabel("Username")).hasValue("alice")
 
         page.getByLabel("Username").fill("frank")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create user")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save changes")).click()
 
         page.shouldEventually {
             userRepository.findByUsername("frank")?.active.shouldBe(false)
@@ -55,7 +52,7 @@ class CreateUserPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.locator("[data-testid='user-status-badge']")).containsText("Inactive")
     }
 
-    private fun saveUser(username: String, password: String, type: UserType): User {
-        return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
+    private fun saveUser(username: String, password: String, type: UserType, active: Boolean = true): User {
+        return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type, active = active))
     }
 }

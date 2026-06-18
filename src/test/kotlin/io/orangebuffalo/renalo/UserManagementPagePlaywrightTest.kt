@@ -46,24 +46,31 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Users"))).isVisible()
         page.shouldEventuallyContainRows(
             UserRow("admin", "Admin", "Active", ""),
-            UserRow("alice", "User", "Active", "trash"),
-            UserRow("bob", "User", "Active", "trash"),
-            UserRow("charlie", "User", "Active", "trash"),
-            UserRow("dana", "User", "Active", "trash"),
+            UserRow("alice", "User", "Active", "edit trash"),
+            UserRow("bob", "User", "Active", "edit trash"),
+            UserRow("charlie", "User", "Active", "edit trash"),
+            UserRow("dana", "User", "Active", "edit trash"),
         )
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Pagination Navigation"))).isVisible()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next")).click()
-        page.shouldEventuallyContainRows(UserRow("erin", "User", "Active", "trash"))
+        page.shouldEventuallyContainRows(UserRow("erin", "User", "Active", "edit trash"))
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Previous")).click()
         page.shouldEventuallyContainRows(
             UserRow("admin", "Admin", "Active", ""),
-            UserRow("alice", "User", "Active", "trash"),
-            UserRow("bob", "User", "Active", "trash"),
-            UserRow("charlie", "User", "Active", "trash"),
-            UserRow("dana", "User", "Active", "trash"),
+            UserRow("alice", "User", "Active", "edit trash"),
+            UserRow("bob", "User", "Active", "edit trash"),
+            UserRow("charlie", "User", "Active", "edit trash"),
+            UserRow("dana", "User", "Active", "edit trash"),
         )
+        page.locator("[data-testid='user-row-${userRepository.findByUsername("alice")!!.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit alice"))
+            .click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit alice"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Back")).click()
+        assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Users"))).isVisible()
+
         page.locator("[data-testid='user-row-${userRepository.findByUsername("alice")!!.id}']")
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Remove alice"))
             .click()
@@ -82,10 +89,10 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
 
         page.shouldEventuallyContainRows(
             UserRow("admin", "Admin", "Active", ""),
-            UserRow("bob", "User", "Active", "trash"),
-            UserRow("charlie", "User", "Active", "trash"),
-            UserRow("dana", "User", "Active", "trash"),
-            UserRow("erin", "User", "Active", "trash"),
+            UserRow("bob", "User", "Active", "edit trash"),
+            UserRow("charlie", "User", "Active", "edit trash"),
+            UserRow("dana", "User", "Active", "edit trash"),
+            UserRow("erin", "User", "Active", "edit trash"),
         )
         userRepository.findByUsername("alice").shouldBeNull()
     }
@@ -99,7 +106,11 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
         val rows = page.locator("[data-testid^='user-row-']").evaluateAll(
             """
                 rows => rows.map(row => Array.from(row.querySelectorAll('[role="rowheader"], [role="gridcell"]'))
-                    .map(cell => cell.querySelector('[data-action-icon="trash"]') ? 'trash' : cell.textContent.trim()))
+                    .map(cell => {
+                        const actions = Array.from(cell.querySelectorAll('[data-action-icon]'))
+                            .map(icon => icon.dataset.actionIcon);
+                        return actions.length ? actions.join(' ') : cell.textContent.trim();
+                    }))
             """.trimIndent(),
         ) as List<List<String>>
 

@@ -52,6 +52,16 @@ class ApiTestClient(
         return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
     }
 
+    fun patchJson(path: String, body: String, token: String?): HttpResponse<String> {
+        val builder = HttpRequest.newBuilder(URI.create(server.url.toString() + path))
+            .header("Content-Type", "application/json")
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
+        if (token != null) {
+            builder.header("Authorization", "Bearer $token")
+        }
+        return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
+    }
+
     fun delete(path: String, token: String?): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI.create(server.url.toString() + path)).DELETE()
         if (token != null) {

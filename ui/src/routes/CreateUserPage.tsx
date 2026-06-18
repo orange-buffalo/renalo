@@ -12,6 +12,10 @@ const userTypeItems = [
   { id: "ADMIN", label: "Admin" },
 ];
 
+type CreatedUser = {
+  id: number;
+};
+
 export function CreateUserPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
@@ -34,12 +38,12 @@ export function CreateUserPage() {
     setUsernameError(undefined);
 
     try {
-      await apiRequest("/api/users", {
+      const createdUser = await apiRequest<CreatedUser>("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: trimmedUsername, type }),
       });
-      navigate("/user-management");
+      navigate(`/user-management/${createdUser.id}`);
     } catch (caughtError) {
       if (
         caughtError instanceof ApiError &&

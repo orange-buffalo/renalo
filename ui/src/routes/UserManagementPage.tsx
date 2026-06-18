@@ -1,4 +1,4 @@
-import { Plus, Trash01 } from "@untitledui/icons";
+import { Edit02, Plus, Trash01 } from "@untitledui/icons";
 import { type ComponentProps, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import type { UserType } from "@/api/auth";
@@ -180,6 +180,15 @@ export function UserManagementPage() {
                       {!user.currentUser && (
                         <div className="user-management-actions-cell">
                           <Button
+                            aria-label={`Edit ${user.username}`}
+                            color="tertiary"
+                            size="sm"
+                            iconLeading={EditActionIcon}
+                            onPress={() =>
+                              navigate(`/user-management/${user.id}`)
+                            }
+                          />
+                          <Button
                             aria-label={`Remove ${user.username}`}
                             color="tertiary-destructive"
                             size="sm"
@@ -276,4 +285,8 @@ async function deleteUser(id: number) {
 
 function TrashActionIcon(props: ComponentProps<typeof Trash01>) {
   return <Trash01 {...props} data-action-icon="trash" aria-hidden="true" />;
+}
+
+function EditActionIcon(props: ComponentProps<typeof Edit02>) {
+  return <Edit02 {...props} data-action-icon="edit" aria-hidden="true" />;
 }

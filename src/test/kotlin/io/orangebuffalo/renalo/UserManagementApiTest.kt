@@ -87,6 +87,39 @@ class UserManagementApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun requiresAdminForReadingUser() {
+        val alice = saveUser("alice", "password", UserType.USER)
+        saveUser("admin", "password", UserType.ADMIN)
+
+        val userToken = api().login("alice", "password")
+
+        api().get("/api/users/${alice.id}", null).statusCode().shouldBe(401)
+        api().get("/api/users/${alice.id}", userToken).statusCode().shouldBe(403)
+    }
+
+    @Test
+    fun returnsUserForAdmin() {
+        val alice = saveUser("alice", "password", UserType.USER, active = false)
+        saveUser("admin", "password", UserType.ADMIN)
+        val adminToken = api().login("admin", "password")
+
+        val response = api().get("/api/users/${alice.id}", adminToken)
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "id": ${alice.id},
+                  "username": "alice",
+                  "type": "USER",
+                  "currentUser": false,
+                  "active": false
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
     fun createsInactiveUserForAdmin() {
         saveUser("admin", "password", UserType.ADMIN)
         val adminToken = api().login("admin", "password")
@@ -150,6 +183,127 @@ class UserManagementApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun requiresAdminForUpdatingUsers() {
+        val alice = saveUser("alice", "password", UserType.USER)
+        saveUser("admin", "password", UserType.ADMIN)
+
+        val userToken = api().login("alice", "password")
+        val body = """
+            {"username":"bob"}
+        """.trimIndent()
+
+        api().patchJson("/api/users/${alice.id}", body, null).statusCode().shouldBe(401)
+        api().patchJson("/api/users/${alice.id}", body, userToken).statusCode().shouldBe(403)
+    }
+
+    @Test
+    fun updatesUsernameForAdminWithoutChangingTypeOrActiveState() {
+        val alice = saveUser("alice", "password", UserType.USER, active = false)
+        saveUser("admin", "password", UserType.ADMIN)
+        val adminToken = api().login("admin", "password")
+
+        val response = api().patchJson(
+            "/api/users/${alice.id}",
+            """
+                {"username":" frank "}
+            """.trimIndent(),
+            adminToken,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "id": ${alice.id},
+                  "username": "frank",
+                  "type": "USER",
+                  "currentUser": false,
+                  "active": false
+                }
+            """.trimIndent(),
+        )
+        val updatedUser = userRepository.findByUsername("frank")!!
+        userRepository.findByUsername("alice").shouldBeNull()
+        updatedUser.active.shouldBe(false)
+        updatedUser.type.shouldBe(UserType.USER)
+    }
+
+    @Test
+    fun rejectsDuplicateUsernameOnUpdate() {
+        val alice = saveUser("alice", "password", UserType.USER)
+        saveUser("bob", "password", UserType.USER)
+        saveUser("admin", "password", UserType.ADMIN)
+        val adminToken = api().login("admin", "password")
+
+        val response = api().patchJson(
+            "/api/users/${alice.id}",
+            """
+                {"username":"bob"}
+            """.trimIndent(),
+            adminToken,
+        )
+
+        response.statusCode().shouldBe(409)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "code": "USERNAME_EXISTS"
+                }
+            """.trimIndent(),
+        )
+        userRepository.findByUsername("alice")?.username.shouldBe("alice")
+    }
+
+    @Test
+    fun rejectsTypeChangeOnUpdate() {
+        val alice = saveUser("alice", "password", UserType.USER, active = false)
+        saveUser("admin", "password", UserType.ADMIN)
+        val adminToken = api().login("admin", "password")
+
+        val response = api().patchJson(
+            "/api/users/${alice.id}",
+            """
+                {"username":"frank","type":"ADMIN"}
+            """.trimIndent(),
+            adminToken,
+        )
+
+        response.statusCode().shouldBe(400)
+        val unchangedAlice = userRepository.findByUsername("alice")!!
+        unchangedAlice.active.shouldBe(false)
+        unchangedAlice.type.shouldBe(UserType.USER)
+    }
+
+    @Test
+    fun rejectsActiveChangeOnUpdate() {
+        val alice = saveUser("alice", "password", UserType.USER, active = false)
+        saveUser("admin", "password", UserType.ADMIN)
+        val adminToken = api().login("admin", "password")
+
+        val response = api().patchJson(
+            "/api/users/${alice.id}",
+            """
+                {"username":"frank","active":true}
+            """.trimIndent(),
+            adminToken,
+        )
+
+        response.statusCode().shouldBe(400)
+        val unchangedAlice = userRepository.findByUsername("alice")!!
+        unchangedAlice.active.shouldBe(false)
+        unchangedAlice.username.shouldBe("alice")
+    }
+
+    @Test
+    fun returnsNotFoundWhenReadingOrUpdatingMissingUser() {
+        saveUser("admin", "password", UserType.ADMIN)
+        val adminToken = api().login("admin", "password")
+
+        api().get("/api/users/999999", adminToken).statusCode().shouldBe(404)
+        api().patchJson("/api/users/999999", "{\"username\":\"alice\"}", adminToken).statusCode().shouldBe(404)
+    }
+
+    @Test
     fun requiresAdminForDeletingUsers() {
         val alice = saveUser("alice", "password", UserType.USER)
         saveUser("admin", "password", UserType.ADMIN)
@@ -200,7 +354,7 @@ class UserManagementApiTest : IntegrationTestSupport() {
         api().delete("/api/users/999999", adminToken).statusCode().shouldBe(404)
     }
 
-    private fun saveUser(username: String, password: String, type: UserType): User {
-        return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
+    private fun saveUser(username: String, password: String, type: UserType, active: Boolean = true): User {
+        return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type, active = active))
     }
 }
