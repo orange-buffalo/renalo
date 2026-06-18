@@ -33,6 +33,7 @@ flyway:
       enabled: true
 
 renalo:
+  public-url: ${RENALO_PUBLIC_URL:`http://localhost:8080`}
   auth:
     access-token-expiration-seconds: 1800
   default-admin:

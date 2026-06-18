@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
 import { clearAuthToken, createAuthToken, fetchProfile } from "@/api/auth";
+import { fetchSystemSettings } from "@/api/system";
 import { AnonymousPage } from "@/components/AnonymousPage";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { profile, setProfile } = useAppState();
+  const { profile, setProfile, setSettings } = useAppState();
   const [error, setError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -33,14 +34,19 @@ export function LoginPage() {
 
     try {
       await createAuthToken(username, password);
-      const profile = await fetchProfile();
+      const [profile, settings] = await Promise.all([
+        fetchProfile(),
+        fetchSystemSettings(),
+      ]);
       setProfile(profile);
+      setSettings(settings);
       navigate(profile.type === "ADMIN" ? "/user-management" : "/tracking", {
         replace: true,
       });
     } catch {
       clearAuthToken();
       setProfile(undefined);
+      setSettings(undefined);
       setError("Invalid username or password.");
     } finally {
       setIsLoading(false);

@@ -43,7 +43,12 @@ export function CreateUserPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: trimmedUsername, type }),
       });
-      navigate(`/user-management/${createdUser.id}`);
+      navigate(`/user-management/${createdUser.id}`, {
+        state: {
+          notification:
+            "User created. Share the activation link to finish setup.",
+        },
+      });
     } catch (caughtError) {
       if (
         caughtError instanceof ApiError &&
@@ -64,7 +69,7 @@ export function CreateUserPage() {
     <PageLayout
       eyebrow="Administration"
       title="Create user"
-      description="A password will be generated automatically. New users are inactive until activation is implemented."
+      description="A password will be generated automatically. New users stay inactive until they use their activation link."
     >
       <section className="standard-page-panel create-user-panel">
         <form className="create-user-form" onSubmit={handleSubmit}>

@@ -14,6 +14,7 @@ import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
+import java.util.regex.Pattern
 import org.junit.jupiter.api.Test
 
 @MicronautTest(transactional = false)
@@ -53,6 +54,9 @@ class CreateUserPagePlaywrightTest : IntegrationTestSupport() {
         }
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit frank"))).isVisible()
         assertThat(page.locator("[data-testid='user-status-badge']")).containsText("Inactive")
+        assertThat(page.getByText("User created. Share the activation link to finish setup.")).isVisible()
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Activation required")
+        assertThat(page.getByLabel("Activation link")).hasValue(Pattern.compile(".*activate-account\\?token=.*"))
     }
 
     private fun saveUser(username: String, password: String, type: UserType): User {

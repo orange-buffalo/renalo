@@ -1,6 +1,6 @@
 import { Edit02, Plus, Trash01 } from "@untitledui/icons";
 import { type ComponentProps, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import type { UserType } from "@/api/auth";
 import { apiRequest } from "@/api/client";
 import { PageLayout } from "@/components/PageLayout";
@@ -42,12 +42,33 @@ type UsersPage = {
 
 export function UserManagementPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [usersPage, setUsersPage] = useState<UsersPage>();
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [confirmingUser, setConfirmingUser] = useState<ManagedUser>();
   const [deletingUserId, setDeletingUserId] = useState<number>();
+  const [notification, setNotification] = useState<string>();
+
+  useEffect(() => {
+    const state = location.state as { notification?: string } | null;
+    if (!state?.notification) {
+      return;
+    }
+
+    setNotification(state.notification);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    if (!notification) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setNotification(undefined), 20_000);
+    return () => window.clearTimeout(timeout);
+  }, [notification]);
 
   useEffect(() => {
     let isActive = true;
@@ -135,6 +156,12 @@ export function UserManagementPage() {
       }
     >
       <section className="user-management-panel">
+        {notification && (
+          <div className="renalo-notification" role="status">
+            {notification}
+          </div>
+        )}
+
         <TableCard.Root size="sm">
           {error && (
             <p
@@ -177,17 +204,17 @@ export function UserManagementPage() {
                       </BadgeWithDot>
                     </Table.Cell>
                     <Table.Cell>
-                      {!user.currentUser && (
-                        <div className="user-management-actions-cell">
-                          <Button
-                            aria-label={`Edit ${user.username}`}
-                            color="tertiary"
-                            size="sm"
-                            iconLeading={EditActionIcon}
-                            onPress={() =>
-                              navigate(`/user-management/${user.id}`)
-                            }
-                          />
+                      <div className="user-management-actions-cell">
+                        <Button
+                          aria-label={`Edit ${user.username}`}
+                          color="tertiary"
+                          size="sm"
+                          iconLeading={EditActionIcon}
+                          onPress={() =>
+                            navigate(`/user-management/${user.id}`)
+                          }
+                        />
+                        {!user.currentUser && (
                           <Button
                             aria-label={`Remove ${user.username}`}
                             color="tertiary-destructive"
@@ -196,8 +223,8 @@ export function UserManagementPage() {
                             onPress={() => setConfirmingUser(user)}
                             isDisabled={deletingUserId === user.id}
                           />
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </Table.Cell>
                   </Table.Row>
                 ))}

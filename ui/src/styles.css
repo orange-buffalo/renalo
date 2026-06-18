@@ -432,8 +432,61 @@ input {
 }
 
 .edit-user-form-error,
+.renalo-alert,
 .edit-user-actions {
   grid-column: 1 / -1;
+}
+
+.renalo-notification {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #abefc6;
+  border-radius: 12px;
+  background: #ecfdf3;
+  color: #067647;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.renalo-alert {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  font-size: 0.875rem;
+}
+
+.renalo-alert strong,
+.renalo-alert p {
+  margin: 0;
+}
+
+.renalo-alert--warning {
+  border: 1px solid #fedf89;
+  background: #fffaeb;
+  color: #93370d;
+}
+
+.renalo-alert--error {
+  border: 1px solid #fecdca;
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.activation-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.activation-link-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344054;
 }
 
 .edit-user-actions {
@@ -569,6 +622,10 @@ input {
 
   .create-user-form,
   .edit-user-form {
+    grid-template-columns: 1fr;
+  }
+
+  .activation-link-row {
     grid-template-columns: 1fr;
   }
 }

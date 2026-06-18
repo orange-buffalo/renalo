@@ -2,15 +2,19 @@ package io.orangebuffalo.renalo
 
 import io.kotest.assertions.json.shouldEqualJson
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
+import io.orangebuffalo.renalo.user.UserActivationToken
+import io.orangebuffalo.renalo.user.UserActivationTokenRepository
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
+import java.time.Instant
 import org.junit.jupiter.api.Test
 
 @MicronautTest(transactional = false)
@@ -18,6 +22,9 @@ import org.junit.jupiter.api.Test
 class UserManagementApiTest : IntegrationTestSupport() {
     @Inject
     lateinit var userRepository: UserRepository
+
+    @Inject
+    lateinit var userActivationTokenRepository: UserActivationTokenRepository
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -134,6 +141,7 @@ class UserManagementApiTest : IntegrationTestSupport() {
 
         response.statusCode().shouldBe(201)
         val alice = userRepository.findByUsername("alice")!!
+        val activationToken = userActivationTokenRepository.findByUserId(alice.id!!).shouldNotBeNull()
         response.body().shouldEqualJson(
             """
                 {
@@ -146,6 +154,25 @@ class UserManagementApiTest : IntegrationTestSupport() {
             """.trimIndent(),
         )
         alice.active.shouldBe(false)
+        activationToken.expiresAt.shouldBe(Instant.parse("2099-06-15T08:00:00Z"))
+
+        val userResponse = api().get("/api/users/${alice.id}", adminToken)
+        userResponse.statusCode().shouldBe(200)
+        userResponse.body().shouldEqualJson(
+            """
+                {
+                  "id": ${alice.id},
+                  "username": "alice",
+                  "type": "USER",
+                  "currentUser": false,
+                  "active": false,
+                  "activationToken": {
+                    "token": "${activationToken.token}",
+                    "expiresAt": "2099-06-15T08:00:00Z"
+                  }
+                }
+            """.trimIndent(),
+        )
     }
 
     @Test
@@ -255,7 +282,7 @@ class UserManagementApiTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun rejectsTypeChangeOnUpdate() {
+    fun ignoresTypeChangeOnUpdate() {
         val alice = saveUser("alice", "password", UserType.USER, active = false)
         saveUser("admin", "password", UserType.ADMIN)
         val adminToken = api().login("admin", "password")
@@ -268,14 +295,25 @@ class UserManagementApiTest : IntegrationTestSupport() {
             adminToken,
         )
 
-        response.statusCode().shouldBe(400)
-        val unchangedAlice = userRepository.findByUsername("alice")!!
-        unchangedAlice.active.shouldBe(false)
-        unchangedAlice.type.shouldBe(UserType.USER)
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "id": ${alice.id},
+                  "username": "frank",
+                  "type": "USER",
+                  "currentUser": false,
+                  "active": false
+                }
+            """.trimIndent(),
+        )
+        val updatedAlice = userRepository.findByUsername("frank")!!
+        updatedAlice.active.shouldBe(false)
+        updatedAlice.type.shouldBe(UserType.USER)
     }
 
     @Test
-    fun rejectsActiveChangeOnUpdate() {
+    fun ignoresActiveChangeOnUpdate() {
         val alice = saveUser("alice", "password", UserType.USER, active = false)
         saveUser("admin", "password", UserType.ADMIN)
         val adminToken = api().login("admin", "password")
@@ -288,10 +326,20 @@ class UserManagementApiTest : IntegrationTestSupport() {
             adminToken,
         )
 
-        response.statusCode().shouldBe(400)
-        val unchangedAlice = userRepository.findByUsername("alice")!!
-        unchangedAlice.active.shouldBe(false)
-        unchangedAlice.username.shouldBe("alice")
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "id": ${alice.id},
+                  "username": "frank",
+                  "type": "USER",
+                  "currentUser": false,
+                  "active": false
+                }
+            """.trimIndent(),
+        )
+        val updatedAlice = userRepository.findByUsername("frank")!!
+        updatedAlice.active.shouldBe(false)
     }
 
     @Test
@@ -318,6 +366,13 @@ class UserManagementApiTest : IntegrationTestSupport() {
     fun deletesAnotherUserForAdmin() {
         val alice = saveUser("alice", "password", UserType.USER)
         saveUser("admin", "password", UserType.ADMIN)
+        userActivationTokenRepository.save(
+            UserActivationToken(
+                userId = alice.id!!,
+                token = "activation-token",
+                expiresAt = Instant.parse("2099-06-15T08:00:00Z"),
+            ),
+        )
 
         val adminToken = api().login("admin", "password")
 
@@ -325,6 +380,94 @@ class UserManagementApiTest : IntegrationTestSupport() {
 
         response.statusCode().shouldBe(204)
         userRepository.findByUsername("alice").shouldBeNull()
+        userActivationTokenRepository.findByUserId(alice.id!!).shouldBeNull()
+    }
+
+    @Test
+    fun requiresAdminForRegeneratingActivationTokens() {
+        val alice = saveUser("alice", "password", UserType.USER, active = false)
+        saveUser("bob", "password", UserType.USER)
+        saveUser("admin", "password", UserType.ADMIN)
+
+        val userToken = api().login("bob", "password")
+
+        api().post("/api/users/${alice.id}/activation-token", null).statusCode().shouldBe(401)
+        api().post("/api/users/${alice.id}/activation-token", userToken).statusCode().shouldBe(403)
+    }
+
+    @Test
+    fun regeneratesActivationTokenForInactiveUser() {
+        val alice = saveUser("alice", "password", UserType.USER, active = false)
+        saveUser("admin", "password", UserType.ADMIN)
+        userActivationTokenRepository.save(
+            UserActivationToken(
+                userId = alice.id!!,
+                token = "old-token",
+                expiresAt = Instant.parse("2099-06-15T08:00:00Z"),
+            ),
+        )
+        val adminToken = api().login("admin", "password")
+
+        val response = api().post("/api/users/${alice.id}/activation-token", adminToken)
+
+        response.statusCode().shouldBe(200)
+        val activationToken = userActivationTokenRepository.findByUserId(alice.id!!).shouldNotBeNull()
+        (activationToken.token != "old-token").shouldBe(true)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "id": ${alice.id},
+                  "username": "alice",
+                  "type": "USER",
+                  "currentUser": false,
+                  "active": false,
+                  "activationToken": {
+                    "token": "${activationToken.token}",
+                    "expiresAt": "2099-06-15T08:00:00Z"
+                  }
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun preventsRegeneratingActivationTokenForActiveUser() {
+        val alice = saveUser("alice", "password", UserType.USER, active = true)
+        saveUser("admin", "password", UserType.ADMIN)
+        val adminToken = api().login("admin", "password")
+
+        api().post("/api/users/${alice.id}/activation-token", adminToken).statusCode().shouldBe(400)
+    }
+
+    @Test
+    fun cleansUpExpiredActivationTokensWhenReadingUser() {
+        val alice = saveUser("alice", "password", UserType.USER, active = false)
+        saveUser("admin", "password", UserType.ADMIN)
+        userActivationTokenRepository.save(
+            UserActivationToken(
+                userId = alice.id!!,
+                token = "expired-token",
+                expiresAt = Instant.parse("2099-06-15T08:00:00Z"),
+            ),
+        )
+        testTimeProvider.setNow(Instant.parse("2099-06-15T08:00:01Z"))
+        val adminToken = api().login("admin", "password")
+
+        val response = api().get("/api/users/${alice.id}", adminToken)
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "id": ${alice.id},
+                  "username": "alice",
+                  "type": "USER",
+                  "currentUser": false,
+                  "active": false
+                }
+            """.trimIndent(),
+        )
+        userActivationTokenRepository.findByUserId(alice.id!!).shouldBeNull()
     }
 
     @Test

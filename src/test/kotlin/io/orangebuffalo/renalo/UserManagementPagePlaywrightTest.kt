@@ -45,7 +45,7 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Users"))).isVisible()
         page.shouldEventuallyContainRows(
-            UserRow("admin", "Admin", "Active", ""),
+            UserRow("admin", "Admin", "Active", "edit"),
             UserRow("alice", "User", "Active", "edit trash"),
             UserRow("bob", "User", "Active", "edit trash"),
             UserRow("charlie", "User", "Active", "edit trash"),
@@ -58,7 +58,7 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Previous")).click()
         page.shouldEventuallyContainRows(
-            UserRow("admin", "Admin", "Active", ""),
+            UserRow("admin", "Admin", "Active", "edit"),
             UserRow("alice", "User", "Active", "edit trash"),
             UserRow("bob", "User", "Active", "edit trash"),
             UserRow("charlie", "User", "Active", "edit trash"),
@@ -88,7 +88,7 @@ class UserManagementPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Remove user")).click()
 
         page.shouldEventuallyContainRows(
-            UserRow("admin", "Admin", "Active", ""),
+            UserRow("admin", "Admin", "Active", "edit"),
             UserRow("bob", "User", "Active", "edit trash"),
             UserRow("charlie", "User", "Active", "edit trash"),
             UserRow("dana", "User", "Active", "edit trash"),
