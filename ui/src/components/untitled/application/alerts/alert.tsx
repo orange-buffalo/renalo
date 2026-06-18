@@ -1,14 +1,38 @@
+import { AlertCircle } from "@untitledui/icons";
 import type { ReactNode } from "react";
 import { cx } from "@/utils/cx";
 
 type AlertTone = "warning" | "error" | "success" | "brand" | "gray";
 
-const toneStyles: Record<AlertTone, string> = {
-  warning: "border-[#fedf89] bg-[#fffaeb] text-[#93370d]",
-  error: "border-[#fecdca] bg-[#fef3f2] text-[#b42318]",
-  success: "border-[#abefc6] bg-[#ecfdf3] text-[#067647]",
-  brand: "border-[#b2ddff] bg-[#eff8ff] text-[#175cd3]",
-  gray: "border-[#eaecf0] bg-[#f9fafb] text-[#475467]",
+const toneStyles: Record<
+  AlertTone,
+  { icon: string; ringInner: string; ringOuter: string }
+> = {
+  warning: {
+    icon: "text-[#dc6803]",
+    ringInner: "ring-[#fef0c7]",
+    ringOuter: "ring-[#fffaeb]",
+  },
+  error: {
+    icon: "text-[#f04438]",
+    ringInner: "ring-[#fee4e2]",
+    ringOuter: "ring-[#fef3f2]",
+  },
+  success: {
+    icon: "text-[#17b26a]",
+    ringInner: "ring-[#dcfae6]",
+    ringOuter: "ring-[#ecfdf3]",
+  },
+  brand: {
+    icon: "text-[#2e90fa]",
+    ringInner: "ring-[#d1e9ff]",
+    ringOuter: "ring-[#eff8ff]",
+  },
+  gray: {
+    icon: "text-[#717680]",
+    ringInner: "ring-[#e9eaeb]",
+    ringOuter: "ring-[#fafafa]",
+  },
 };
 
 export function Alert({
@@ -22,17 +46,37 @@ export function Alert({
   children?: ReactNode;
   className?: string;
 }) {
+  const styles = toneStyles[tone];
+
   return (
     <div
       role="alert"
       className={cx(
-        "grid gap-2 rounded-2xl border p-4 text-sm",
-        toneStyles[tone],
+        "flex gap-5 rounded-2xl border border-[#d5d7da] bg-white p-5 shadow-xs",
         className,
       )}
     >
-      <p className="m-0 font-semibold text-primary">{title}</p>
-      {children && <div className="grid gap-3 text-sm">{children}</div>}
+      <span
+        className={cx(
+          "mt-1 flex size-7 shrink-0 items-center justify-center rounded-full ring-4",
+          styles.ringInner,
+        )}
+      >
+        <span
+          className={cx(
+            "flex size-5 items-center justify-center rounded-full ring-4",
+            styles.ringOuter,
+          )}
+        >
+          <AlertCircle className={cx("size-4", styles.icon)} />
+        </span>
+      </span>
+      <div className="grid min-w-0 flex-1 gap-1 text-base">
+        <p className="m-0 font-semibold text-[#414651]">{title}</p>
+        {children && (
+          <div className="grid gap-3 text-[#414651] [&_p]:m-0">{children}</div>
+        )}
+      </div>
     </div>
   );
 }
