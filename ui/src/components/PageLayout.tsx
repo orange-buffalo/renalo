@@ -10,10 +10,20 @@ import type { NavItemType } from "@/components/untitled/application/app-navigati
 type PageLayoutProps = {
   eyebrow: string;
   title: string;
+  description?: string;
+  titleTrailing?: ReactNode;
+  actions?: ReactNode;
   children?: ReactNode;
 };
 
-export function PageLayout({ eyebrow, title, children }: PageLayoutProps) {
+export function PageLayout({
+  eyebrow,
+  title,
+  description,
+  titleTrailing,
+  actions,
+  children,
+}: PageLayoutProps) {
   const { profile } = useAppState();
   const location = useLocation();
   const navigate = useNavigate();
@@ -87,10 +97,17 @@ export function PageLayout({ eyebrow, title, children }: PageLayoutProps) {
       <div className="standard-page-content">
         <div className="standard-page-surface">
           <header className="standard-page-header">
-            <div>
+            <div className="standard-page-heading">
               <p className="eyebrow">{eyebrow}</p>
-              <h1>{title}</h1>
+              <div className="standard-page-title-row">
+                <h1>{title}</h1>
+                {titleTrailing}
+              </div>
+              {description && (
+                <p className="standard-page-description">{description}</p>
+              )}
             </div>
+            {actions && <div className="standard-page-actions">{actions}</div>}
           </header>
 
           <main className="standard-page-main">{children}</main>

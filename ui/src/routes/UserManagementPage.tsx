@@ -14,7 +14,7 @@ import {
   Table,
   TableCard,
 } from "@/components/untitled/application/table/table";
-import { BadgeWithDot } from "@/components/untitled/base/badges/badges";
+import { Badge, BadgeWithDot } from "@/components/untitled/base/badges/badges";
 import { Button } from "@/components/untitled/base/buttons/button";
 
 const pageSize = 5;
@@ -107,31 +107,35 @@ export function UserManagementPage() {
 
   const users = usersPage?.users ?? [];
   const displayTotalPages = Math.max(usersPage?.totalPages ?? 1, 1);
+  const userCountLabel = usersPage
+    ? `${usersPage.totalElements} user${usersPage.totalElements === 1 ? "" : "s"}`
+    : undefined;
 
   return (
-    <PageLayout eyebrow="Administration" title="User management">
+    <PageLayout
+      eyebrow="Administration"
+      title="User management"
+      description="Manage Renalo users and keep administrative access organized."
+      titleTrailing={
+        userCountLabel ? (
+          <Badge color="gray" size="sm" type="modern">
+            {userCountLabel}
+          </Badge>
+        ) : undefined
+      }
+      actions={
+        <Button
+          color="tertiary"
+          size="sm"
+          iconLeading={Plus}
+          onPress={() => navigate("/user-management/create")}
+        >
+          Create user
+        </Button>
+      }
+    >
       <section className="user-management-panel">
         <TableCard.Root size="sm">
-          <TableCard.Header
-            title="Workspace access"
-            description="Manage Renalo users and keep administrative access organized."
-            contentTrailing={
-              <Button
-                color="primary"
-                size="sm"
-                iconLeading={Plus}
-                onPress={() => navigate("/user-management/create")}
-              >
-                Create user
-              </Button>
-            }
-            badge={
-              usersPage
-                ? `${usersPage.totalElements} user${usersPage.totalElements === 1 ? "" : "s"}`
-                : undefined
-            }
-          />
-
           {error && (
             <p
               className="user-management-message user-management-error"
@@ -232,7 +236,7 @@ export function UserManagementPage() {
                 </div>
                 <div className="flex justify-between gap-3 border-t border-secondary px-6 py-4">
                   <Button
-                    color="link-gray"
+                    color="tertiary"
                     size="sm"
                     onPress={() => setConfirmingUser(undefined)}
                     isDisabled={deletingUserId === confirmingUser.id}

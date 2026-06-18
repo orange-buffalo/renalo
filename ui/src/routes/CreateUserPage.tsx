@@ -57,7 +57,11 @@ export function CreateUserPage() {
   }
 
   return (
-    <PageLayout eyebrow="Administration" title="Create user">
+    <PageLayout
+      eyebrow="Administration"
+      title="Create user"
+      description="A password will be generated automatically. New users are inactive until activation is implemented."
+    >
       <section className="standard-page-panel create-user-panel">
         <form className="create-user-form" onSubmit={handleSubmit}>
           <Input
@@ -85,11 +89,6 @@ export function CreateUserPage() {
             {(item) => <Select.Item id={item.id}>{item.label}</Select.Item>}
           </Select>
 
-          <p className="create-user-password-note">
-            A password will be generated automatically. New users are inactive
-            until activation is implemented.
-          </p>
-
           {error && (
             <p
               className="create-user-form-error user-management-error"
@@ -101,7 +100,7 @@ export function CreateUserPage() {
 
           <div className="create-user-actions">
             <Button
-              color="link-gray"
+              color="tertiary"
               size="sm"
               onPress={() => navigate("/user-management")}
               isDisabled={isSaving}

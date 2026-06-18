@@ -316,8 +316,18 @@ input {
 .standard-page-header {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 24px;
+}
+
+.standard-page-heading {
+  min-width: 0;
+}
+
+.standard-page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .standard-page-header h1 {
@@ -328,8 +338,22 @@ input {
   letter-spacing: -0.04em;
 }
 
+.standard-page-description {
+  max-width: 720px;
+  margin: 20px 0 0;
+  color: #475467;
+  font-size: 1rem;
+}
+
+.standard-page-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding-top: 48px;
+}
+
 .standard-page-main {
-  margin-top: 40px;
+  margin-top: 32px;
 }
 
 .standard-page-panel {
@@ -370,21 +394,15 @@ input {
 }
 
 .create-user-panel {
-  width: min(100%, 900px);
+  max-width: none;
+  width: 100%;
 }
 
 .create-user-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 900px;
+  width: 100%;
   gap: 28px 32px;
-}
-
-.create-user-password-note {
-  margin: 0;
-  color: #475467;
-  grid-column: 1 / -1;
-  max-width: 560px;
 }
 
 .create-user-form-error {
@@ -508,6 +526,15 @@ input {
 
   .standard-page-header {
     display: block;
+  }
+
+  .standard-page-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .standard-page-actions {
+    padding-top: 24px;
   }
 
   .standard-page-user {

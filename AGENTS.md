@@ -6,6 +6,7 @@
 - Gradle group is `io.orange-buffalo`.
 - Use Java 25.
 - Do not run the full test suite by default. Verify changes with the smallest relevant Gradle `test` selection.
+- Keep this `AGENTS.md` file up to date while working. Add durable, cross-task knowledge such as general approach, architecture decisions, shared UI patterns, testing conventions, and recurring implementation rules. Do not store task-specific notes, temporary findings, or one-off context here.
 
 ## Git
 
@@ -16,6 +17,7 @@
 - Micronaut serves the Bun-compiled frontend from `classpath:public` as an SPA.
 - `index.html` responses must prohibit caching.
 - Static assets under `/assets/**` should use long-lived immutable cache headers.
+- Frontend build outputs for all cacheable assets, including CSS, must be fingerprinted before they are referenced by `index.html`.
 - Tests use Testcontainers PostgreSQL, not H2.
 - Database cleanup for tests must truncate application tables before and after each test, excluding Flyway metadata tables.
 - Every API change must be fully covered with tests, including security verification, business flow coverage, and relevant edge cases.
@@ -34,6 +36,8 @@
 - Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
+- Standard authenticated pages should put page-level descriptions, counters/badges, and primary actions in `PageLayout`, not inside table panels or forms.
+- Table surfaces should use the shared Untitled table/card border treatment so the panel outline is consistent across all current and future tables.
 - Functional UI changes must be covered with Playwright tests. Do not add Playwright assertions solely for visual styling; use trace screenshots for visual review instead.
 - Maintain one Playwright test class per page or route-level surface, for example `LoginPagePlaywrightTest` for login flows and `UserManagementPagePlaywrightTest` for user-management page flows.
 - Do not add permanent mobile-specific Playwright tests unless mobile behavior is the core functional contract being changed. Temporary mobile Playwright checks may be used for verification, but remove them before finishing unless they are necessary regression coverage.
