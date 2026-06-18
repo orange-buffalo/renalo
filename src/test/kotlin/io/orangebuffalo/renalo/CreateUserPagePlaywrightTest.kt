@@ -54,7 +54,8 @@ class CreateUserPagePlaywrightTest : IntegrationTestSupport() {
         }
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit frank"))).isVisible()
         assertThat(page.locator("[data-testid='user-status-badge']")).containsText("Inactive")
-        assertThat(page.getByText("User created. Share the activation link to finish setup.")).isVisible()
+        assertThat(page.getByText("User created.")).isVisible()
+        assertThat(page.getByText("Share the activation link to finish setup.")).isVisible()
         assertThat(page.getByRole(AriaRole.ALERT)).containsText("Activation required")
         assertThat(page.getByLabel("Activation link")).hasValue(Pattern.compile(".*activate-account\\?token=.*"))
     }

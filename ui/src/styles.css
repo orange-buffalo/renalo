@@ -432,48 +432,12 @@ input {
 }
 
 .edit-user-form-error,
-.renalo-alert,
 .edit-user-actions {
   grid-column: 1 / -1;
 }
 
-.renalo-notification {
-  margin-bottom: 16px;
-  padding: 12px 14px;
-  border: 1px solid #abefc6;
-  border-radius: 12px;
-  background: #ecfdf3;
-  color: #067647;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.renalo-alert {
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  border-radius: 16px;
-  font-size: 0.875rem;
-}
-
-.renalo-alert strong,
-.renalo-alert p {
-  margin: 0;
-}
-
-.renalo-alert--warning {
-  border: 1px solid #fedf89;
-  background: #fffaeb;
-  color: #93370d;
-}
-
-.renalo-alert--error {
-  border: 1px solid #fecdca;
-  background: #fef3f2;
-  color: #b42318;
-}
-
 .activation-link-row {
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;

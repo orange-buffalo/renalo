@@ -31,6 +31,8 @@ openssl rand -base64 64
 
 Keep this value stable across application restarts and across all Renalo instances in the same environment. Changing it invalidates existing signed-in sessions.
 
+Set `RENALO_PUBLIC_URL` to the externally reachable base URL of the deployment, for example `https://renalo.example.com`. Renalo uses it to generate user activation links. The default is `http://localhost:8080`, which is only suitable for local development.
+
 When the first instance starts with an empty database, Renalo creates a default admin account and prints a boxed log entry containing the generated username and password. Capture these credentials from application logs immediately; the generated password is only logged at creation time. If an admin already exists, no password is generated or printed.
 
 ## Docker
@@ -49,5 +51,6 @@ docker run --rm -p 8080:8080 \
   -e JDBC_USER=renalo \
   -e JDBC_PASSWORD=renalo \
   -e RENALO_JWT_SECRET="$(openssl rand -base64 64)" \
+  -e RENALO_PUBLIC_URL=http://localhost:8080 \
   ghcr.io/orange-buffalo/renalo:latest
 ```

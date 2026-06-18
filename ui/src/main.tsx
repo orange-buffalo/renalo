@@ -5,6 +5,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { AppStateProvider, useAppState } from "./AppState.tsx";
 import type { UserType } from "./api/auth.ts";
 import { LoadingPage } from "./components/AnonymousPage.tsx";
+import { Notifications } from "./components/untitled/application/notifications/notifications.tsx";
 import { CreateUserPage } from "./routes/CreateUserPage.tsx";
 import { EditUserPage } from "./routes/EditUserPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
@@ -64,6 +65,7 @@ createRoot(root).render(
   <StrictMode>
     <AppStateProvider>
       <RouterProvider router={router} />
+      <Notifications />
     </AppStateProvider>
   </StrictMode>,
 );

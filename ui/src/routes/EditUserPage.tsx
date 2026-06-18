@@ -4,11 +4,13 @@ import { useAppState } from "@/AppState";
 import type { UserType } from "@/api/auth";
 import { ApiError, apiRequest } from "@/api/client";
 import { PageLayout } from "@/components/PageLayout";
+import { Alert } from "@/components/untitled/application/alerts/alert";
 import {
   Dialog,
   Modal,
   ModalOverlay,
 } from "@/components/untitled/application/modals/modal";
+import { showNotification } from "@/components/untitled/application/notifications/notifications";
 import { BadgeWithDot } from "@/components/untitled/base/badges/badges";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
@@ -46,26 +48,18 @@ export function EditUserPage() {
   const [usernameError, setUsernameError] = useState<string>();
   const [isRegenerateConfirmationOpen, setIsRegenerateConfirmationOpen] =
     useState(false);
-  const [notification, setNotification] = useState<string>();
 
   useEffect(() => {
-    const state = location.state as { notification?: string } | null;
+    const state = location.state as {
+      notification?: { title: string; description?: string };
+    } | null;
     if (!state?.notification) {
       return;
     }
 
-    setNotification(state.notification);
+    showNotification(state.notification);
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
-
-  useEffect(() => {
-    if (!notification) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setNotification(undefined), 20_000);
-    return () => window.clearTimeout(timeout);
-  }, [notification]);
 
   useEffect(() => {
     let isCurrentRequest = true;
@@ -124,7 +118,11 @@ export function EditUserPage() {
       setUser(updatedUser);
       setUsername(updatedUser.username);
       navigate("/user-management", {
-        state: { notification: "User changes saved." },
+        state: {
+          notification: {
+            title: "User changes saved.",
+          },
+        },
       });
     } catch (caughtError) {
       if (
@@ -150,7 +148,7 @@ export function EditUserPage() {
 
     try {
       await copyText(activationUrl);
-      setNotification("Activation link copied.");
+      showNotification({ title: "Activation link copied." });
     } catch {
       setError(
         "Activation link could not be copied. Copy it manually instead.",
@@ -172,7 +170,7 @@ export function EditUserPage() {
         { method: "POST" },
       );
       setUser(updatedUser);
-      setNotification("Activation link regenerated.");
+      showNotification({ title: "Activation link regenerated." });
       setIsRegenerateConfirmationOpen(false);
     } catch {
       setError(
@@ -211,12 +209,6 @@ export function EditUserPage() {
       }
     >
       <section className="standard-page-panel edit-user-panel">
-        {notification && (
-          <div className="renalo-notification" role="status">
-            {notification}
-          </div>
-        )}
-
         {isLoading ? (
           <p className="user-management-message">Loading user...</p>
         ) : user ? (
@@ -348,19 +340,21 @@ function ActivationAlert({
   const activationUrl = getActivationUrl(user, publicUrl);
   if (!activationUrl) {
     return (
-      <div className="renalo-alert renalo-alert--error" role="alert">
-        <strong>Activation unavailable</strong>
+      <Alert
+        tone="error"
+        title="Activation unavailable"
+        className="col-span-full"
+      >
         <p>
           This user cannot activate their account because no valid activation
           link exists.
         </p>
-      </div>
+      </Alert>
     );
   }
 
   return (
-    <div className="renalo-alert renalo-alert--warning" role="alert">
-      <strong>Activation required</strong>
+    <Alert tone="warning" title="Activation required" className="col-span-full">
       <p>Share this link with the user so they can activate their account.</p>
       <div className="activation-link-row">
         <input readOnly value={activationUrl} aria-label="Activation link" />
@@ -368,7 +362,7 @@ function ActivationAlert({
           Copy link
         </Button>
       </div>
-    </div>
+    </Alert>
   );
 }
 

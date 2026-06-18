@@ -9,6 +9,7 @@ import {
   Modal,
   ModalOverlay,
 } from "@/components/untitled/application/modals/modal";
+import { showNotification } from "@/components/untitled/application/notifications/notifications";
 import { PaginationCardDefault } from "@/components/untitled/application/pagination/pagination";
 import {
   Table,
@@ -49,26 +50,18 @@ export function UserManagementPage() {
   const [error, setError] = useState<string>();
   const [confirmingUser, setConfirmingUser] = useState<ManagedUser>();
   const [deletingUserId, setDeletingUserId] = useState<number>();
-  const [notification, setNotification] = useState<string>();
 
   useEffect(() => {
-    const state = location.state as { notification?: string } | null;
+    const state = location.state as {
+      notification?: { title: string; description?: string };
+    } | null;
     if (!state?.notification) {
       return;
     }
 
-    setNotification(state.notification);
+    showNotification(state.notification);
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
-
-  useEffect(() => {
-    if (!notification) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setNotification(undefined), 20_000);
-    return () => window.clearTimeout(timeout);
-  }, [notification]);
 
   useEffect(() => {
     let isActive = true;
@@ -156,12 +149,6 @@ export function UserManagementPage() {
       }
     >
       <section className="user-management-panel">
-        {notification && (
-          <div className="renalo-notification" role="status">
-            {notification}
-          </div>
-        )}
-
         <TableCard.Root size="sm">
           {error && (
             <p

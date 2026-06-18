@@ -45,8 +45,10 @@ export function CreateUserPage() {
       });
       navigate(`/user-management/${createdUser.id}`, {
         state: {
-          notification:
-            "User created. Share the activation link to finish setup.",
+          notification: {
+            title: "User created.",
+            description: "Share the activation link to finish setup.",
+          },
         },
       });
     } catch (caughtError) {
