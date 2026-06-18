@@ -10,7 +10,6 @@ import io.micronaut.http.annotation.Post
 import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
-import kotlinx.coroutines.delay
 import java.time.Duration
 
 @Controller("/api/account-activation")
@@ -23,8 +22,8 @@ class AccountActivationController(
     private val activationTokenDelay: Duration,
 ) {
     @Get
-    suspend fun getActivationStatus(@QueryValue token: String): HttpResponse<*> {
-        delay(activationTokenDelay.toMillis())
+    fun getActivationStatus(@QueryValue token: String): HttpResponse<*> {
+        Thread.sleep(activationTokenDelay.toMillis())
         val activationToken = userActivationTokenService.findValidToken(token)
             ?: return tokenNotFound()
         val user = userRepository.findById(activationToken.userId).orElse(null)
@@ -39,11 +38,11 @@ class AccountActivationController(
     }
 
     @Post
-    suspend fun activateAccount(
+    fun activateAccount(
         @QueryValue token: String,
         @Body request: ActivateAccountRequest,
     ): HttpResponse<*> {
-        delay(activationTokenDelay.toMillis())
+        Thread.sleep(activationTokenDelay.toMillis())
         if (request.password.isBlank() || request.password != request.passwordConfirmation) {
             return HttpResponse.badRequest<Any>()
         }
