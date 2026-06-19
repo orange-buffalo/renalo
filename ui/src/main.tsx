@@ -10,6 +10,11 @@ import { ActivateAccountPage } from "./routes/ActivateAccountPage.tsx";
 import { CreateUserPage } from "./routes/CreateUserPage.tsx";
 import { EditUserPage } from "./routes/EditUserPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
+import { SettingsPage } from "./routes/SettingsPage.tsx";
+import {
+  CreateTrackingAccountPage,
+  EditTrackingAccountPage,
+} from "./routes/TrackingAccountFormPage.tsx";
 import { TrackingPage } from "./routes/TrackingPage.tsx";
 import { UserManagementPage } from "./routes/UserManagementPage.tsx";
 
@@ -27,6 +32,30 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <TrackingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/accounts/create",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <CreateTrackingAccountPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/accounts/:accountId",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <EditTrackingAccountPage />
       </ProtectedRoute>
     ),
   },

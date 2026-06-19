@@ -195,6 +195,36 @@ input {
   width: min(100%, 720px);
 }
 
+.settings-tabs {
+  gap: 24px;
+}
+
+.settings-tabs-list-row {
+  display: flex;
+  justify-content: center;
+}
+
+.settings-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-form {
+  max-width: 720px;
+  gap: 20px;
+}
+
+.settings-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.settings-default-tooltip-trigger {
+  width: fit-content;
+}
+
 .eyebrow {
   margin: 0 0 12px;
   color: #175cd3;

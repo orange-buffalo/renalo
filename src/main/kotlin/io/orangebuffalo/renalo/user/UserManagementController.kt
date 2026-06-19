@@ -12,6 +12,7 @@ import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
+import io.orangebuffalo.renalo.tracking.TrackingAccountService
 import java.security.SecureRandom
 import java.util.Base64
 
@@ -21,6 +22,7 @@ class UserManagementController(
     private val userRepository: UserRepository,
     private val passwordHasher: PasswordHasher,
     private val userActivationTokenService: UserActivationTokenService,
+    private val trackingAccountService: TrackingAccountService,
 ) {
     private val random = SecureRandom()
 
@@ -90,6 +92,11 @@ class UserManagementController(
         userActivationTokenService.generateTokenForUser(
             user.id ?: error("User must be persisted before activation token can be generated"),
         )
+        if (user.type == UserType.USER) {
+            trackingAccountService.createDefaultAccountForUser(
+                user.id ?: error("User must be persisted before tracking account can be created"),
+            )
+        }
 
         return HttpResponse.created(
             ManagedUserResponse(

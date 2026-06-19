@@ -52,6 +52,8 @@ interface InputGroupProps extends TextFieldProps {
   label?: string;
   /** Helper text displayed below the input */
   hint?: ReactNode;
+  /** Tooltip message on hover. */
+  tooltip?: string;
   /** Whether to hide the required indicator from the label. */
   hideRequiredIndicator?: boolean;
 }
@@ -63,6 +65,7 @@ export const InputGroup = ({
   trailingAddon,
   label,
   hint,
+  tooltip,
   hideRequiredIndicator,
   children,
   ...props
@@ -127,7 +130,7 @@ export const InputGroup = ({
       {({ isDisabled, isInvalid, isRequired }) => (
         <>
           {label && (
-            <Label isRequired={hideRequiredIndicator ? false : isRequired}>
+            <Label isRequired={hideRequiredIndicator ? false : isRequired} tooltip={tooltip}>
               {label}
             </Label>
           )}

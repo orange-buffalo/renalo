@@ -15,6 +15,10 @@
 ## Backend
 
 - Micronaut serves the Bun-compiled frontend from `classpath:public` as an SPA.
+- Budget-tracking data is always regular-user-bound. `TrackingAccount` owns the account currency and initial balance used by later incomes, expenses, transfers, and analytics settings.
+- A regular user must always have at least one `TrackingAccount`; new and migrated users get a default `Main` account in `AUD` with zero initial balance.
+- Exactly one `TrackingAccount` per regular user must have `isDefault = true`; changing the default means nominating another account, not unchecking the current default.
+- Money is stored in integer minor units for the account currency, for example `12345` for `USD 123.45`; respect each ISO currency's default fraction digits when formatting/parsing.
 - `index.html` responses must prohibit caching.
 - Static assets under `/assets/**` should use long-lived immutable cache headers.
 - Frontend build outputs for all cacheable assets, including CSS, must be fingerprinted before they are referenced by `index.html`.

@@ -1,4 +1,10 @@
-import { BarChartSquare02, Menu02, Users01, X } from "@untitledui/icons";
+import {
+  BarChartSquare02,
+  Menu02,
+  Settings01,
+  Users01,
+  X,
+} from "@untitledui/icons";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
@@ -133,6 +139,11 @@ function getNavigationItems(userType?: UserType): NavItemType[] {
       label: "Tracking",
       href: "/tracking",
       icon: BarChartSquare02,
+    },
+    {
+      label: "Settings",
+      href: "/settings",
+      icon: Settings01,
     },
   ];
 }
