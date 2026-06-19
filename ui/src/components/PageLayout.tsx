@@ -123,7 +123,7 @@ export function PageLayout({
               </AriaButton>
               <Dropdown.Popover
                 placement="top left"
-                className="standard-page-account-popover w-80 overflow-hidden rounded-xl"
+                className="standard-page-account-popover w-60 overflow-hidden rounded-xl"
               >
                 <div className="standard-page-account-menu-header">
                   <AvatarLabelGroup
