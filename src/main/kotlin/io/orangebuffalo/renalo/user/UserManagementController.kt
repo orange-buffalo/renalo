@@ -12,6 +12,8 @@ import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
+import io.orangebuffalo.renalo.tracking.ExpenseCategoryService
+import io.orangebuffalo.renalo.tracking.IncomeCategoryService
 import io.orangebuffalo.renalo.tracking.TrackingAccountService
 import java.security.SecureRandom
 import java.util.Base64
@@ -23,6 +25,8 @@ class UserManagementController(
     private val passwordHasher: PasswordHasher,
     private val userActivationTokenService: UserActivationTokenService,
     private val trackingAccountService: TrackingAccountService,
+    private val expenseCategoryService: ExpenseCategoryService,
+    private val incomeCategoryService: IncomeCategoryService,
 ) {
     private val random = SecureRandom()
 
@@ -95,6 +99,12 @@ class UserManagementController(
         if (user.type == UserType.USER) {
             trackingAccountService.createDefaultAccountForUser(
                 user.id ?: error("User must be persisted before tracking account can be created"),
+            )
+            expenseCategoryService.createDefaultCategoryForUser(
+                user.id ?: error("User must be persisted before expense category can be created"),
+            )
+            incomeCategoryService.createDefaultCategoryForUser(
+                user.id ?: error("User must be persisted before income category can be created"),
             )
         }
 

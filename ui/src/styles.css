@@ -372,6 +372,10 @@ input {
   grid-column: 1 / -1;
 }
 
+.tracking-account-form-spacer {
+  display: block;
+}
+
 .tracking-account-amount-addon {
   box-shadow: 0 0 0 1px #d0d5dd inset;
 }
@@ -786,6 +790,10 @@ input {
   .edit-user-form,
   .tracking-account-form {
     grid-template-columns: 1fr;
+  }
+
+  .tracking-account-form-spacer {
+    display: none;
   }
 
   .activation-link-row {

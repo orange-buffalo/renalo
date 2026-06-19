@@ -13,6 +13,10 @@ import {
   CreateExpenseCategoryPage,
   EditExpenseCategoryPage,
 } from "./routes/ExpenseCategoryFormPage.tsx";
+import {
+  CreateIncomeCategoryPage,
+  EditIncomeCategoryPage,
+} from "./routes/IncomeCategoryFormPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
 import { SettingsPage } from "./routes/SettingsPage.tsx";
 import {
@@ -76,6 +80,22 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <EditExpenseCategoryPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/income-categories/create",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <CreateIncomeCategoryPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/income-categories/:categoryId",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <EditIncomeCategoryPage />
       </ProtectedRoute>
     ),
   },

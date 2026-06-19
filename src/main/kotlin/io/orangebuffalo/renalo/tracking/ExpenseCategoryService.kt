@@ -1,11 +1,25 @@
 package io.orangebuffalo.renalo.tracking
 
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Singleton
 
 @Singleton
-class ExpenseCategoryService(
+open class ExpenseCategoryService(
     private val expenseCategoryRepository: ExpenseCategoryRepository,
 ) {
+    @Transactional
+    open fun createDefaultCategoryForUser(userId: Long): ExpenseCategory {
+        val categories = expenseCategoryRepository.findByUserIdOrderByName(userId)
+        categories.firstOrNull { it.name == "General" }?.let { return it }
+
+        return expenseCategoryRepository.save(
+            ExpenseCategory(
+                userId = userId,
+                name = "General",
+            ),
+        )
+    }
+
     fun listCategories(userId: Long): List<ExpenseCategory> =
         expenseCategoryRepository.findByUserIdOrderByName(userId)
 

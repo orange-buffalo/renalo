@@ -18,6 +18,7 @@
 - Micronaut serves the Bun-compiled frontend from `classpath:public` as an SPA.
 - Budget-tracking data is always regular-user-bound. `TrackingAccount` owns the account currency and initial balance used by later incomes, expenses, transfers, and analytics settings.
 - A regular user must always have at least one `TrackingAccount`; new and migrated users get a default `Main` account in `AUD` with zero initial balance.
+- Income and expense categories are regular-user-bound; new and migrated users get default `General` income and expense categories.
 - Exactly one `TrackingAccount` per regular user must have `isDefault = true`; changing the default means nominating another account, not unchecking the current default.
 - Money is stored in integer minor units for the account currency, for example `12345` for `USD 123.45`; respect each ISO currency's default fraction digits when formatting/parsing.
 - `index.html` responses must prohibit caching.
@@ -39,7 +40,7 @@
 - Components copied by the CLI should live under `ui/src/components/untitled/` and keep the documented Untitled UI APIs and implementation patterns.
 - Button usage should follow the documented shape: `color`, `size`, optional `iconLeading`/`iconTrailing`, `isDisabled`, and `isLoading`.
 - Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
-- New standard forms must use the full `standard-page-surface` content width, matching table widths. Do not cap standard forms with narrow `max-width` values. Use a full-width `standard-page-panel` section, a two-column desktop grid, single-column mobile layout, consistent 28px/32px field gaps, and footer actions split with cancel/back on the left and primary save/create on the right.
+- New standard forms must use the full `standard-page-surface` content width, matching table widths. Do not cap standard forms with narrow `max-width` values. Use a full-width `standard-page-panel` section, a two-column desktop grid, single-column mobile layout, consistent 28px/32px field gaps, and footer actions split with cancel/back on the left and primary save/create on the right. Always preserve the two-column desktop grid, even when a form has only one input; add an empty second-column spacer rather than widening the single input.
 - For searchable selects where search is part of the closed field, use documented Untitled `Select.ComboBox` and `Select.Item`; for dropdowns where search appears only after opening, follow the Untitled dropdown `Search simple` pattern with a regular trigger and search input inside the popover.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.

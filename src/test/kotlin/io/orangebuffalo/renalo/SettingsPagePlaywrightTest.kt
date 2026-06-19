@@ -13,6 +13,8 @@ import io.orangebuffalo.renalo.test.TestAuthTokens
 import io.orangebuffalo.renalo.test.shouldEventually
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
+import io.orangebuffalo.renalo.tracking.IncomeCategory
+import io.orangebuffalo.renalo.tracking.IncomeCategoryRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -35,6 +37,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
     lateinit var expenseCategoryRepository: ExpenseCategoryRepository
 
     @Inject
+    lateinit var incomeCategoryRepository: IncomeCategoryRepository
+
+    @Inject
     lateinit var passwordHasher: PasswordHasher
 
     @Inject
@@ -52,6 +57,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts"))).isVisible()
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Expense Categories")).click()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expense categories"))).isVisible()
+        page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Income Categories")).click()
+        assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Income categories"))).isVisible()
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts")).click()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
@@ -182,6 +189,58 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         )
     }
 
+    @Test
+    fun managesIncomeCategoriesFromSettingsPage(page: Page) {
+        val alice = saveUser("alice")
+        val salary = saveIncomeCategory(alice, "Salary")
+        saveIncomeCategory(alice, "Interest")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/settings?tab=income-categories")
+
+        assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Income Categories"))).isVisible()
+        assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Income categories"))).isVisible()
+        page.shouldEventuallyContainIncomeCategoryRows(
+            CategoryRow("Interest", "edit"),
+            CategoryRow("Salary", "edit"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add new category")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add new income category"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create category")).click()
+        assertThat(page.getByText("Enter an income category name.")).isVisible()
+        page.getByLabel("Name").fill("Bonus")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create category")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
+        assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Income Categories"))).isVisible()
+        incomeCategoryRepository.findByUserIdOrderByName(alice.id!!).map { it.name }.shouldContainExactly(
+            "Bonus",
+            "Interest",
+            "Salary",
+        )
+        page.shouldEventuallyContainIncomeCategoryRows(
+            CategoryRow("Bonus", "edit"),
+            CategoryRow("Interest", "edit"),
+            CategoryRow("Salary", "edit"),
+        )
+
+        page.locator("[data-testid='income-category-row-${salary.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Salary"))
+            .click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit Salary"))).isVisible()
+        page.getByLabel("Name").fill("Payroll")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save category")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
+        incomeCategoryRepository.findById(salary.id!!).get().name.shouldBe("Payroll")
+        page.shouldEventuallyContainIncomeCategoryRows(
+            CategoryRow("Bonus", "edit"),
+            CategoryRow("Interest", "edit"),
+            CategoryRow("Payroll", "edit"),
+        )
+    }
+
     private fun saveUser(username: String): User = userRepository.save(
         User(
             username = username,
@@ -208,6 +267,13 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun saveCategory(user: User, name: String): ExpenseCategory = expenseCategoryRepository.save(
         ExpenseCategory(
+            userId = user.id!!,
+            name = name,
+        ),
+    )
+
+    private fun saveIncomeCategory(user: User, name: String): IncomeCategory = incomeCategoryRepository.save(
+        IncomeCategory(
             userId = user.id!!,
             name = name,
         ),
@@ -267,6 +333,33 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
     private fun Page.shouldEventuallyContainCategoryRows(vararg expectedRows: CategoryRow) {
         shouldEventually {
             extractCategoryRows(this).shouldContainExactly(*expectedRows)
+        }
+    }
+
+    private fun extractIncomeCategoryRows(page: Page): List<CategoryRow> {
+        @Suppress("UNCHECKED_CAST")
+        val rows = page.locator("[data-testid^='income-category-row-']").evaluateAll(
+            """
+                rows => rows.map(row => Array.from(row.querySelectorAll('[role="rowheader"], [role="gridcell"]'))
+                    .map(cell => {
+                        const actions = Array.from(cell.querySelectorAll('[data-action-icon]'))
+                            .map(icon => icon.dataset.actionIcon);
+                        return actions.length ? actions.join(' ') : cell.textContent.trim();
+                    }))
+            """.trimIndent(),
+        ) as List<List<String>>
+
+        return rows.map { cells ->
+            CategoryRow(
+                name = cells.getOrElse(0) { "" },
+                action = cells.getOrElse(1) { "" },
+            )
+        }
+    }
+
+    private fun Page.shouldEventuallyContainIncomeCategoryRows(vararg expectedRows: CategoryRow) {
+        shouldEventually {
+            extractIncomeCategoryRows(this).shouldContainExactly(*expectedRows)
         }
     }
 

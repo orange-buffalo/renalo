@@ -7,6 +7,10 @@ import {
   fetchExpenseCategories,
 } from "@/api/expenseCategories";
 import {
+  fetchIncomeCategories,
+  type IncomeCategory,
+} from "@/api/incomeCategories";
+import {
   fetchTrackingAccounts,
   type TrackingAccount,
 } from "@/api/trackingAccounts";
@@ -23,19 +27,26 @@ import { formatMoney } from "@/utils/money";
 export function SettingsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
   const selectedTab =
-    searchParams.get("tab") === "expense-categories"
-      ? "expense-categories"
+    requestedTab === "expense-categories" ||
+    requestedTab === "income-categories"
+      ? requestedTab
       : "accounts";
   const [accounts, setAccounts] = useState<TrackingAccount[]>();
-  const [categories, setCategories] = useState<ExpenseCategory[]>();
+  const [expenseCategories, setExpenseCategories] =
+    useState<ExpenseCategory[]>();
+  const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>();
   const [accountsError, setAccountsError] = useState<string>();
-  const [categoriesError, setCategoriesError] = useState<string>();
+  const [expenseCategoriesError, setExpenseCategoriesError] =
+    useState<string>();
+  const [incomeCategoriesError, setIncomeCategoriesError] = useState<string>();
 
   useEffect(() => {
     let isActive = true;
     setAccountsError(undefined);
-    setCategoriesError(undefined);
+    setExpenseCategoriesError(undefined);
+    setIncomeCategoriesError(undefined);
 
     fetchTrackingAccounts()
       .then((nextAccounts) => {
@@ -53,13 +64,26 @@ export function SettingsPage() {
     fetchExpenseCategories()
       .then((nextCategories) => {
         if (isActive) {
-          setCategories(nextCategories);
+          setExpenseCategories(nextCategories);
         }
       })
       .catch(() => {
         if (isActive) {
-          setCategoriesError(
+          setExpenseCategoriesError(
             "Expense categories could not be loaded. Try again in a moment.",
+          );
+        }
+      });
+    fetchIncomeCategories()
+      .then((nextCategories) => {
+        if (isActive) {
+          setIncomeCategories(nextCategories);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setIncomeCategoriesError(
+            "Income categories could not be loaded. Try again in a moment.",
           );
         }
       });
@@ -80,6 +104,8 @@ export function SettingsPage() {
         onSelectionChange={(key) => {
           if (key === "expense-categories") {
             setSearchParams({ tab: "expense-categories" }, { replace: true });
+          } else if (key === "income-categories") {
+            setSearchParams({ tab: "income-categories" }, { replace: true });
           } else {
             setSearchParams({}, { replace: true });
           }
@@ -97,6 +123,9 @@ export function SettingsPage() {
           </Tabs.Item>
           <Tabs.Item id="expense-categories" className="settings-tab-item">
             Expense Categories
+          </Tabs.Item>
+          <Tabs.Item id="income-categories" className="settings-tab-item">
+            Income Categories
           </Tabs.Item>
         </Tabs.List>
         <Tabs.Panel id="accounts" className="settings-tab-panel">
@@ -189,15 +218,15 @@ export function SettingsPage() {
             </Button>
           </div>
           <TableCard.Root size="sm">
-            {categoriesError && (
+            {expenseCategoriesError && (
               <p
                 className="user-management-message user-management-error"
                 role="alert"
               >
-                {categoriesError}
+                {expenseCategoriesError}
               </p>
             )}
-            {!categories ? (
+            {!expenseCategories ? (
               <p className="user-management-message">
                 Loading expense categories...
               </p>
@@ -212,7 +241,7 @@ export function SettingsPage() {
                   />
                 </Table.Header>
                 <Table.Body>
-                  {categories.map((category) => (
+                  {expenseCategories.map((category) => (
                     <Table.Row
                       id={category.id}
                       key={category.id}
@@ -229,6 +258,70 @@ export function SettingsPage() {
                             onPress={() =>
                               navigate(
                                 `/settings/expense-categories/${category.id}`,
+                              )
+                            }
+                          />
+                        </div>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+            )}
+          </TableCard.Root>
+        </Tabs.Panel>
+        <Tabs.Panel id="income-categories" className="settings-tab-panel">
+          <div className="settings-tab-actions">
+            <Button
+              color="tertiary"
+              size="sm"
+              iconLeading={Plus}
+              onPress={() => navigate("/settings/income-categories/create")}
+            >
+              Add new category
+            </Button>
+          </div>
+          <TableCard.Root size="sm">
+            {incomeCategoriesError && (
+              <p
+                className="user-management-message user-management-error"
+                role="alert"
+              >
+                {incomeCategoriesError}
+              </p>
+            )}
+            {!incomeCategories ? (
+              <p className="user-management-message">
+                Loading income categories...
+              </p>
+            ) : (
+              <Table aria-label="Income categories" size="sm">
+                <Table.Header>
+                  <Table.Head id="name" label="Name" isRowHeader />
+                  <Table.Head
+                    id="actions"
+                    label="Actions"
+                    className="[&>div]:justify-end"
+                  />
+                </Table.Header>
+                <Table.Body>
+                  {incomeCategories.map((category) => (
+                    <Table.Row
+                      id={category.id}
+                      key={category.id}
+                      data-testid={`income-category-row-${category.id}`}
+                    >
+                      <Table.Cell>{category.name}</Table.Cell>
+                      <Table.Cell>
+                        <div className="user-management-actions-cell">
+                          <Button
+                            aria-label={`Edit ${category.name}`}
+                            color="tertiary"
+                            size="sm"
+                            iconLeading={EditActionIcon}
+                            onPress={() =>
+                              navigate(
+                                `/settings/income-categories/${category.id}`,
                               )
                             }
                           />

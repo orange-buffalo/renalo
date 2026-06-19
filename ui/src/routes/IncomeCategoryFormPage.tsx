@@ -1,28 +1,28 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
-  createExpenseCategory,
-  type ExpenseCategory,
-  fetchExpenseCategory,
-  updateExpenseCategory,
-} from "@/api/expenseCategories";
+  createIncomeCategory,
+  fetchIncomeCategory,
+  type IncomeCategory,
+  updateIncomeCategory,
+} from "@/api/incomeCategories";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 
-export function CreateExpenseCategoryPage() {
-  return <ExpenseCategoryFormPage mode="create" />;
+export function CreateIncomeCategoryPage() {
+  return <IncomeCategoryFormPage mode="create" />;
 }
 
-export function EditExpenseCategoryPage() {
-  return <ExpenseCategoryFormPage mode="edit" />;
+export function EditIncomeCategoryPage() {
+  return <IncomeCategoryFormPage mode="edit" />;
 }
 
-function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
+function IncomeCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
   const navigate = useNavigate();
   const { categoryId } = useParams();
-  const [category, setCategory] = useState<ExpenseCategory>();
+  const [category, setCategory] = useState<IncomeCategory>();
   const [name, setName] = useState("");
   const [error, setError] = useState<string>();
   const [nameError, setNameError] = useState<string>();
@@ -36,7 +36,7 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
     }
 
     let isActive = true;
-    fetchExpenseCategory(Number(categoryId))
+    fetchIncomeCategory(Number(categoryId))
       .then((loadedCategory) => {
         if (!isActive) {
           return;
@@ -45,9 +45,7 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
         setName(loadedCategory.name);
       })
       .catch(() =>
-        setError(
-          "Expense category could not be loaded. Try again in a moment.",
-        ),
+        setError("Income category could not be loaded. Try again in a moment."),
       );
 
     return () => {
@@ -58,7 +56,7 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const nextNameError =
-      name.trim() === "" ? "Enter an expense category name." : undefined;
+      name.trim() === "" ? "Enter an income category name." : undefined;
     setNameError(nextNameError);
     if (nextNameError) {
       return;
@@ -69,13 +67,13 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
 
     try {
       if (isEditing) {
-        await updateExpenseCategory(Number(categoryId), { name });
+        await updateIncomeCategory(Number(categoryId), { name });
       } else {
-        await createExpenseCategory({ name });
+        await createIncomeCategory({ name });
       }
-      navigate("/settings?tab=expense-categories", { replace: true });
+      navigate("/settings?tab=income-categories", { replace: true });
     } catch {
-      setError("Expense category could not be saved. Try again in a moment.");
+      setError("Income category could not be saved. Try again in a moment.");
     } finally {
       setIsSubmitting(false);
     }
@@ -87,9 +85,9 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
       title={
         isEditing
           ? `Edit ${category?.name ?? "category"}`
-          : "Add new expense category"
+          : "Add new income category"
       }
-      description="Expense categories group spending for tracking and analytics."
+      description="Income categories group earnings for tracking and analytics."
     >
       <section className="standard-page-panel tracking-account-panel">
         <form className="tracking-account-form" onSubmit={handleSubmit}>
@@ -119,7 +117,7 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
             <Button
               color="tertiary"
               size="sm"
-              onPress={() => navigate("/settings?tab=expense-categories")}
+              onPress={() => navigate("/settings?tab=income-categories")}
               isDisabled={isSubmitting}
             >
               Cancel
