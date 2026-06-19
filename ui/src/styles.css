@@ -237,6 +237,7 @@ input {
 }
 
 .tracking-account-panel {
+  display: block;
   max-width: none;
   width: 100%;
 }
@@ -244,6 +245,7 @@ input {
 .tracking-account-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: none;
   width: 100%;
   gap: 28px 32px;
 }
@@ -292,7 +294,7 @@ input {
 .tracking-account-currency-option span:first-child {
   overflow: hidden;
   color: #344054;
-  font-weight: 600;
+  font-weight: 400;
   text-overflow: ellipsis;
 }
 
@@ -313,6 +315,10 @@ input {
   max-height: 420px;
   border-radius: 12px;
   overflow: hidden;
+}
+
+.tracking-account-currency-popover [role="separator"] {
+  background: #d0d5dd;
 }
 
 .tracking-account-currency-search-wrap {
@@ -354,20 +360,19 @@ input {
   max-height: 300px;
 }
 
-.tracking-account-currency-check {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-  color: #6941c6;
-}
-
-.tracking-account-currency-check-hidden {
-  visibility: hidden;
+.tracking-account-currency-menu [role="menuitem"] > div > span.grow {
+  display: flex;
+  align-items: center;
+  font-weight: 400;
 }
 
 .tracking-account-form-wide,
 .tracking-account-actions {
   grid-column: 1 / -1;
+}
+
+.tracking-account-amount-addon {
+  box-shadow: 0 0 0 1px #d0d5dd inset;
 }
 
 .tracking-account-default-checkbox {
@@ -544,11 +549,12 @@ input {
 }
 
 .standard-page-main {
+  width: 100%;
   margin-top: 32px;
 }
 
 .standard-page-panel {
-  max-width: 760px;
+  width: 100%;
 }
 
 .standard-page-panel h2 {

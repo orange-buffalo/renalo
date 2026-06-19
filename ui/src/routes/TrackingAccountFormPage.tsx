@@ -1,4 +1,4 @@
-import { Check, ChevronDown, SearchLg } from "@untitledui/icons";
+import { ChevronDown, SearchLg } from "@untitledui/icons";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Button as AriaButton,
@@ -20,7 +20,6 @@ import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Input, InputBase } from "@/components/untitled/base/input/input";
 import { InputGroup } from "@/components/untitled/base/input/input-group";
 import { Label } from "@/components/untitled/base/input/label";
-import { cx } from "@/utils/cx";
 import {
   formatMoneyInput,
   getCurrencyOptions,
@@ -202,7 +201,11 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
             validationBehavior="aria"
             isInvalid={Boolean(amountError)}
             hint={amountError ?? "This is used for analytics."}
-            trailingAddon={<InputGroup.Prefix>{currency}</InputGroup.Prefix>}
+            trailingAddon={
+              <InputGroup.Prefix className="tracking-account-amount-addon">
+                {currency}
+              </InputGroup.Prefix>
+            }
           >
             <InputBase
               name="initialBalance"
@@ -330,20 +333,11 @@ function CurrencyDropdown({
                 key={option.id}
                 id={option.id}
                 textValue={`${option.label} ${option.supportingText}`}
-                selectionIndicator="none"
               >
                 <span className="tracking-account-currency-option">
                   <span>{option.label}</span>
                   <span>{option.supportingText}</span>
                 </span>
-                <Check
-                  aria-hidden="true"
-                  className={cx(
-                    "tracking-account-currency-check",
-                    option.id !== currency &&
-                      "tracking-account-currency-check-hidden",
-                  )}
-                />
               </Dropdown.Item>
             ))}
           </Dropdown.Menu>
