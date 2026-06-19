@@ -1,7 +1,11 @@
 import { Edit02, Plus } from "@untitledui/icons";
 import type { ComponentProps } from "react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
+import {
+  type ExpenseCategory,
+  fetchExpenseCategories,
+} from "@/api/expenseCategories";
 import {
   fetchTrackingAccounts,
   type TrackingAccount,
@@ -18,12 +22,20 @@ import { formatMoney } from "@/utils/money";
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedTab =
+    searchParams.get("tab") === "expense-categories"
+      ? "expense-categories"
+      : "accounts";
   const [accounts, setAccounts] = useState<TrackingAccount[]>();
-  const [error, setError] = useState<string>();
+  const [categories, setCategories] = useState<ExpenseCategory[]>();
+  const [accountsError, setAccountsError] = useState<string>();
+  const [categoriesError, setCategoriesError] = useState<string>();
 
   useEffect(() => {
     let isActive = true;
-    setError(undefined);
+    setAccountsError(undefined);
+    setCategoriesError(undefined);
 
     fetchTrackingAccounts()
       .then((nextAccounts) => {
@@ -33,7 +45,22 @@ export function SettingsPage() {
       })
       .catch(() => {
         if (isActive) {
-          setError("Accounts could not be loaded. Try again in a moment.");
+          setAccountsError(
+            "Accounts could not be loaded. Try again in a moment.",
+          );
+        }
+      });
+    fetchExpenseCategories()
+      .then((nextCategories) => {
+        if (isActive) {
+          setCategories(nextCategories);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setCategoriesError(
+            "Expense categories could not be loaded. Try again in a moment.",
+          );
         }
       });
 
@@ -48,7 +75,17 @@ export function SettingsPage() {
       title="Budget settings"
       description="Configure the budget workspace used for tracking and analytics."
     >
-      <Tabs defaultSelectedKey="accounts" className="settings-tabs">
+      <Tabs
+        selectedKey={selectedTab}
+        onSelectionChange={(key) => {
+          if (key === "expense-categories") {
+            setSearchParams({ tab: "expense-categories" }, { replace: true });
+          } else {
+            setSearchParams({}, { replace: true });
+          }
+        }}
+        className="settings-tabs"
+      >
         <Tabs.List
           size="md"
           type="button-brand"
@@ -59,7 +96,7 @@ export function SettingsPage() {
             Accounts
           </Tabs.Item>
           <Tabs.Item id="expense-categories" className="settings-tab-item">
-            Expenses Categories
+            Expense Categories
           </Tabs.Item>
         </Tabs.List>
         <Tabs.Panel id="accounts" className="settings-tab-panel">
@@ -74,12 +111,12 @@ export function SettingsPage() {
             </Button>
           </div>
           <TableCard.Root size="sm">
-            {error && (
+            {accountsError && (
               <p
                 className="user-management-message user-management-error"
                 role="alert"
               >
-                {error}
+                {accountsError}
               </p>
             )}
             {!accounts ? (
@@ -141,9 +178,68 @@ export function SettingsPage() {
           </TableCard.Root>
         </Tabs.Panel>
         <Tabs.Panel id="expense-categories" className="settings-tab-panel">
-          <section className="standard-page-panel settings-empty-panel">
-            <p>Expense categories will be configured here.</p>
-          </section>
+          <div className="settings-tab-actions">
+            <Button
+              color="tertiary"
+              size="sm"
+              iconLeading={Plus}
+              onPress={() => navigate("/settings/expense-categories/create")}
+            >
+              Add new category
+            </Button>
+          </div>
+          <TableCard.Root size="sm">
+            {categoriesError && (
+              <p
+                className="user-management-message user-management-error"
+                role="alert"
+              >
+                {categoriesError}
+              </p>
+            )}
+            {!categories ? (
+              <p className="user-management-message">
+                Loading expense categories...
+              </p>
+            ) : (
+              <Table aria-label="Expense categories" size="sm">
+                <Table.Header>
+                  <Table.Head id="name" label="Name" isRowHeader />
+                  <Table.Head
+                    id="actions"
+                    label="Actions"
+                    className="[&>div]:justify-end"
+                  />
+                </Table.Header>
+                <Table.Body>
+                  {categories.map((category) => (
+                    <Table.Row
+                      id={category.id}
+                      key={category.id}
+                      data-testid={`expense-category-row-${category.id}`}
+                    >
+                      <Table.Cell>{category.name}</Table.Cell>
+                      <Table.Cell>
+                        <div className="user-management-actions-cell">
+                          <Button
+                            aria-label={`Edit ${category.name}`}
+                            color="tertiary"
+                            size="sm"
+                            iconLeading={EditActionIcon}
+                            onPress={() =>
+                              navigate(
+                                `/settings/expense-categories/${category.id}`,
+                              )
+                            }
+                          />
+                        </div>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+            )}
+          </TableCard.Root>
         </Tabs.Panel>
       </Tabs>
     </PageLayout>

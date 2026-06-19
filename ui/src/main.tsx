@@ -9,6 +9,10 @@ import { Notifications } from "./components/untitled/application/notifications/n
 import { ActivateAccountPage } from "./routes/ActivateAccountPage.tsx";
 import { CreateUserPage } from "./routes/CreateUserPage.tsx";
 import { EditUserPage } from "./routes/EditUserPage.tsx";
+import {
+  CreateExpenseCategoryPage,
+  EditExpenseCategoryPage,
+} from "./routes/ExpenseCategoryFormPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
 import { SettingsPage } from "./routes/SettingsPage.tsx";
 import {
@@ -56,6 +60,22 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <EditTrackingAccountPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/expense-categories/create",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <CreateExpenseCategoryPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/expense-categories/:categoryId",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <EditExpenseCategoryPage />
       </ProtectedRoute>
     ),
   },
