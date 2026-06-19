@@ -1,17 +1,22 @@
 import {
   BarChartSquare02,
+  LogOut01,
   Menu02,
   Settings01,
+  User01,
   Users01,
   X,
 } from "@untitledui/icons";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { Button as AriaButton } from "react-aria-components";
 import { useLocation, useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
-import type { UserType } from "@/api/auth";
+import { clearAuthToken, type UserType } from "@/api/auth";
 import { NavList } from "@/components/untitled/application/app-navigation/base-components/nav-list";
 import type { NavItemType } from "@/components/untitled/application/app-navigation/config";
+import { AvatarLabelGroup } from "@/components/untitled/base/avatar/avatar-label-group";
+import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 
 type PageLayoutProps = {
   eyebrow: string;
@@ -30,7 +35,7 @@ export function PageLayout({
   actions,
   children,
 }: PageLayoutProps) {
-  const { profile } = useAppState();
+  const { profile, setProfile, setSettings } = useAppState();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -44,6 +49,14 @@ export function PageLayout({
     event.preventDefault();
     setIsMenuOpen(false);
     navigate(href);
+  }
+
+  function handleSignOut() {
+    clearAuthToken();
+    setProfile(undefined);
+    setSettings(undefined);
+    setIsMenuOpen(false);
+    navigate("/", { replace: true });
   }
 
   return (
@@ -94,9 +107,60 @@ export function PageLayout({
         </nav>
 
         <footer className="standard-page-sidebar-footer">
-          {profile
-            ? `${profile.username} · ${profile.type}`
-            : "Budget workspace"}
+          {profile ? (
+            <Dropdown.Root>
+              <AriaButton
+                aria-label="Open account menu"
+                className="standard-page-account-trigger group"
+              >
+                <AvatarLabelGroup
+                  size="md"
+                  title={profile.username}
+                  subtitle={profile.type}
+                  placeholderIcon={User01}
+                  rounded
+                />
+              </AriaButton>
+              <Dropdown.Popover
+                placement="top left"
+                className="standard-page-account-popover w-80 overflow-hidden rounded-xl"
+              >
+                <div className="standard-page-account-menu-header">
+                  <AvatarLabelGroup
+                    size="lg"
+                    title={profile.username}
+                    subtitle={profile.type}
+                    placeholderIcon={User01}
+                    rounded
+                  />
+                </div>
+                <Dropdown.Menu selectionMode="none" aria-label="Account menu">
+                  <Dropdown.Item
+                    label="My Profile"
+                    icon={User01}
+                    selectionIndicator="none"
+                    onAction={() => {
+                      setIsMenuOpen(false);
+                      navigate("/profile");
+                    }}
+                  />
+                </Dropdown.Menu>
+                <Dropdown.Separator />
+                <div className="standard-page-account-menu-footer">
+                  <button
+                    type="button"
+                    className="standard-page-sign-out-button"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut01 aria-hidden="true" />
+                    Sign out
+                  </button>
+                </div>
+              </Dropdown.Popover>
+            </Dropdown.Root>
+          ) : (
+            "Budget workspace"
+          )}
         </footer>
       </aside>
 

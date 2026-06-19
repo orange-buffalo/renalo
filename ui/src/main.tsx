@@ -18,6 +18,7 @@ import {
   EditIncomeCategoryPage,
 } from "./routes/IncomeCategoryFormPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
+import { ProfilePage } from "./routes/ProfilePage.tsx";
 import { SettingsPage } from "./routes/SettingsPage.tsx";
 import {
   CreateTrackingAccountPage,
@@ -48,6 +49,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/profile",
+    element: (
+      <ProtectedRoute allowedTypes={["USER", "ADMIN"]}>
+        <ProfilePage />
       </ProtectedRoute>
     ),
   },

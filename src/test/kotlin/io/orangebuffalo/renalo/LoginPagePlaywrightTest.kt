@@ -1,5 +1,6 @@
 package io.orangebuffalo.renalo
 
+import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
@@ -44,7 +45,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
-        assertThat(page.getByText("alice · USER")).isVisible()
+        assertAccountMenuTrigger(page, "alice", "USER")
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))).isVisible()
         assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Tracking"))).isVisible()
     }
@@ -62,7 +63,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.reload()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
-        assertThat(page.getByText("alice · USER")).isVisible()
+        assertAccountMenuTrigger(page, "alice", "USER")
     }
 
     @Test
@@ -73,7 +74,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
-        assertThat(page.getByText("alice · USER")).isVisible()
+        assertAccountMenuTrigger(page, "alice", "USER")
     }
 
     @Test
@@ -125,7 +126,26 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("User management"))).isVisible()
-        assertThat(page.getByText("admin · ADMIN")).isVisible()
+        assertAccountMenuTrigger(page, "admin", "ADMIN")
+    }
+
+    @Test
+    fun opensProfileAndSignsOutFromAccountMenu(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.navigate(server.url.toString() + "/tracking")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
+        assertThat(page.getByRole(AriaRole.MENU, Page.GetByRoleOptions().setName("Account menu"))).isVisible()
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("My Profile")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("My profile"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign out")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+        page.evaluate("window.localStorage.getItem('renalo.authToken')").shouldBeNull()
     }
 
     @Test
@@ -164,7 +184,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("User management"))).isVisible()
-        assertThat(page.getByText("admin · ADMIN")).isVisible()
+        assertAccountMenuTrigger(page, "admin", "ADMIN")
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))).isVisible()
         assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("User management"))).isVisible()
     }
@@ -184,5 +204,12 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun saveUser(username: String, password: String, type: UserType): User {
         return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
+    }
+
+    private fun assertAccountMenuTrigger(page: Page, username: String, type: String) {
+        val trigger = page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu"))
+        assertThat(trigger).isVisible()
+        assertThat(trigger.getByText(username, Locator.GetByTextOptions().setExact(true))).isVisible()
+        assertThat(trigger.getByText(type, Locator.GetByTextOptions().setExact(true))).isVisible()
     }
 }
