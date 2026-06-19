@@ -1,4 +1,9 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { Check, ChevronDown, SearchLg } from "@untitledui/icons";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  Button as AriaButton,
+  Input as AriaInput,
+} from "react-aria-components";
 import { useNavigate, useParams } from "react-router";
 import {
   createTrackingAccount,
@@ -11,9 +16,11 @@ import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
+import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Input, InputBase } from "@/components/untitled/base/input/input";
 import { InputGroup } from "@/components/untitled/base/input/input-group";
-import { Select } from "@/components/untitled/base/select/select";
+import { Label } from "@/components/untitled/base/input/label";
+import { cx } from "@/utils/cx";
 import {
   formatMoneyInput,
   getCurrencyOptions,
@@ -36,9 +43,13 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
   const [account, setAccount] = useState<TrackingAccount>();
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("AUD");
+  const [loadedCurrency, setLoadedCurrency] = useState<string>();
+  const [currencySearch, setCurrencySearch] = useState("");
   const [amount, setAmount] = useState(formatMoneyInput(0, "AUD"));
   const [isDefault, setIsDefault] = useState(false);
   const [error, setError] = useState<string>();
+  const [nameError, setNameError] = useState<string>();
+  const [amountError, setAmountError] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = mode === "edit";
@@ -57,6 +68,7 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
         setAccount(loadedAccount);
         setName(loadedAccount.name);
         setCurrency(loadedAccount.currency);
+        setLoadedCurrency(loadedAccount.currency);
         setAmount(
           formatMoneyInput(
             loadedAccount.initialBalanceMinor,
@@ -77,14 +89,38 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
   function handleCurrencyChange(nextCurrency: string) {
     const parsed = parseMoneyInput(amount, currency) ?? 0;
     setCurrency(nextCurrency);
+    setCurrencySearch("");
     setAmount(formatMoneyInput(parsed, nextCurrency));
   }
+
+  const selectedCurrency = currencyOptions.find(
+    (option) => option.id === currency,
+  );
+  const filteredCurrencyOptions = useMemo(() => {
+    const normalizedSearch = currencySearch.trim().toLowerCase();
+    if (!normalizedSearch) {
+      return currencyOptions;
+    }
+
+    return currencyOptions.filter((option) =>
+      `${option.label} ${option.supportingText}`
+        .toLowerCase()
+        .includes(normalizedSearch),
+    );
+  }, [currencySearch]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const initialBalanceMinor = parseMoneyInput(amount, currency);
-    if (name.trim() === "" || initialBalanceMinor === undefined) {
-      setError("Provide an account name and a valid initial balance.");
+    const nextNameError =
+      name.trim() === "" ? "Enter an account name." : undefined;
+    const nextAmountError =
+      initialBalanceMinor === undefined
+        ? "Enter a valid initial amount."
+        : undefined;
+    setNameError(nextNameError);
+    setAmountError(nextAmountError);
+    if (nextNameError || initialBalanceMinor === undefined) {
       return;
     }
 
@@ -126,7 +162,7 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
               className="tracking-account-form-wide"
             />
           )}
-          {isEditing && (
+          {isEditing && loadedCurrency && currency !== loadedCurrency && (
             <Alert
               tone="warning"
               title="Currency changes affect related entries."
@@ -145,42 +181,44 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
             size="md"
             value={name}
             isRequired
-            onChange={setName}
+            validationBehavior="aria"
+            isInvalid={Boolean(nameError)}
+            hint={nameError}
+            onChange={(nextName) => {
+              setName(nextName);
+              setNameError(undefined);
+            }}
           />
-          <Select.ComboBox
-            label="Currency"
-            items={currencyOptions}
-            selectedKey={currency}
-            onSelectionChange={(key) => handleCurrencyChange(String(key))}
-            size="md"
-            shortcut={false}
-            placeholder="Search currencies"
-          >
-            {(item) => (
-              <Select.Item
-                id={item.id}
-                label={item.label}
-                supportingText={item.supportingText}
-              />
-            )}
-          </Select.ComboBox>
+          <CurrencyDropdown
+            currency={currency}
+            selectedCurrency={selectedCurrency}
+            currencySearch={currencySearch}
+            filteredCurrencyOptions={filteredCurrencyOptions}
+            onSearchChange={setCurrencySearch}
+            onCurrencyChange={handleCurrencyChange}
+          />
           <InputGroup
             label="Initial amount"
-            hint="This is used for analytics."
+            validationBehavior="aria"
+            isInvalid={Boolean(amountError)}
+            hint={amountError ?? "This is used for analytics."}
             trailingAddon={<InputGroup.Prefix>{currency}</InputGroup.Prefix>}
           >
             <InputBase
               name="initialBalance"
               value={amount}
               inputMode="decimal"
-              onChange={(event) => setAmount(event.target.value)}
+              onChange={(event) => {
+                setAmount(event.target.value);
+                setAmountError(undefined);
+              }}
               onBlur={() =>
-                setAmount(
-                  formatMoneyInput(
-                    parseMoneyInput(amount, currency) ?? 0,
-                    currency,
-                  ),
-                )
+                setAmount((currentAmount) => {
+                  const parsedAmount = parseMoneyInput(currentAmount, currency);
+                  return parsedAmount === undefined
+                    ? currentAmount
+                    : formatMoneyInput(parsedAmount, currency);
+                })
               }
             />
           </InputGroup>
@@ -217,5 +255,100 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
         </form>
       </section>
     </PageLayout>
+  );
+}
+
+type CurrencyDropdownProps = {
+  currency: string;
+  selectedCurrency?: { label: string; supportingText: string };
+  currencySearch: string;
+  filteredCurrencyOptions: Array<{
+    id: string;
+    label: string;
+    supportingText: string;
+  }>;
+  onSearchChange: (search: string) => void;
+  onCurrencyChange: (currency: string) => void;
+};
+
+function CurrencyDropdown({
+  currency,
+  selectedCurrency,
+  currencySearch,
+  filteredCurrencyOptions,
+  onSearchChange,
+  onCurrencyChange,
+}: CurrencyDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="tracking-account-currency-field">
+      <Label>Currency</Label>
+      <Dropdown.Root isOpen={isOpen} onOpenChange={setIsOpen}>
+        <AriaButton
+          aria-label="Currency"
+          className="tracking-account-currency-trigger"
+        >
+          <span className="tracking-account-currency-value">
+            <span>{selectedCurrency?.label ?? currency}</span>
+            <span>{selectedCurrency?.supportingText ?? currency}</span>
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className="tracking-account-currency-chevron"
+          />
+        </AriaButton>
+        <Dropdown.Popover
+          placement="bottom left"
+          className="tracking-account-currency-popover"
+        >
+          <div className="tracking-account-currency-search-wrap">
+            <SearchLg
+              aria-hidden="true"
+              className="tracking-account-currency-search-icon"
+            />
+            <AriaInput
+              aria-label="Search currencies"
+              className="tracking-account-currency-search"
+              placeholder="Search"
+              value={currencySearch}
+              onChange={(event) => onSearchChange(event.target.value)}
+            />
+          </div>
+          <Dropdown.Separator />
+          <Dropdown.Menu
+            selectionMode="single"
+            selectedKeys={[currency]}
+            onAction={(key) => {
+              onCurrencyChange(String(key));
+              setIsOpen(false);
+            }}
+            className="tracking-account-currency-menu"
+          >
+            {filteredCurrencyOptions.map((option) => (
+              <Dropdown.Item
+                key={option.id}
+                id={option.id}
+                textValue={`${option.label} ${option.supportingText}`}
+                selectionIndicator="none"
+              >
+                <span className="tracking-account-currency-option">
+                  <span>{option.label}</span>
+                  <span>{option.supportingText}</span>
+                </span>
+                <Check
+                  aria-hidden="true"
+                  className={cx(
+                    "tracking-account-currency-check",
+                    option.id !== currency &&
+                      "tracking-account-currency-check-hidden",
+                  )}
+                />
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown.Root>
+    </div>
   );
 }

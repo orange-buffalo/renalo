@@ -39,7 +39,7 @@
 - Button usage should follow the documented shape: `color`, `size`, optional `iconLeading`/`iconTrailing`, `isDisabled`, and `isLoading`.
 - Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
 - New standard forms should follow the existing create/edit user page layout: a full-width `standard-page-panel` section, two-column desktop grid, single-column mobile layout, consistent 28px/32px field gaps, and footer actions split with cancel/back on the left and primary save/create on the right.
-- For searchable dropdowns, use the documented Untitled `Select.ComboBox` compound API and `Select.Item` rendering before adding custom select/dropdown UI. Keep the popover, search input, option text, and supporting text aligned with Untitled examples.
+- For searchable selects where search is part of the closed field, use documented Untitled `Select.ComboBox` and `Select.Item`; for dropdowns where search appears only after opening, follow the Untitled dropdown `Search simple` pattern with a regular trigger and search input inside the popover.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Standard authenticated pages should put page-level descriptions, counters/badges, and primary actions in `PageLayout`, not inside table panels or forms.

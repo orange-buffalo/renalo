@@ -75,7 +75,11 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Main"))
             .click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit account"))).isVisible()
+        assertThat(page.getByText("Changing currency will implicitly change the currency")).not().isVisible()
+        selectCurrency(page, "Euro")
         assertThat(page.getByText("Changing currency will implicitly change the currency")).isVisible()
+        selectCurrency(page, "Australian Dollar")
+        assertThat(page.getByText("Changing currency will implicitly change the currency")).not().isVisible()
         assertThat(page.getByText("To change the default, nominate another account.")).isVisible()
         assertThat(page.getByLabel("Default account")).isDisabled()
         page.getByLabel("Name").fill("Everyday")
@@ -101,6 +105,24 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts"))).isVisible()
+    }
+
+    @Test
+    fun validatesAccountForm(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/settings/accounts/create")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create account")).click()
+
+        assertThat(page.getByText("Enter an account name.")).isVisible()
+        page.getByLabel("Name").fill("Cash")
+        page.locator("input[name='initialBalance']").fill("abc")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create account")).click()
+
+        assertThat(page.getByText("Enter a valid initial amount.")).isVisible()
+        trackingAccountRepository.findByUserIdOrderByName(alice.id!!).map { it.name }.shouldContainExactly("Main")
     }
 
     private fun saveUser(username: String): User = userRepository.save(
@@ -155,6 +177,12 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         shouldEventually {
             extractAccountRows(this).shouldContainExactly(*expectedRows)
         }
+    }
+
+    private fun selectCurrency(page: Page, search: String) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Currency")).click()
+        page.getByLabel("Search currencies").fill(search)
+        page.getByText(java.util.regex.Pattern.compile(search)).last().click()
     }
 }
 
