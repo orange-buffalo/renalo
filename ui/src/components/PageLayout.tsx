@@ -1,20 +1,18 @@
 import {
   BarChartSquare02,
   LogOut01,
-  Menu02,
   Settings01,
   User01,
   Users01,
-  X,
 } from "@untitledui/icons";
-import type { ReactNode } from "react";
-import { useState } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { Button as AriaButton } from "react-aria-components";
 import { useLocation, useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
 import { clearAuthToken, type UserType } from "@/api/auth";
-import { NavList } from "@/components/untitled/application/app-navigation/base-components/nav-list";
+import { NavButton } from "@/components/untitled/application/app-navigation/base-components/nav-button";
 import type { NavItemType } from "@/components/untitled/application/app-navigation/config";
+import { Avatar } from "@/components/untitled/base/avatar/avatar";
 import { AvatarLabelGroup } from "@/components/untitled/base/avatar/avatar-label-group";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 
@@ -38,16 +36,14 @@ export function PageLayout({
   const { profile, setProfile, setSettings } = useAppState();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigationItems = getNavigationItems(profile?.type);
 
-  function handleNavigate(event: React.MouseEvent, href?: string) {
+  function handleNavigate(event: MouseEvent, href?: string) {
     if (!href?.startsWith("/")) {
       return;
     }
 
     event.preventDefault();
-    setIsMenuOpen(false);
     navigate(href);
   }
 
@@ -55,114 +51,107 @@ export function PageLayout({
     clearAuthToken();
     setProfile(undefined);
     setSettings(undefined);
-    setIsMenuOpen(false);
     navigate("/", { replace: true });
   }
 
   return (
-    <div
-      className="standard-page-shell"
-      data-menu-open={isMenuOpen || undefined}
-    >
-      <header className="standard-page-mobile-header">
-        <button
-          type="button"
-          className="standard-page-menu-button"
-          aria-label={
-            isMenuOpen ? "Close navigation menu" : "Open navigation menu"
-          }
-          aria-expanded={isMenuOpen}
-          aria-controls="standard-page-navigation"
-          onClick={() => setIsMenuOpen((current) => !current)}
-        >
-          {isMenuOpen ? (
-            <X aria-hidden="true" />
-          ) : (
-            <Menu02 aria-hidden="true" />
-          )}
-        </button>
-        <div className="standard-page-mobile-brand">
-          <span className="standard-page-logo" aria-hidden="true">
-            R
-          </span>
-          <span>Renalo</span>
+    <div className="standard-page-shell">
+      <header className="standard-page-topbar">
+        <div className="standard-page-topbar-inner">
+          <a
+            href="/"
+            className="standard-page-brand"
+            aria-label="Go to Renalo home"
+            onClick={(event) =>
+              handleNavigate(event, defaultRouteFor(profile?.type))
+            }
+          >
+            <span className="standard-page-logo" aria-hidden="true">
+              R
+            </span>
+            <span className="standard-page-brand-text">Renalo</span>
+          </a>
+
+          <nav
+            aria-label="Main navigation"
+            className="standard-page-topbar-nav"
+          >
+            <ul>
+              {navigationItems.map((item) => (
+                <li key={item.label}>
+                  <NavButton
+                    current={isNavigationItemActive(item, location.pathname)}
+                    href={item.href}
+                    icon={item.icon}
+                    label={item.label}
+                    tooltipPlacement="bottom"
+                    className="standard-page-topbar-nav-link"
+                    onClick={(event) => handleNavigate(event, item.href)}
+                  >
+                    <span className="standard-page-topbar-nav-label">
+                      {item.label}
+                    </span>
+                  </NavButton>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="standard-page-topbar-actions">
+            {profile ? (
+              <Dropdown.Root>
+                <AriaButton
+                  aria-label="Open account menu"
+                  className="standard-page-account-trigger group"
+                >
+                  <Avatar size="sm" placeholderIcon={User01} rounded />
+                  <span className="standard-page-account-labels">
+                    <span>{profile.username}</span>
+                    <span>{profile.type}</span>
+                  </span>
+                </AriaButton>
+                <Dropdown.Popover
+                  placement="bottom right"
+                  className="standard-page-account-popover w-60 overflow-hidden rounded-xl"
+                >
+                  <div className="standard-page-account-menu-header">
+                    <AvatarLabelGroup
+                      size="lg"
+                      title={profile.username}
+                      subtitle={profile.type}
+                      placeholderIcon={User01}
+                      rounded
+                    />
+                  </div>
+                  <Dropdown.Menu selectionMode="none" aria-label="Account menu">
+                    <Dropdown.Item
+                      label="My Profile"
+                      icon={User01}
+                      selectionIndicator="none"
+                      onAction={() => {
+                        navigate("/profile");
+                      }}
+                    />
+                  </Dropdown.Menu>
+                  <Dropdown.Separator />
+                  <div className="standard-page-account-menu-footer">
+                    <button
+                      type="button"
+                      className="standard-page-sign-out-button"
+                      onClick={handleSignOut}
+                    >
+                      <LogOut01 aria-hidden="true" />
+                      Sign out
+                    </button>
+                  </div>
+                </Dropdown.Popover>
+              </Dropdown.Root>
+            ) : (
+              "Budget workspace"
+            )}
+          </div>
         </div>
       </header>
-
-      <aside className="standard-page-sidebar" id="standard-page-navigation">
-        <div className="standard-page-brand">
-          <span className="standard-page-logo" aria-hidden="true">
-            R
-          </span>
-          <span>Renalo</span>
-        </div>
-
-        <nav aria-label="Main navigation">
-          <NavList
-            activeUrl={location.pathname}
-            className="standard-page-nav"
-            items={navigationItems}
-            onNavigate={handleNavigate}
-          />
-        </nav>
-
-        <footer className="standard-page-sidebar-footer">
-          {profile ? (
-            <Dropdown.Root>
-              <AriaButton
-                aria-label="Open account menu"
-                className="standard-page-account-trigger group"
-              >
-                <AvatarLabelGroup
-                  size="md"
-                  title={profile.username}
-                  subtitle={profile.type}
-                  placeholderIcon={User01}
-                  rounded
-                />
-              </AriaButton>
-              <Dropdown.Popover
-                placement="top left"
-                className="standard-page-account-popover w-60 overflow-hidden rounded-xl"
-              >
-                <div className="standard-page-account-menu-header">
-                  <AvatarLabelGroup
-                    size="lg"
-                    title={profile.username}
-                    subtitle={profile.type}
-                    placeholderIcon={User01}
-                    rounded
-                  />
-                </div>
-                <Dropdown.Menu selectionMode="none" aria-label="Account menu">
-                  <Dropdown.Item
-                    label="My Profile"
-                    icon={User01}
-                    selectionIndicator="none"
-                    onAction={() => {
-                      setIsMenuOpen(false);
-                      navigate("/profile");
-                    }}
-                  />
-                </Dropdown.Menu>
-                <Dropdown.Separator />
-                <div className="standard-page-account-menu-footer">
-                  <button
-                    type="button"
-                    className="standard-page-sign-out-button"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut01 aria-hidden="true" />
-                    Sign out
-                  </button>
-                </div>
-              </Dropdown.Popover>
-            </Dropdown.Root>
-          ) : (
-            "Budget workspace"
-          )}
-        </footer>
-      </aside>
 
       <div className="standard-page-content">
         <div className="standard-page-surface">
@@ -185,6 +174,17 @@ export function PageLayout({
       </div>
     </div>
   );
+}
+
+function isNavigationItemActive(item: NavItemType, activeUrl: string) {
+  return Boolean(
+    item.href &&
+      (item.href === activeUrl || activeUrl.startsWith(`${item.href}/`)),
+  );
+}
+
+function defaultRouteFor(userType?: UserType) {
+  return userType === "ADMIN" ? "/user-management" : "/tracking";
 }
 
 function getNavigationItems(userType?: UserType): NavItemType[] {
