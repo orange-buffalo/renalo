@@ -11,6 +11,7 @@
 ## Git
 
 - When a commit is requested, use a Conventional Commit message, for example `feat: add user management table` or `fix: correct auth bootstrap loading state`.
+- When the user requests changes, then provides feedback, commit the already-completed changes before starting the feedback changes unless the user explicitly says not to. Default flow: user requests work, agent implements it, user provides feedback, agent commits completed work, then agent addresses the feedback.
 
 ## Backend
 

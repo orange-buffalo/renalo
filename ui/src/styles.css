@@ -318,7 +318,8 @@ input {
 }
 
 .tracking-account-currency-popover [role="separator"] {
-  background: #d0d5dd;
+  border: 0;
+  background: #eaecf0;
 }
 
 .tracking-account-currency-search-wrap {
