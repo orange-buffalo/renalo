@@ -196,12 +196,24 @@ input {
 }
 
 .settings-tabs {
-  gap: 24px;
+  gap: 28px;
 }
 
-.settings-tabs-list-row {
-  display: flex;
-  justify-content: center;
+.settings-tabs-list {
+  gap: 14px;
+}
+
+.settings-tab-item {
+  padding: 12px 18px;
+  border-radius: 12px;
+  color: #667085;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settings-tab-item[data-selected] {
+  background: #f4ebff;
+  color: #6941c6;
 }
 
 .settings-tab-panel {
@@ -210,19 +222,46 @@ input {
   gap: 20px;
 }
 
-.settings-form {
-  max-width: 720px;
-  gap: 20px;
-}
-
-.settings-form-actions {
+.settings-tab-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
 }
 
-.settings-default-tooltip-trigger {
-  width: fit-content;
+.settings-empty-panel {
+  display: flex;
+  min-height: 160px;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #d0d5dd;
+  border-radius: 12px;
+}
+
+.tracking-account-panel {
+  max-width: none;
+  width: 100%;
+}
+
+.tracking-account-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  gap: 28px 32px;
+}
+
+.tracking-account-form-wide,
+.tracking-account-actions {
+  grid-column: 1 / -1;
+}
+
+.tracking-account-default-checkbox {
+  align-self: start;
+}
+
+.tracking-account-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 8px;
 }
 
 .eyebrow {
@@ -619,7 +658,8 @@ input {
   }
 
   .create-user-form,
-  .edit-user-form {
+  .edit-user-form,
+  .tracking-account-form {
     grid-template-columns: 1fr;
   }
 

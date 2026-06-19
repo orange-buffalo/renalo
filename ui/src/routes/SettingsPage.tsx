@@ -47,28 +47,32 @@ export function SettingsPage() {
       eyebrow="Settings"
       title="Budget settings"
       description="Configure the budget workspace used for tracking and analytics."
-      actions={
-        <Button
-          color="tertiary"
-          size="sm"
-          iconLeading={Plus}
-          onPress={() => navigate("/settings/accounts/create")}
-        >
-          Add new account
-        </Button>
-      }
     >
-      <Tabs selectedKey="accounts" className="settings-tabs">
-        <div className="settings-tabs-list-row">
-          <Tabs.List
-            size="md"
-            type="button-brand"
-            aria-label="Settings sections"
-          >
-            <Tabs.Item id="accounts">Accounts</Tabs.Item>
-          </Tabs.List>
-        </div>
+      <Tabs defaultSelectedKey="accounts" className="settings-tabs">
+        <Tabs.List
+          size="md"
+          type="button-brand"
+          aria-label="Settings sections"
+          className="settings-tabs-list"
+        >
+          <Tabs.Item id="accounts" className="settings-tab-item">
+            Accounts
+          </Tabs.Item>
+          <Tabs.Item id="expense-categories" className="settings-tab-item">
+            Expenses Categories
+          </Tabs.Item>
+        </Tabs.List>
         <Tabs.Panel id="accounts" className="settings-tab-panel">
+          <div className="settings-tab-actions">
+            <Button
+              color="tertiary"
+              size="sm"
+              iconLeading={Plus}
+              onPress={() => navigate("/settings/accounts/create")}
+            >
+              Add new account
+            </Button>
+          </div>
           <TableCard.Root size="sm">
             {error && (
               <p
@@ -135,6 +139,11 @@ export function SettingsPage() {
               </Table>
             )}
           </TableCard.Root>
+        </Tabs.Panel>
+        <Tabs.Panel id="expense-categories" className="settings-tab-panel">
+          <section className="standard-page-panel settings-empty-panel">
+            <p>Expense categories will be configured here.</p>
+          </section>
         </Tabs.Panel>
       </Tabs>
     </PageLayout>

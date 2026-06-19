@@ -13,12 +13,7 @@ import { Button } from "@/components/untitled/base/buttons/button";
 import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Input, InputBase } from "@/components/untitled/base/input/input";
 import { InputGroup } from "@/components/untitled/base/input/input-group";
-import { ComboBox } from "@/components/untitled/base/select/combobox";
-import { SelectItem } from "@/components/untitled/base/select/select-item";
-import {
-  Tooltip,
-  TooltipTrigger,
-} from "@/components/untitled/base/tooltip/tooltip";
+import { Select } from "@/components/untitled/base/select/select";
 import {
   formatMoneyInput,
   getCurrencyOptions,
@@ -122,102 +117,105 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
       title={isEditing ? "Edit account" : "Add new account"}
       description="Accounts define where tracked budget activity belongs."
     >
-      <form
-        className="standard-page-panel settings-form"
-        onSubmit={handleSubmit}
-      >
-        {error && <Alert tone="error" title={error} />}
-        {isEditing && (
-          <Alert
-            tone="warning"
-            title="Currency changes affect related entries."
-          >
-            <p>
-              Changing currency will implicitly change the currency of all
-              incomes, expenses, transfers, and settings linked to this account.
-            </p>
-          </Alert>
-        )}
-        <Input
-          label="Name"
-          name="name"
-          size="md"
-          value={name}
-          isRequired
-          onChange={setName}
-        />
-        <ComboBox
-          label="Currency"
-          tooltip="All entries linked to the account will be treated as in this currency."
-          items={currencyOptions}
-          selectedKey={currency}
-          onSelectionChange={(key) => handleCurrencyChange(String(key))}
-          size="md"
-          shortcut={false}
-        >
-          {(item) => (
-            <SelectItem
-              id={item.id}
-              label={item.label}
-              supportingText={item.supportingText}
+      <section className="standard-page-panel tracking-account-panel">
+        <form className="tracking-account-form" onSubmit={handleSubmit}>
+          {error && (
+            <Alert
+              tone="error"
+              title={error}
+              className="tracking-account-form-wide"
             />
           )}
-        </ComboBox>
-        <InputGroup
-          label="Initial amount"
-          tooltip="This is used for analytics."
-          trailingAddon={<InputGroup.Prefix>{currency}</InputGroup.Prefix>}
-        >
-          <InputBase
-            name="initialBalance"
-            value={amount}
-            inputMode="decimal"
-            onChange={(event) => setAmount(event.target.value)}
-            onBlur={() =>
-              setAmount(
-                formatMoneyInput(
-                  parseMoneyInput(amount, currency) ?? 0,
-                  currency,
-                ),
-              )
-            }
+          {isEditing && (
+            <Alert
+              tone="warning"
+              title="Currency changes affect related entries."
+              className="tracking-account-form-wide"
+            >
+              <p>
+                Changing currency will implicitly change the currency of all
+                incomes, expenses, transfers, and settings linked to this
+                account.
+              </p>
+            </Alert>
+          )}
+          <Input
+            label="Name"
+            name="name"
+            size="md"
+            value={name}
+            isRequired
+            onChange={setName}
           />
-        </InputGroup>
-        <Tooltip
-          title={
-            account?.isDefault
-              ? "To change the default, nominate another account. Default account is used to define the currency in which to display analytics."
-              : "Default account is used to define the currency in which to display analytics."
-          }
-          placement="top"
-        >
-          <TooltipTrigger className="settings-default-tooltip-trigger">
-            <Checkbox
-              label="Default account"
-              isSelected={isDefault}
-              isDisabled={account?.isDefault}
-              onChange={setIsDefault}
+          <Select.ComboBox
+            label="Currency"
+            items={currencyOptions}
+            selectedKey={currency}
+            onSelectionChange={(key) => handleCurrencyChange(String(key))}
+            size="md"
+            shortcut={false}
+            placeholder="Search currencies"
+          >
+            {(item) => (
+              <Select.Item
+                id={item.id}
+                label={item.label}
+                supportingText={item.supportingText}
+              />
+            )}
+          </Select.ComboBox>
+          <InputGroup
+            label="Initial amount"
+            hint="This is used for analytics."
+            trailingAddon={<InputGroup.Prefix>{currency}</InputGroup.Prefix>}
+          >
+            <InputBase
+              name="initialBalance"
+              value={amount}
+              inputMode="decimal"
+              onChange={(event) => setAmount(event.target.value)}
+              onBlur={() =>
+                setAmount(
+                  formatMoneyInput(
+                    parseMoneyInput(amount, currency) ?? 0,
+                    currency,
+                  ),
+                )
+              }
             />
-          </TooltipTrigger>
-        </Tooltip>
-        <div className="settings-form-actions">
-          <Button
-            color="secondary"
-            size="sm"
-            onPress={() => navigate("/settings")}
-          >
-            Cancel
-          </Button>
-          <Button
-            color="primary"
-            size="sm"
-            type="submit"
-            isLoading={isSubmitting}
-          >
-            Save account
-          </Button>
-        </div>
-      </form>
+          </InputGroup>
+          <Checkbox
+            className="tracking-account-default-checkbox"
+            label="Default account"
+            hint={
+              account?.isDefault
+                ? "To change the default, nominate another account. The default account defines the currency used for analytics."
+                : "The default account defines the currency used for analytics."
+            }
+            isSelected={isDefault}
+            isDisabled={account?.isDefault}
+            onChange={setIsDefault}
+          />
+          <div className="tracking-account-actions">
+            <Button
+              color="tertiary"
+              size="sm"
+              onPress={() => navigate("/settings")}
+              isDisabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="primary"
+              size="sm"
+              type="submit"
+              isLoading={isSubmitting}
+            >
+              {isEditing ? "Save account" : "Create account"}
+            </Button>
+          </div>
+        </form>
+      </section>
     </PageLayout>
   );
 }

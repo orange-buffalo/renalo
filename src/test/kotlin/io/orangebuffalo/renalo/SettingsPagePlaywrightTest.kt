@@ -45,6 +45,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/settings")
 
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts"))).isVisible()
+        page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Expenses Categories")).click()
+        assertThat(page.getByText("Expense categories will be configured here.")).isVisible()
+        page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts")).click()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
             AccountRow("Main", "AUD", "A$0.00", "Default", "edit"),
@@ -55,7 +58,7 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add new account"))).isVisible()
         page.getByLabel("Name").fill("Cash")
         page.locator("input[name='initialBalance']").fill("42")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save account")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create account")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         val cash = trackingAccountRepository.findByUserIdOrderByName(alice.id!!).first { it.name == "Cash" }
@@ -73,6 +76,7 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             .click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit account"))).isVisible()
         assertThat(page.getByText("Changing currency will implicitly change the currency")).isVisible()
+        assertThat(page.getByText("To change the default, nominate another account.")).isVisible()
         assertThat(page.getByLabel("Default account")).isDisabled()
         page.getByLabel("Name").fill("Everyday")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save account")).click()
