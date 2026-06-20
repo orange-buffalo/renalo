@@ -44,10 +44,11 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
         assertAccountMenuTrigger(page, "alice", "USER")
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))).isVisible()
-        assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+        assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
     }
 
     @Test
@@ -58,11 +59,11 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
 
         page.reload()
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
         assertAccountMenuTrigger(page, "alice", "USER")
     }
 
@@ -73,7 +74,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/tracking")
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
         assertAccountMenuTrigger(page, "alice", "USER")
     }
 
@@ -109,7 +110,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
             } finally {
                 releaseProfileRequest.countDown()
             }
-            assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+            assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
             routeFailure.get().shouldBeNull()
         } finally {
             releaseProfileRequest.countDown()
@@ -134,7 +135,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         saveUser("alice", "password", UserType.USER)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
         page.navigate(server.url.toString() + "/tracking")
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
         assertThat(page.getByRole(AriaRole.MENU, Page.GetByRoleOptions().setName("Account menu"))).isVisible()
@@ -165,13 +166,13 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         saveUser("alice", "password", UserType.USER)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
         page.navigate(server.url.toString() + "/tracking")
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
 
         page.evaluate("window.__renaloNavProbe = 'kept' ")
-        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Tracking")).click()
+        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Dashboard")).click()
 
         page.evaluate("window.__renaloNavProbe").shouldBe("kept")
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
     }
 
     @Test

@@ -6,6 +6,7 @@ import {
   type IncomeCategory,
   updateIncomeCategory,
 } from "@/api/incomeCategories";
+import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -26,6 +27,7 @@ function IncomeCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string>();
   const [nameError, setNameError] = useState<string>();
+  const [isLoading, setIsLoading] = useState(mode === "edit");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = mode === "edit";
@@ -43,10 +45,16 @@ function IncomeCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
         }
         setCategory(loadedCategory);
         setName(loadedCategory.name);
+        setIsLoading(false);
       })
-      .catch(() =>
-        setError("Income category could not be loaded. Try again in a moment."),
-      );
+      .catch(() => {
+        if (isActive) {
+          setError(
+            "Income category could not be loaded. Try again in a moment.",
+          );
+          setIsLoading(false);
+        }
+      });
 
     return () => {
       isActive = false;
@@ -89,7 +97,7 @@ function IncomeCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
       }
       description="Income categories group earnings for tracking and analytics."
     >
-      <section className="standard-page-panel tracking-account-panel">
+      <section className="standard-page-panel tracking-account-panel form-loading-container">
         <form className="tracking-account-form" onSubmit={handleSubmit}>
           {error && (
             <Alert
@@ -132,6 +140,7 @@ function IncomeCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
             </Button>
           </div>
         </form>
+        <FormLoadingOverlay isLoading={isLoading} label="Loading category..." />
       </section>
     </PageLayout>
   );

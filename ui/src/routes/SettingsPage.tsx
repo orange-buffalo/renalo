@@ -15,6 +15,7 @@ import {
   type TrackingAccount,
 } from "@/api/trackingAccounts";
 import { PageLayout } from "@/components/PageLayout";
+import { TableEmptyState } from "@/components/TableEmptyState";
 import {
   Table,
   TableCard,
@@ -150,6 +151,8 @@ export function SettingsPage() {
             )}
             {!accounts ? (
               <p className="user-management-message">Loading accounts...</p>
+            ) : accounts.length === 0 ? (
+              <TableEmptyState title="No accounts found" />
             ) : (
               <Table aria-label="Tracking accounts" size="sm">
                 <Table.Header>
@@ -234,6 +237,8 @@ export function SettingsPage() {
               <p className="user-management-message">
                 Loading expense categories...
               </p>
+            ) : expenseCategories.length === 0 ? (
+              <TableEmptyState title="No expense categories found" />
             ) : (
               <Table aria-label="Expense categories" size="sm">
                 <Table.Header>
@@ -299,6 +304,8 @@ export function SettingsPage() {
               <p className="user-management-message">
                 Loading income categories...
               </p>
+            ) : incomeCategories.length === 0 ? (
+              <TableEmptyState title="No income categories found" />
             ) : (
               <Table aria-label="Income categories" size="sm">
                 <Table.Header>

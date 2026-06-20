@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router";
 import type { UserType } from "@/api/auth";
 import { apiRequest } from "@/api/client";
 import { PageLayout } from "@/components/PageLayout";
+import { TableEmptyState } from "@/components/TableEmptyState";
 import {
   Dialog,
   Modal,
@@ -166,6 +167,8 @@ export function UserManagementPage() {
 
           {isLoading && !usersPage ? (
             <p className="user-management-message">Loading users...</p>
+          ) : usersPage && users.length === 0 ? (
+            <TableEmptyState title="No users found" />
           ) : (
             <Table aria-label="Users" size="sm">
               <Table.Header>
@@ -223,10 +226,6 @@ export function UserManagementPage() {
                 ))}
               </Table.Body>
             </Table>
-          )}
-
-          {usersPage && users.length === 0 && !isLoading && (
-            <p className="user-management-message">No users found.</p>
           )}
 
           {usersPage && (

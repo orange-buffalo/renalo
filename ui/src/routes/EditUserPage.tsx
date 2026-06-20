@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { useAppState } from "@/AppState";
 import type { UserType } from "@/api/auth";
 import { ApiError, apiRequest } from "@/api/client";
+import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import {
@@ -208,10 +209,8 @@ export function EditUserPage() {
         ) : undefined
       }
     >
-      <section className="standard-page-panel edit-user-panel">
-        {isLoading ? (
-          <p className="user-management-message">Loading user...</p>
-        ) : user ? (
+      <section className="standard-page-panel edit-user-panel form-loading-container">
+        {user ? (
           <form className="edit-user-form" onSubmit={handleSubmit}>
             <ActivationAlert
               user={user}
@@ -270,14 +269,15 @@ export function EditUserPage() {
               </Button>
             </div>
           </form>
-        ) : (
+        ) : !isLoading ? (
           <p
             className="user-management-message user-management-error"
             role="alert"
           >
             {error ?? "User could not be loaded. Try again in a moment."}
           </p>
-        )}
+        ) : null}
+        <FormLoadingOverlay isLoading={isLoading} label="Loading user..." />
 
         <ModalOverlay
           isOpen={isRegenerateConfirmationOpen}

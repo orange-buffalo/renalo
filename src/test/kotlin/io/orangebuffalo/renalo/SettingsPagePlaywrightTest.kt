@@ -56,9 +56,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts"))).isVisible()
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Expense Categories")).click()
-        assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expense categories"))).isVisible()
+        assertThat(page.getByText("No expense categories found")).isVisible()
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Income Categories")).click()
-        assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Income categories"))).isVisible()
+        assertThat(page.getByText("No income categories found")).isVisible()
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts")).click()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(

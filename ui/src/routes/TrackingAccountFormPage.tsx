@@ -12,6 +12,7 @@ import {
   type TrackingAccount,
   updateTrackingAccount,
 } from "@/api/trackingAccounts";
+import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -49,6 +50,7 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
   const [error, setError] = useState<string>();
   const [nameError, setNameError] = useState<string>();
   const [amountError, setAmountError] = useState<string>();
+  const [isLoading, setIsLoading] = useState(mode === "edit");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = mode === "edit";
@@ -75,10 +77,14 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
           ),
         );
         setIsDefault(loadedAccount.isDefault);
+        setIsLoading(false);
       })
-      .catch(() =>
-        setError("Account could not be loaded. Try again in a moment."),
-      );
+      .catch(() => {
+        if (isActive) {
+          setError("Account could not be loaded. Try again in a moment.");
+          setIsLoading(false);
+        }
+      });
 
     return () => {
       isActive = false;
@@ -152,7 +158,7 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
       title={isEditing ? "Edit account" : "Add new account"}
       description="Accounts define where tracked budget activity belongs."
     >
-      <section className="standard-page-panel tracking-account-panel">
+      <section className="standard-page-panel tracking-account-panel form-loading-container">
         <form className="tracking-account-form" onSubmit={handleSubmit}>
           {error && (
             <Alert
@@ -256,6 +262,7 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
             </Button>
           </div>
         </form>
+        <FormLoadingOverlay isLoading={isLoading} label="Loading account..." />
       </section>
     </PageLayout>
   );

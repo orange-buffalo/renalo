@@ -6,6 +6,7 @@ import {
   fetchExpenseCategory,
   updateExpenseCategory,
 } from "@/api/expenseCategories";
+import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -26,6 +27,7 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string>();
   const [nameError, setNameError] = useState<string>();
+  const [isLoading, setIsLoading] = useState(mode === "edit");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = mode === "edit";
@@ -43,12 +45,16 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
         }
         setCategory(loadedCategory);
         setName(loadedCategory.name);
+        setIsLoading(false);
       })
-      .catch(() =>
-        setError(
-          "Expense category could not be loaded. Try again in a moment.",
-        ),
-      );
+      .catch(() => {
+        if (isActive) {
+          setError(
+            "Expense category could not be loaded. Try again in a moment.",
+          );
+          setIsLoading(false);
+        }
+      });
 
     return () => {
       isActive = false;
@@ -91,7 +97,7 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
       }
       description="Expense categories group spending for tracking and analytics."
     >
-      <section className="standard-page-panel tracking-account-panel">
+      <section className="standard-page-panel tracking-account-panel form-loading-container">
         <form className="tracking-account-form" onSubmit={handleSubmit}>
           {error && (
             <Alert
@@ -134,6 +140,7 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
             </Button>
           </div>
         </form>
+        <FormLoadingOverlay isLoading={isLoading} label="Loading category..." />
       </section>
     </PageLayout>
   );

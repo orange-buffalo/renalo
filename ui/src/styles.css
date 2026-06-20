@@ -414,6 +414,22 @@ input {
   width: 100%;
 }
 
+.form-loading-container {
+  position: relative;
+  min-height: 180px;
+}
+
+.form-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(3px);
+}
+
 .tracking-account-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -564,6 +580,19 @@ input {
   padding-top: 8px;
 }
 
+.expense-date-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.expense-field-error {
+  margin: 0;
+  color: #d92d20;
+  font-size: 0.875rem;
+}
+
 .expense-notes-field {
   display: flex;
   flex-direction: column;
@@ -588,6 +617,44 @@ input {
 
 .expense-notes-textarea:focus {
   box-shadow: 0 0 0 2px #1570ef inset;
+}
+
+.table-empty-state {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  align-content: center;
+  gap: 24px;
+  padding: 44px 24px;
+  color: #101828;
+  text-align: center;
+}
+
+.table-empty-state-icon {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #344054;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.05),
+    0 8px 18px rgba(16, 24, 40, 0.06);
+}
+
+.table-empty-state-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.table-empty-state p {
+  margin: 0;
+  color: #101828;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .eyebrow {

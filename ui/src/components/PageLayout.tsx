@@ -1,5 +1,6 @@
 import {
   BarChartSquare02,
+  CreditCard02,
   LogOut01,
   Settings01,
   User01,
@@ -200,9 +201,14 @@ function getNavigationItems(userType?: UserType): NavItemType[] {
 
   return [
     {
-      label: "Tracking",
+      label: "Dashboard",
       href: "/tracking",
       icon: BarChartSquare02,
+    },
+    {
+      label: "Expenses",
+      href: "/expenses",
+      icon: CreditCard02,
     },
     {
       label: "Settings",

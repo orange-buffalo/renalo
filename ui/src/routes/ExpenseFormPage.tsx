@@ -1,3 +1,4 @@
+import { CalendarDate } from "@internationalized/date";
 import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
@@ -14,10 +15,12 @@ import {
   fetchTrackingAccounts,
   type TrackingAccount,
 } from "@/api/trackingAccounts";
+import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
+import { DatePicker } from "@/components/untitled/application/date-picker/date-picker";
 import { Button } from "@/components/untitled/base/buttons/button";
-import { Input, InputBase } from "@/components/untitled/base/input/input";
+import { InputBase } from "@/components/untitled/base/input/input";
 import { InputGroup } from "@/components/untitled/base/input/input-group";
 import { Label } from "@/components/untitled/base/input/label";
 import { Select } from "@/components/untitled/base/select/select";
@@ -38,14 +41,18 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
   const [categories, setCategories] = useState<ExpenseCategory[]>();
   const [trackingAccountId, setTrackingAccountId] = useState<number>();
   const [categoryId, setCategoryId] = useState<number>();
-  const [dateTime, setDateTime] = useState(toDateTimeLocalValue(new Date()));
+  const [date, setDate] = useState<CalendarDate | null>(
+    dateToCalendarDate(new Date()),
+  );
   const [amount, setAmount] = useState(formatMoneyInput(0, "AUD"));
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string>();
   const [accountError, setAccountError] = useState<string>();
   const [categoryError, setCategoryError] = useState<string>();
-  const [dateTimeError, setDateTimeError] = useState<string>();
+  const [dateError, setDateError] = useState<string>();
   const [amountError, setAmountError] = useState<string>();
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+  const [isLoadingExpense, setIsLoadingExpense] = useState(mode === "edit");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = mode === "edit";
@@ -53,6 +60,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     (account) => account.id === trackingAccountId,
   );
   const currency = selectedAccount?.currency ?? "AUD";
+  const isFormLoading = isLoadingOptions || isLoadingExpense;
 
   useEffect(() => {
     let isActive = true;
@@ -63,26 +71,33 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
         }
         setAccounts(loadedAccounts);
         setCategories(loadedCategories);
+        const defaultAccount =
+          loadedAccounts.find((account) => account.isDefault) ??
+          loadedAccounts[0];
         setTrackingAccountId(
-          (currentAccountId) =>
-            currentAccountId ??
-            loadedAccounts.find((account) => account.isDefault)?.id ??
-            loadedAccounts[0]?.id,
+          (currentAccountId) => currentAccountId ?? defaultAccount?.id,
         );
+        if (!isEditing && defaultAccount) {
+          setAmount(formatMoneyInput(0, defaultAccount.currency));
+        }
         setCategoryId(
           (currentCategoryId) => currentCategoryId ?? loadedCategories[0]?.id,
         );
+        setIsLoadingOptions(false);
       })
-      .catch(() =>
-        setError(
-          "Expense form options could not be loaded. Try again in a moment.",
-        ),
-      );
+      .catch(() => {
+        if (isActive) {
+          setError(
+            "Expense form options could not be loaded. Try again in a moment.",
+          );
+          setIsLoadingOptions(false);
+        }
+      });
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [isEditing]);
 
   useEffect(() => {
     if (!isEditing || !expenseId) {
@@ -97,7 +112,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
         }
         setTrackingAccountId(loadedExpense.trackingAccount.id);
         setCategoryId(loadedExpense.category.id);
-        setDateTime(toDateTimeLocalValue(new Date(loadedExpense.dateTime)));
+        setDate(dateToCalendarDate(new Date(loadedExpense.dateTime)));
         setAmount(
           formatMoneyInput(
             loadedExpense.amountMinor,
@@ -105,10 +120,14 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
           ),
         );
         setNotes(loadedExpense.notes ?? "");
+        setIsLoadingExpense(false);
       })
-      .catch(() =>
-        setError("Expense could not be loaded. Try again in a moment."),
-      );
+      .catch(() => {
+        if (isActive) {
+          setError("Expense could not be loaded. Try again in a moment.");
+          setIsLoadingExpense(false);
+        }
+      });
 
     return () => {
       isActive = false;
@@ -131,29 +150,27 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const amountMinor = parseMoneyInput(amount, currency);
-    const parsedDateTime = new Date(dateTime);
     const nextAccountError = trackingAccountId
       ? undefined
       : "Choose an account.";
     const nextCategoryError = categoryId ? undefined : "Choose a category.";
-    const nextDateTimeError = Number.isNaN(parsedDateTime.getTime())
-      ? "Enter a valid date and time."
-      : undefined;
+    const nextDateError = date ? undefined : "Choose a date.";
     const nextAmountError =
       amountMinor === undefined || amountMinor <= 0
         ? "Enter a valid amount greater than zero."
         : undefined;
     setAccountError(nextAccountError);
     setCategoryError(nextCategoryError);
-    setDateTimeError(nextDateTimeError);
+    setDateError(nextDateError);
     setAmountError(nextAmountError);
     if (
       nextAccountError ||
       nextCategoryError ||
-      nextDateTimeError ||
+      nextDateError ||
       nextAmountError ||
       !trackingAccountId ||
       !categoryId ||
+      !date ||
       amountMinor === undefined
     ) {
       return;
@@ -162,7 +179,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     const payload: SaveExpense = {
       trackingAccountId,
       categoryId,
-      dateTime: parsedDateTime.toISOString(),
+      dateTime: dateWithCurrentLocalTimeToIso(date),
       amountMinor,
       notes: notes.trim() || null,
     };
@@ -175,7 +192,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
       } else {
         await createExpense(payload);
       }
-      navigate("/tracking", { replace: true });
+      navigate("/expenses", { replace: true });
     } catch {
       setError("Expense could not be saved. Try again in a moment.");
     } finally {
@@ -185,11 +202,11 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
 
   return (
     <PageLayout
-      eyebrow="Tracking"
+      eyebrow="Expenses"
       title={isEditing ? "Edit expense" : "Add expense"}
       description="Record spending against an account and expense category."
     >
-      <section className="standard-page-panel tracking-account-panel">
+      <section className="standard-page-panel tracking-account-panel form-loading-container">
         <form className="tracking-account-form" onSubmit={handleSubmit}>
           {error && (
             <Alert
@@ -198,23 +215,6 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
               className="tracking-account-form-wide"
             />
           )}
-          <Select
-            label="Account"
-            placeholder="Choose account"
-            size="md"
-            isRequired
-            selectedKey={trackingAccountId ? String(trackingAccountId) : null}
-            isInvalid={Boolean(accountError)}
-            hint={accountError}
-            items={accounts?.map((account) => ({
-              id: String(account.id),
-              label: account.name,
-              supportingText: account.currency,
-            }))}
-            onSelectionChange={(key) => handleAccountChange(Number(key))}
-          >
-            {(item) => <Select.Item {...item} />}
-          </Select>
           <Select
             label="Category"
             placeholder="Choose category"
@@ -234,21 +234,6 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
           >
             {(item) => <Select.Item {...item} />}
           </Select>
-          <Input
-            label="Date and time"
-            name="dateTime"
-            type="datetime-local"
-            size="md"
-            value={dateTime}
-            isRequired
-            validationBehavior="aria"
-            isInvalid={Boolean(dateTimeError)}
-            hint={dateTimeError}
-            onChange={(nextDateTime) => {
-              setDateTime(nextDateTime);
-              setDateTimeError(undefined);
-            }}
-          />
           <InputGroup
             label="Amount"
             validationBehavior="aria"
@@ -278,6 +263,44 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
               }
             />
           </InputGroup>
+          <div className="expense-date-field">
+            <Label isRequired>Date</Label>
+            <DatePicker
+              value={date}
+              onChange={(nextDate) => {
+                setDate(
+                  nextDate
+                    ? new CalendarDate(
+                        nextDate.year,
+                        nextDate.month,
+                        nextDate.day,
+                      )
+                    : null,
+                );
+                setDateError(undefined);
+              }}
+              size="md"
+              aria-label="Date"
+            />
+            {dateError && <p className="expense-field-error">{dateError}</p>}
+          </div>
+          <Select
+            label="Account"
+            placeholder="Choose account"
+            size="md"
+            isRequired
+            selectedKey={trackingAccountId ? String(trackingAccountId) : null}
+            isInvalid={Boolean(accountError)}
+            hint={accountError}
+            items={accounts?.map((account) => ({
+              id: String(account.id),
+              label: account.name,
+              supportingText: account.currency,
+            }))}
+            onSelectionChange={(key) => handleAccountChange(Number(key))}
+          >
+            {(item) => <Select.Item {...item} />}
+          </Select>
           <div className="expense-notes-field">
             <Label>Notes</Label>
             <textarea
@@ -294,7 +317,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
             <Button
               color="tertiary"
               size="sm"
-              onPress={() => navigate("/tracking")}
+              onPress={() => navigate("/expenses")}
               isDisabled={isSubmitting}
             >
               Cancel
@@ -309,14 +332,32 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
             </Button>
           </div>
         </form>
+        <FormLoadingOverlay
+          isLoading={isFormLoading}
+          label="Loading expense form..."
+        />
       </section>
     </PageLayout>
   );
 }
 
-function toDateTimeLocalValue(date: Date) {
-  const offsetDate = new Date(
-    date.getTime() - date.getTimezoneOffset() * 60_000,
+function dateToCalendarDate(date: Date) {
+  return new CalendarDate(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    date.getDate(),
   );
-  return offsetDate.toISOString().slice(0, 16);
+}
+
+function dateWithCurrentLocalTimeToIso(date: CalendarDate) {
+  const now = new Date();
+  return new Date(
+    date.year,
+    date.month - 1,
+    date.day,
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+    now.getMilliseconds(),
+  ).toISOString();
 }

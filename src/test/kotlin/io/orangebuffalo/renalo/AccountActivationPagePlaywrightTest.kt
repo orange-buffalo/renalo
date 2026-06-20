@@ -55,7 +55,7 @@ class AccountActivationPagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel("Username").fill("alice")
         page.locator("input[name='password']").fill("new-password")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
     }
 
     @Test

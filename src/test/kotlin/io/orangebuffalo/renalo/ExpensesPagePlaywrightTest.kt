@@ -29,7 +29,7 @@ import java.time.ZoneOffset
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
-class TrackingPagePlaywrightTest : IntegrationTestSupport() {
+class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     @Inject
     lateinit var userRepository: UserRepository
 
@@ -49,7 +49,7 @@ class TrackingPagePlaywrightTest : IntegrationTestSupport() {
     lateinit var testAuthTokens: TestAuthTokens
 
     @Test
-    fun managesExpensesFromTrackingPage(page: Page) {
+    fun managesExpensesFromExpensesPage(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         saveAccount(alice, "Travel", "EUR", isDefault = false)
@@ -59,9 +59,9 @@ class TrackingPagePlaywrightTest : IntegrationTestSupport() {
         saveExpense(alice, main, groceries, todayAt(1).minusDays(1), 5500, null)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
-        page.navigate(server.url.toString() + "/tracking")
+        page.navigate(server.url.toString() + "/expenses")
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
@@ -74,7 +74,7 @@ class TrackingPagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel("Notes").fill("Weekly rent")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         val rentExpense = expenseRepository.findByUserIdOrderByDateTimeDesc(alice.id!!).first { it.notes == "Weekly rent" }
         rentExpense.amountMinor.shouldBe(4200)
         page.shouldEventuallyContainExpenseRows(
@@ -92,11 +92,11 @@ class TrackingPagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel("Notes").fill("Lunch")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save expense")).click()
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expense tracking"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         expenseRepository.findById(todayExpense.id!!).get().amountMinor.shouldBe(1900)
         page.shouldEventuallyContainExpenseRows(
-            ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Rent", "A$19.00", "Today", "Main", "Lunch", "edit delete"),
+            ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
         )
 
@@ -121,7 +121,7 @@ class TrackingPagePlaywrightTest : IntegrationTestSupport() {
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
         page.setViewportSize(390, 844)
 
-        page.navigate(server.url.toString() + "/tracking")
+        page.navigate(server.url.toString() + "/expenses")
 
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         page.shouldEventuallyContainExpenseRows(
@@ -141,6 +141,17 @@ class TrackingPagePlaywrightTest : IntegrationTestSupport() {
         expenseCard.locator("[data-mobile-label='Account']")
             .evaluate("element => getComputedStyle(element, '::before').content")
             .shouldBe("\"Account\"")
+    }
+
+    @Test
+    fun showsSharedEmptyStateWhenNoExpensesExist(page: Page) {
+        saveUser("alice")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses")
+
+        assertThat(page.getByText("No expenses found")).isVisible()
+        assertThat(page.locator(".table-empty-state-icon")).isVisible()
     }
 
     private fun saveUser(username: String): User = userRepository.save(
