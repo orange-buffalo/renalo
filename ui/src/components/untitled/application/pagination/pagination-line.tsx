@@ -24,7 +24,7 @@ export const PaginationLine = ({ framed, className, size = "md", ...props }: Pag
     };
 
     return (
-        <Pagination.Root {...props} className={cx("flex h-max w-max", sizes[size].root, framed && "rounded-full bg-alpha-white/90 backdrop-blur", className)}>
+        <Pagination.Root {...props} className={cx("flex h-max w-max", sizes[size].root, framed && "rounded-full bg-white/10", className)}>
             <Pagination.Context>
                 {({ pages }) =>
                     pages.map((page, index) =>

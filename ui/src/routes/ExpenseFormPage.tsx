@@ -332,10 +332,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
             </Button>
           </div>
         </form>
-        <FormLoadingOverlay
-          isLoading={isFormLoading}
-          label="Loading expense form..."
-        />
+        <FormLoadingOverlay isLoading={isFormLoading} />
       </section>
     </PageLayout>
   );

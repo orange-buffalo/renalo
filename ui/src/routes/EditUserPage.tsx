@@ -277,7 +277,7 @@ export function EditUserPage() {
             {error ?? "User could not be loaded. Try again in a moment."}
           </p>
         ) : null}
-        <FormLoadingOverlay isLoading={isLoading} label="Loading user..." />
+        <FormLoadingOverlay isLoading={isLoading} />
 
         <ModalOverlay
           isOpen={isRegenerateConfirmationOpen}

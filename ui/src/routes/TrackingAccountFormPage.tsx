@@ -262,7 +262,7 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
             </Button>
           </div>
         </form>
-        <FormLoadingOverlay isLoading={isLoading} label="Loading account..." />
+        <FormLoadingOverlay isLoading={isLoading} />
       </section>
     </PageLayout>
   );

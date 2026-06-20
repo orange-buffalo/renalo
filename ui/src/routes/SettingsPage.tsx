@@ -1,5 +1,4 @@
-import { Edit02, Plus } from "@untitledui/icons";
-import type { ComponentProps } from "react";
+import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
@@ -16,6 +15,12 @@ import {
 } from "@/api/trackingAccounts";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
+import { TableLoadingState } from "@/components/TableLoadingState";
+import {
+  TableEditAction,
+  TableMobileDetailsAction,
+  TableRowActions,
+} from "@/components/TableRowActions";
 import {
   Table,
   TableCard,
@@ -150,7 +155,7 @@ export function SettingsPage() {
               </p>
             )}
             {!accounts ? (
-              <p className="user-management-message">Loading accounts...</p>
+              <TableLoadingState label="Loading accounts" />
             ) : accounts.length === 0 ? (
               <TableEmptyState title="No accounts found" />
             ) : (
@@ -191,20 +196,17 @@ export function SettingsPage() {
                         </BadgeWithDot>
                       </Table.Cell>
                       <Table.Cell mobileRole="actions">
-                        <div className="user-management-actions-cell">
-                          <Table.MobileDetailsButton
+                        <TableRowActions>
+                          <TableMobileDetailsAction
                             label={`Show ${account.name} details`}
                           />
-                          <Button
-                            aria-label={`Edit ${account.name}`}
-                            color="tertiary"
-                            size="sm"
-                            iconLeading={EditActionIcon}
+                          <TableEditAction
+                            label={`Edit ${account.name}`}
                             onPress={() =>
                               navigate(`/settings/accounts/${account.id}`)
                             }
                           />
-                        </div>
+                        </TableRowActions>
                       </Table.Cell>
                     </Table.Row>
                   ))}
@@ -234,9 +236,7 @@ export function SettingsPage() {
               </p>
             )}
             {!expenseCategories ? (
-              <p className="user-management-message">
-                Loading expense categories...
-              </p>
+              <TableLoadingState label="Loading expense categories" />
             ) : expenseCategories.length === 0 ? (
               <TableEmptyState title="No expense categories found" />
             ) : (
@@ -259,19 +259,16 @@ export function SettingsPage() {
                     >
                       <Table.Cell>{category.name}</Table.Cell>
                       <Table.Cell mobileRole="actions">
-                        <div className="user-management-actions-cell">
-                          <Button
-                            aria-label={`Edit ${category.name}`}
-                            color="tertiary"
-                            size="sm"
-                            iconLeading={EditActionIcon}
+                        <TableRowActions>
+                          <TableEditAction
+                            label={`Edit ${category.name}`}
                             onPress={() =>
                               navigate(
                                 `/settings/expense-categories/${category.id}`,
                               )
                             }
                           />
-                        </div>
+                        </TableRowActions>
                       </Table.Cell>
                     </Table.Row>
                   ))}
@@ -301,9 +298,7 @@ export function SettingsPage() {
               </p>
             )}
             {!incomeCategories ? (
-              <p className="user-management-message">
-                Loading income categories...
-              </p>
+              <TableLoadingState label="Loading income categories" />
             ) : incomeCategories.length === 0 ? (
               <TableEmptyState title="No income categories found" />
             ) : (
@@ -326,19 +321,16 @@ export function SettingsPage() {
                     >
                       <Table.Cell>{category.name}</Table.Cell>
                       <Table.Cell mobileRole="actions">
-                        <div className="user-management-actions-cell">
-                          <Button
-                            aria-label={`Edit ${category.name}`}
-                            color="tertiary"
-                            size="sm"
-                            iconLeading={EditActionIcon}
+                        <TableRowActions>
+                          <TableEditAction
+                            label={`Edit ${category.name}`}
                             onPress={() =>
                               navigate(
                                 `/settings/income-categories/${category.id}`,
                               )
                             }
                           />
-                        </div>
+                        </TableRowActions>
                       </Table.Cell>
                     </Table.Row>
                   ))}
@@ -350,8 +342,4 @@ export function SettingsPage() {
       </Tabs>
     </PageLayout>
   );
-}
-
-function EditActionIcon(props: ComponentProps<typeof Edit02>) {
-  return <Edit02 {...props} data-action-icon="edit" />;
 }

@@ -1,10 +1,16 @@
-import { Edit02, Plus, Trash01 } from "@untitledui/icons";
-import { type ComponentProps, useEffect, useState } from "react";
+import { Plus } from "@untitledui/icons";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import type { UserType } from "@/api/auth";
 import { apiRequest } from "@/api/client";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
+import { TableLoadingState } from "@/components/TableLoadingState";
+import {
+  TableDeleteAction,
+  TableEditAction,
+  TableRowActions,
+} from "@/components/TableRowActions";
 import {
   Dialog,
   Modal,
@@ -166,7 +172,7 @@ export function UserManagementPage() {
           )}
 
           {isLoading && !usersPage ? (
-            <p className="user-management-message">Loading users...</p>
+            <TableLoadingState label="Loading users" />
           ) : usersPage && users.length === 0 ? (
             <TableEmptyState title="No users found" />
           ) : (
@@ -200,27 +206,22 @@ export function UserManagementPage() {
                       </BadgeWithDot>
                     </Table.Cell>
                     <Table.Cell mobileRole="actions">
-                      <div className="user-management-actions-cell">
-                        <Button
-                          aria-label={`Edit ${user.username}`}
-                          color="tertiary"
-                          size="sm"
-                          iconLeading={EditActionIcon}
+                      <TableRowActions>
+                        <TableEditAction
+                          label={`Edit ${user.username}`}
                           onPress={() =>
                             navigate(`/user-management/${user.id}`)
                           }
                         />
                         {!user.currentUser && (
-                          <Button
-                            aria-label={`Remove ${user.username}`}
-                            color="tertiary-destructive"
-                            size="sm"
-                            iconLeading={TrashActionIcon}
+                          <TableDeleteAction
+                            label={`Remove ${user.username}`}
                             onPress={() => setConfirmingUser(user)}
                             isDisabled={deletingUserId === user.id}
+                            actionIcon="trash"
                           />
                         )}
-                      </div>
+                      </TableRowActions>
                     </Table.Cell>
                   </Table.Row>
                 ))}
@@ -300,12 +301,4 @@ async function fetchUsers(page: number, size: number) {
 
 async function deleteUser(id: number) {
   await apiRequest<void>(`/api/users/${id}`, { method: "DELETE" });
-}
-
-function TrashActionIcon(props: ComponentProps<typeof Trash01>) {
-  return <Trash01 {...props} data-action-icon="trash" aria-hidden="true" />;
-}
-
-function EditActionIcon(props: ComponentProps<typeof Edit02>) {
-  return <Edit02 {...props} data-action-icon="edit" aria-hidden="true" />;
 }

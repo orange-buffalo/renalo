@@ -140,7 +140,7 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
             </Button>
           </div>
         </form>
-        <FormLoadingOverlay isLoading={isLoading} label="Loading category..." />
+        <FormLoadingOverlay isLoading={isLoading} />
       </section>
     </PageLayout>
   );

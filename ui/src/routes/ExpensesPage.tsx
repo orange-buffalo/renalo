@@ -1,10 +1,16 @@
-import { Edit02, Plus, Trash01 } from "@untitledui/icons";
-import type { ComponentProps } from "react";
+import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { deleteExpense, type Expense, fetchExpenses } from "@/api/expenses";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
+import { TableLoadingState } from "@/components/TableLoadingState";
+import {
+  TableDeleteAction,
+  TableEditAction,
+  TableMobileDetailsAction,
+  TableRowActions,
+} from "@/components/TableRowActions";
 import {
   Table,
   TableCard,
@@ -85,7 +91,7 @@ export function ExpensesPage() {
             </p>
           )}
           {!expenses ? (
-            <p className="user-management-message">Loading expenses...</p>
+            <TableLoadingState label="Loading expenses" />
           ) : expenses.length === 0 ? (
             <TableEmptyState title="No expenses found" />
           ) : (
@@ -127,26 +133,20 @@ export function ExpensesPage() {
                       {expense.notes || "-"}
                     </Table.Cell>
                     <Table.Cell mobileRole="actions">
-                      <div className="user-management-actions-cell">
-                        <Table.MobileDetailsButton
+                      <TableRowActions>
+                        <TableMobileDetailsAction
                           label={`Show ${expense.category.name} details`}
                         />
-                        <Button
-                          aria-label={`Edit ${expense.category.name} expense`}
-                          color="tertiary"
-                          size="sm"
-                          iconLeading={EditActionIcon}
+                        <TableEditAction
+                          label={`Edit ${expense.category.name} expense`}
                           onPress={() => navigate(`/expenses/${expense.id}`)}
                         />
-                        <Button
-                          aria-label={`Delete ${expense.category.name} expense`}
-                          color="tertiary"
-                          size="sm"
-                          iconLeading={DeleteActionIcon}
+                        <TableDeleteAction
+                          label={`Delete ${expense.category.name} expense`}
                           isLoading={deletingExpenseId === expense.id}
                           onPress={() => handleDelete(expense)}
                         />
-                      </div>
+                      </TableRowActions>
                     </Table.Cell>
                   </Table.Row>
                 ))}
@@ -181,12 +181,4 @@ function formatExpenseDate(dateTime: string) {
 
 function startOfLocalDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function EditActionIcon(props: ComponentProps<typeof Edit02>) {
-  return <Edit02 {...props} data-action-icon="edit" />;
-}
-
-function DeleteActionIcon(props: ComponentProps<typeof Trash01>) {
-  return <Trash01 {...props} data-action-icon="delete" />;
 }
