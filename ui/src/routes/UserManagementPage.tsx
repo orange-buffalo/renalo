@@ -175,6 +175,7 @@ export function UserManagementPage() {
                 <Table.Head
                   id="actions"
                   label="Actions"
+                  mobileRole="actions"
                   className="[&>div]:justify-end"
                 />
               </Table.Header>
@@ -187,7 +188,7 @@ export function UserManagementPage() {
                   >
                     <Table.Cell>{user.username}</Table.Cell>
                     <Table.Cell>{userTypeLabels[user.type]}</Table.Cell>
-                    <Table.Cell>
+                    <Table.Cell mobileLabel="Active" mobileRole="detail">
                       <BadgeWithDot
                         color={user.active ? "success" : "gray"}
                         size="sm"
@@ -195,7 +196,7 @@ export function UserManagementPage() {
                         {user.active ? "Active" : "Inactive"}
                       </BadgeWithDot>
                     </Table.Cell>
-                    <Table.Cell>
+                    <Table.Cell mobileRole="actions">
                       <div className="user-management-actions-cell">
                         <Button
                           aria-label={`Edit ${user.username}`}

@@ -160,6 +160,7 @@ export function SettingsPage() {
                   <Table.Head
                     id="actions"
                     label="Actions"
+                    mobileRole="actions"
                     className="[&>div]:justify-end"
                   />
                 </Table.Header>
@@ -172,13 +173,13 @@ export function SettingsPage() {
                     >
                       <Table.Cell>{account.name}</Table.Cell>
                       <Table.Cell>{account.currency}</Table.Cell>
-                      <Table.Cell>
+                      <Table.Cell mobileLabel="Initial balance">
                         {formatMoney(
                           account.initialBalanceMinor,
                           account.currency,
                         )}
                       </Table.Cell>
-                      <Table.Cell>
+                      <Table.Cell mobileLabel="Default">
                         <BadgeWithDot
                           color={account.isDefault ? "success" : "gray"}
                           size="sm"
@@ -186,8 +187,11 @@ export function SettingsPage() {
                           {account.isDefault ? "Default" : "No"}
                         </BadgeWithDot>
                       </Table.Cell>
-                      <Table.Cell>
+                      <Table.Cell mobileRole="actions">
                         <div className="user-management-actions-cell">
+                          <Table.MobileDetailsButton
+                            label={`Show ${account.name} details`}
+                          />
                           <Button
                             aria-label={`Edit ${account.name}`}
                             color="tertiary"
@@ -237,6 +241,7 @@ export function SettingsPage() {
                   <Table.Head
                     id="actions"
                     label="Actions"
+                    mobileRole="actions"
                     className="[&>div]:justify-end"
                   />
                 </Table.Header>
@@ -248,7 +253,7 @@ export function SettingsPage() {
                       data-testid={`expense-category-row-${category.id}`}
                     >
                       <Table.Cell>{category.name}</Table.Cell>
-                      <Table.Cell>
+                      <Table.Cell mobileRole="actions">
                         <div className="user-management-actions-cell">
                           <Button
                             aria-label={`Edit ${category.name}`}
@@ -301,6 +306,7 @@ export function SettingsPage() {
                   <Table.Head
                     id="actions"
                     label="Actions"
+                    mobileRole="actions"
                     className="[&>div]:justify-end"
                   />
                 </Table.Header>
@@ -312,7 +318,7 @@ export function SettingsPage() {
                       data-testid={`income-category-row-${category.id}`}
                     >
                       <Table.Cell>{category.name}</Table.Cell>
-                      <Table.Cell>
+                      <Table.Cell mobileRole="actions">
                         <div className="user-management-actions-cell">
                           <Button
                             aria-label={`Edit ${category.name}`}

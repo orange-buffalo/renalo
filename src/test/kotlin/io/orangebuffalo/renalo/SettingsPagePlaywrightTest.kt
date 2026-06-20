@@ -107,6 +107,37 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun showsTrackingAccountsAsExpandableMobileCards(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        saveAccount(alice, "Savings", "EUR", 12345, isDefault = false)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/settings")
+
+        assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
+        page.shouldEventuallyContainRows(
+            AccountRow("Main", "AUD", "A$0.00", "Default", "edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "edit"),
+        )
+
+        val mainCard = page.locator("[data-testid='account-row-${main.id}']")
+        assertThat(mainCard.getByText("Main")).isVisible()
+        assertThat(mainCard.getByText("AUD")).isVisible()
+        assertThat(mainCard.getByText("A$0.00")).not().isVisible()
+        assertThat(mainCard.getByText("Default")).not().isVisible()
+        mainCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Show Main details")).click()
+
+        val initialBalanceDetail = mainCard.locator("[data-mobile-label='Initial balance']")
+        assertThat(initialBalanceDetail).isVisible()
+        initialBalanceDetail.evaluate("element => getComputedStyle(element, '::before').content").shouldBe("\"Initial balance\"")
+        assertThat(mainCard.getByText("A$0.00")).isVisible()
+        assertThat(mainCard.getByText("Default")).isVisible()
+        assertThat(mainCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Main"))).isVisible()
+    }
+
+    @Test
     fun cancelsAccountCreateBackToSettings(page: Page) {
         val alice = saveUser("alice")
         saveAccount(alice, "Main", "AUD", 0, isDefault = true)

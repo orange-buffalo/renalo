@@ -1,8 +1,8 @@
 "use client";
 
-import type { ComponentPropsWithRef, HTMLAttributes, ReactNode, Ref, TdHTMLAttributes, ThHTMLAttributes } from "react";
-import { createContext, isValidElement, useContext } from "react";
-import { ArrowDown, ChevronSelectorVertical, Copy01, Edit01, HelpCircle, Trash01 } from "@untitledui/icons";
+import type { ComponentPropsWithRef, HTMLAttributes, MouseEvent, ReactNode, Ref, TdHTMLAttributes, ThHTMLAttributes } from "react";
+import { createContext, isValidElement, useContext, useState } from "react";
+import { ArrowDown, ChevronSelectorVertical, Copy01, Edit01, HelpCircle, InfoCircle, Trash01 } from "@untitledui/icons";
 import type {
     CellProps as AriaCellProps,
     ColumnProps as AriaColumnProps,
@@ -26,6 +26,8 @@ import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Tooltip, TooltipTrigger } from "@/components/untitled/base/tooltip/tooltip";
 import { cx } from "@/utils/cx";
+
+type MobileCellRole = "title" | "subtitle" | "detail" | "actions" | "hidden";
 
 export const TableRowActionsDropdown = () => (
     <Dropdown.Root>
@@ -52,7 +54,7 @@ const TableContext = createContext<{ size: "sm" | "md" }>({ size: "md" });
 const TableCardRoot = ({ children, className, size = "md", ...props }: HTMLAttributes<HTMLDivElement> & { size?: "sm" | "md" }) => {
     return (
         <TableContext.Provider value={{ size }}>
-            <div {...props} className={cx("overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary", className)}>
+            <div {...props} className={cx("table-card-root overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary", className)}>
                 {children}
             </div>
         </TableContext.Provider>
@@ -112,8 +114,8 @@ const TableRoot = ({ className, size = "md", ...props }: TableRootProps) => {
 
     return (
         <TableContext.Provider value={{ size: context?.size ?? size }}>
-            <div className="overflow-x-auto">
-                <AriaTable className={(state) => cx("w-full overflow-x-hidden", typeof className === "function" ? className(state) : className)} {...props} />
+            <div className="table-responsive-wrapper overflow-x-auto">
+                <AriaTable className={(state) => cx("responsive-table w-full overflow-x-hidden", typeof className === "function" ? className(state) : className)} {...props} />
             </div>
         </TableContext.Provider>
     );
@@ -167,14 +169,16 @@ TableHeader.displayName = "TableHeader";
 interface TableHeadProps extends AriaColumnProps, Omit<ThHTMLAttributes<HTMLTableCellElement>, "children" | "className" | "style" | "id"> {
     label?: string;
     tooltip?: string;
+    mobileRole?: MobileCellRole;
 }
 
-const TableHead = ({ className, tooltip, label, children, ...props }: TableHeadProps) => {
+const TableHead = ({ className, tooltip, label, children, mobileRole, ...props }: TableHeadProps) => {
     const { selectionBehavior } = useTableOptions();
 
     return (
         <AriaColumn
             {...props}
+            data-mobile-role={mobileRole}
             className={(state) =>
                 cx(
                     "relative p-0 px-6 py-2 outline-hidden focus-visible:z-1 focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-bg-primary focus-visible:ring-inset",
@@ -257,9 +261,11 @@ TableRow.displayName = "TableRow";
 interface TableCellProps extends AriaCellProps, Omit<TdHTMLAttributes<HTMLTableCellElement>, "children" | "className" | "style" | "id"> {
     ref?: Ref<HTMLTableCellElement>;
     size?: "sm" | "md";
+    mobileLabel?: string;
+    mobileRole?: MobileCellRole;
 }
 
-const TableCell = ({ className, children, size: sizeProp, ...props }: TableCellProps) => {
+const TableCell = ({ className, children, mobileLabel, mobileRole, size: sizeProp, ...props }: TableCellProps) => {
     const context = useContext(TableContext);
     const { selectionBehavior } = useTableOptions();
 
@@ -268,6 +274,8 @@ const TableCell = ({ className, children, size: sizeProp, ...props }: TableCellP
     return (
         <AriaCell
             {...props}
+            data-mobile-label={mobileLabel}
+            data-mobile-role={mobileRole}
             className={(state) =>
                 cx(
                     "relative text-sm text-tertiary outline-focus-ring focus-visible:z-1 focus-visible:outline-2 focus-visible:-outline-offset-2",
@@ -286,6 +294,38 @@ const TableCell = ({ className, children, size: sizeProp, ...props }: TableCellP
 };
 TableCell.displayName = "TableCell";
 
+interface TableMobileDetailsButtonProps {
+    label?: string;
+}
+
+const TableMobileDetailsButton = ({ label = "Show details" }: TableMobileDetailsButtonProps) => {
+    const [detailsExpanded, setDetailsExpanded] = useState(false);
+
+    function toggleDetails(event: MouseEvent<HTMLButtonElement>) {
+        const nextExpanded = !detailsExpanded;
+        setDetailsExpanded(nextExpanded);
+        const row = event.currentTarget.closest("tr, [role='row']");
+        if (nextExpanded) {
+            row?.setAttribute("data-mobile-details-expanded", "true");
+        } else {
+            row?.removeAttribute("data-mobile-details-expanded");
+        }
+    }
+
+    return (
+        <button
+            type="button"
+            className="mobile-table-details-button"
+            aria-label={detailsExpanded ? "Hide details" : label}
+            aria-expanded={detailsExpanded}
+            onClick={toggleDetails}
+        >
+            <InfoCircle className="size-5" />
+        </button>
+    );
+};
+TableMobileDetailsButton.displayName = "TableMobileDetailsButton";
+
 const TableCard = {
     Root: TableCardRoot,
     Header: TableCardHeader,
@@ -296,12 +336,14 @@ const Table = TableRoot as typeof TableRoot & {
     Cell: typeof TableCell;
     Head: typeof TableHead;
     Header: typeof TableHeader;
+    MobileDetailsButton: typeof TableMobileDetailsButton;
     Row: typeof TableRow;
 };
 Table.Body = AriaTableBody;
 Table.Cell = TableCell;
 Table.Head = TableHead;
 Table.Header = TableHeader;
+Table.MobileDetailsButton = TableMobileDetailsButton;
 Table.Row = TableRow;
 
 export { Table, TableCard };
