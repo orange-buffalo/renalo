@@ -564,6 +564,32 @@ input {
   padding-top: 8px;
 }
 
+.expense-notes-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expense-notes-textarea {
+  width: 100%;
+  min-height: 106px;
+  resize: vertical;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 12px;
+  color: #101828;
+  font: inherit;
+  box-shadow:
+    0 0 0 1px #d0d5dd inset,
+    0 1px 2px rgba(16, 24, 40, 0.05);
+  outline: none;
+}
+
+.expense-notes-textarea:focus {
+  box-shadow: 0 0 0 2px #1570ef inset;
+}
+
 .eyebrow {
   margin: 0 0 12px;
   color: #175cd3;

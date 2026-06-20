@@ -14,6 +14,10 @@ import {
   EditExpenseCategoryPage,
 } from "./routes/ExpenseCategoryFormPage.tsx";
 import {
+  CreateExpensePage,
+  EditExpensePage,
+} from "./routes/ExpenseFormPage.tsx";
+import {
   CreateIncomeCategoryPage,
   EditIncomeCategoryPage,
 } from "./routes/IncomeCategoryFormPage.tsx";
@@ -41,6 +45,22 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <TrackingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/tracking/expenses/create",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <CreateExpensePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/tracking/expenses/:expenseId",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <EditExpensePage />
       </ProtectedRoute>
     ),
   },
