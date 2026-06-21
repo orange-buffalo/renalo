@@ -12,7 +12,7 @@ export const ModalOverlay = (props: AriaModalOverlayProps) => {
             {...props}
             className={(state) =>
                 cx(
-                    "fixed inset-0 z-50 flex min-h-dvh w-full items-end justify-center bg-white/10 px-4 outline-hidden sm:items-center sm:justify-center sm:px-8",
+                    "fixed inset-0 z-50 flex min-h-dvh w-full items-end justify-center bg-white/90 px-4 outline-hidden sm:items-center sm:justify-center sm:px-8",
                     // Vertical padding
                     "pt-(--modal-pt) pb-(--modal-pb) [--modal-pb:clamp(16px,8vh,64px)] [--modal-pt:16px] sm:[--modal-pb:32px] sm:[--modal-pt:32px]",
                     // Animations

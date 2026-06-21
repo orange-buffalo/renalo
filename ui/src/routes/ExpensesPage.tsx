@@ -2,6 +2,7 @@ import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { deleteExpense, type Expense, fetchExpenses } from "@/api/expenses";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
 import { TableLoadingState } from "@/components/TableLoadingState";
@@ -22,6 +23,7 @@ export function ExpensesPage() {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>();
   const [error, setError] = useState<string>();
+  const [confirmingExpense, setConfirmingExpense] = useState<Expense>();
   const [deletingExpenseId, setDeletingExpenseId] = useState<number>();
 
   useEffect(() => {
@@ -43,20 +45,21 @@ export function ExpensesPage() {
     };
   }, []);
 
-  async function handleDelete(expense: Expense) {
-    if (!window.confirm(`Delete ${expense.category.name} expense?`)) {
+  async function handleDeleteConfirmed() {
+    if (!confirmingExpense) {
       return;
     }
 
-    setDeletingExpenseId(expense.id);
+    setDeletingExpenseId(confirmingExpense.id);
     setError(undefined);
     try {
-      await deleteExpense(expense.id);
+      await deleteExpense(confirmingExpense.id);
       setExpenses((currentExpenses) =>
         currentExpenses?.filter(
-          (currentExpense) => currentExpense.id !== expense.id,
+          (currentExpense) => currentExpense.id !== confirmingExpense.id,
         ),
       );
+      setConfirmingExpense(undefined);
     } catch {
       setError("Expense could not be deleted. Try again in a moment.");
     } finally {
@@ -144,7 +147,7 @@ export function ExpensesPage() {
                         <TableDeleteAction
                           label={`Delete ${expense.category.name} expense`}
                           isLoading={deletingExpenseId === expense.id}
-                          onPress={() => handleDelete(expense)}
+                          onPress={() => setConfirmingExpense(expense)}
                         />
                       </TableRowActions>
                     </Table.Cell>
@@ -154,6 +157,19 @@ export function ExpensesPage() {
             </Table>
           )}
         </TableCard.Root>
+
+        {confirmingExpense && (
+          <ConfirmationDialog
+            dataTestId="delete-expense-overlay"
+            isOpen={Boolean(confirmingExpense)}
+            title={`Delete ${confirmingExpense.category.name} expense?`}
+            description="This expense will be removed from your budget history immediately."
+            confirmLabel="Delete expense"
+            isConfirming={deletingExpenseId === confirmingExpense.id}
+            onCancel={() => setConfirmingExpense(undefined)}
+            onConfirm={handleDeleteConfirmed}
+          />
+        )}
       </section>
     </PageLayout>
   );

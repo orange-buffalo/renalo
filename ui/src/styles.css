@@ -48,6 +48,7 @@
   --color-fg-secondary: #344054;
   --color-fg-secondary_hover: #182230;
   --color-fg-white: #ffffff;
+  --color-fg-brand-primary: #7f56d9;
   --color-fg-brand-secondary_alt: #175cd3;
   --color-fg-brand-secondary_hover: #1849a9;
   --color-fg-error-primary: #d92d20;
@@ -63,6 +64,7 @@
   --color-utility-neutral-400: #98a2b3;
   --color-utility-neutral-500: #667085;
   --color-utility-neutral-700: #344054;
+  --color-bg-tertiary: #f2f4f7;
   --color-transparent: transparent;
   --color-white: #ffffff;
   --font-body:
@@ -423,8 +425,7 @@ input {
   z-index: 10;
   display: grid;
   place-items: center;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .tracking-account-form {

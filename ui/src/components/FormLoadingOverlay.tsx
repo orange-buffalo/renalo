@@ -17,7 +17,7 @@ export function FormLoadingOverlay({ isLoading }: FormLoadingOverlayProps) {
       aria-busy="true"
       aria-label="Loading form"
     >
-      <LoadingIndicator type="line-simple" size="md" />
+      <LoadingIndicator size="md" />
     </div>
   );
 }

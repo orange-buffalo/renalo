@@ -12,7 +12,7 @@ export function TableLoadingState({ label }: TableLoadingStateProps) {
       aria-busy="true"
       aria-label={label}
     >
-      <LoadingIndicator type="line-simple" size="sm" />
+      <LoadingIndicator size="sm" />
     </div>
   );
 }

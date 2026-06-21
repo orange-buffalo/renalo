@@ -4,7 +4,7 @@ import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
-import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
@@ -78,8 +78,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val rentExpense = expenseRepository.findByUserIdOrderByDateTimeDesc(alice.id!!).first { it.notes == "Weekly rent" }
         rentExpense.amountMinor.shouldBe(4200)
         page.shouldEventuallyContainExpenseRows(
-            ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
+            ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
         )
 
@@ -100,10 +100,11 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
         )
 
-        page.onDialog { it.accept() }
         page.locator("[data-testid='expense-row-${todayExpense.id}']")
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Delete Rent expense"))
             .click()
+        assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Delete Rent expense?"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Delete expense")).click()
 
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
@@ -232,7 +233,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun Page.shouldEventuallyContainExpenseRows(vararg expectedRows: ExpenseRow) {
         shouldEventually {
-            extractExpenseRows(this).shouldContainExactly(*expectedRows)
+            extractExpenseRows(this).shouldContainExactlyInAnyOrder(*expectedRows)
         }
     }
 

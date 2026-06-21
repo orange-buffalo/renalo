@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import type { UserType } from "@/api/auth";
 import { apiRequest } from "@/api/client";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
 import { TableLoadingState } from "@/components/TableLoadingState";
@@ -11,11 +12,6 @@ import {
   TableEditAction,
   TableRowActions,
 } from "@/components/TableRowActions";
-import {
-  Dialog,
-  Modal,
-  ModalOverlay,
-} from "@/components/untitled/application/modals/modal";
 import { showNotification } from "@/components/untitled/application/notifications/notifications";
 import { PaginationCardDefault } from "@/components/untitled/application/pagination/pagination";
 import {
@@ -238,53 +234,18 @@ export function UserManagementPage() {
           )}
         </TableCard.Root>
 
-        <ModalOverlay
-          data-testid="remove-user-overlay"
-          isOpen={Boolean(confirmingUser)}
-          isDismissable
-          className={(state) => (state.isExiting ? "hidden" : "")}
-          onOpenChange={(isOpen) => {
-            if (!isOpen) {
-              setConfirmingUser(undefined);
-            }
-          }}
-        >
-          {confirmingUser && (
-            <Modal className="w-full max-w-md">
-              <Dialog aria-labelledby="remove-user-title">
-                <div className="p-6">
-                  <h2
-                    id="remove-user-title"
-                    className="m-0 text-lg font-semibold text-primary"
-                  >
-                    Remove {confirmingUser.username}?
-                  </h2>
-                  <p className="mt-2 mb-0 text-sm text-tertiary">
-                    This user will lose access to Renalo immediately.
-                  </p>
-                </div>
-                <div className="flex justify-between gap-3 border-t border-secondary px-6 py-4">
-                  <Button
-                    color="tertiary"
-                    size="sm"
-                    onPress={() => setConfirmingUser(undefined)}
-                    isDisabled={deletingUserId === confirmingUser.id}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    color="primary-destructive"
-                    size="sm"
-                    onPress={handleDeleteConfirmed}
-                    isLoading={deletingUserId === confirmingUser.id}
-                  >
-                    Remove user
-                  </Button>
-                </div>
-              </Dialog>
-            </Modal>
-          )}
-        </ModalOverlay>
+        {confirmingUser && (
+          <ConfirmationDialog
+            dataTestId="remove-user-overlay"
+            isOpen={Boolean(confirmingUser)}
+            title={`Remove ${confirmingUser.username}?`}
+            description="This user will lose access to Renalo immediately."
+            confirmLabel="Remove user"
+            isConfirming={deletingUserId === confirmingUser.id}
+            onCancel={() => setConfirmingUser(undefined)}
+            onConfirm={handleDeleteConfirmed}
+          />
+        )}
       </section>
     </PageLayout>
   );
