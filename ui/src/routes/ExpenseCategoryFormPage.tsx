@@ -89,7 +89,6 @@ function ExpenseCategoryFormPage({ mode }: { mode: "create" | "edit" }) {
 
   return (
     <PageLayout
-      eyebrow="Settings"
       title={
         isEditing
           ? `Edit ${category?.name ?? "category"}`

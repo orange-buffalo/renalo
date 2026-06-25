@@ -69,9 +69,8 @@ export function ExpensesPage() {
 
   return (
     <PageLayout
-      eyebrow="Expenses"
       title="Expenses"
-      description="Track spending, review categories, and keep the budget workspace up to date."
+      description="Review spending entries and keep your budget history up to date."
       actions={
         <Button
           color="tertiary"

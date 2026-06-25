@@ -101,7 +101,6 @@ export function SettingsPage() {
 
   return (
     <PageLayout
-      eyebrow="Settings"
       title="Budget settings"
       description="Configure the budget workspace used for tracking and analytics."
     >

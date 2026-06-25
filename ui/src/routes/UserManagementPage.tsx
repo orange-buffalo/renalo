@@ -135,7 +135,6 @@ export function UserManagementPage() {
 
   return (
     <PageLayout
-      eyebrow="Administration"
       title="User management"
       description="Manage Renalo users and keep administrative access organized."
       titleTrailing={

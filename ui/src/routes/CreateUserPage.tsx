@@ -69,7 +69,6 @@ export function CreateUserPage() {
 
   return (
     <PageLayout
-      eyebrow="Administration"
       title="Create user"
       description="A password will be generated automatically. New users stay inactive until they use their activation link."
     >

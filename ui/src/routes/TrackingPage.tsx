@@ -3,7 +3,6 @@ import { PageLayout } from "@/components/PageLayout";
 export function TrackingPage() {
   return (
     <PageLayout
-      eyebrow="Tracking"
       title="Dashboard"
       description="Review budget activity, analytics, and account health."
     >

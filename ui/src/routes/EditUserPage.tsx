@@ -193,7 +193,6 @@ export function EditUserPage() {
 
   return (
     <PageLayout
-      eyebrow="Administration"
       title={title}
       titleTrailing={statusBadge}
       description="Update the username. User type is shown for reference and cannot be changed."

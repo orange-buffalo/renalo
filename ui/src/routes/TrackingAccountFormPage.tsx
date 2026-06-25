@@ -154,7 +154,6 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
 
   return (
     <PageLayout
-      eyebrow="Settings"
       title={isEditing ? "Edit account" : "Add new account"}
       description="Accounts define where tracked budget activity belongs."
     >

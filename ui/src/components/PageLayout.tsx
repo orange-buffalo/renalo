@@ -18,7 +18,6 @@ import { AvatarLabelGroup } from "@/components/untitled/base/avatar/avatar-label
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 
 type PageLayoutProps = {
-  eyebrow: string;
   title: string;
   description?: string;
   titleTrailing?: ReactNode;
@@ -27,7 +26,6 @@ type PageLayoutProps = {
 };
 
 export function PageLayout({
-  eyebrow,
   title,
   description,
   titleTrailing,
@@ -158,7 +156,6 @@ export function PageLayout({
         <div className="standard-page-surface">
           <header className="standard-page-header">
             <div className="standard-page-heading">
-              <p className="eyebrow">{eyebrow}</p>
               <div className="standard-page-title-row">
                 <h1>{title}</h1>
                 {titleTrailing}

@@ -122,7 +122,6 @@ export function ActivateAccountPage() {
   return (
     <AnonymousPage className="anonymous-page-shell--login">
       <section className="login-card" aria-labelledby="activation-heading">
-        <p className="eyebrow">Account activation</p>
         <h1 id="activation-heading">Set your password</h1>
         <p className="intro">
           Create a password to activate your Renalo account and start using your

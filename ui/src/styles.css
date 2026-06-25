@@ -658,15 +658,6 @@ input {
   line-height: 1.25;
 }
 
-.eyebrow {
-  margin: 0 0 12px;
-  color: #175cd3;
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
 .login-card h1 {
   margin: 0;
   color: #101828;
@@ -900,15 +891,17 @@ input {
 
 .standard-page-header h1 {
   margin: 0;
-  color: #101828;
-  font-size: clamp(1.75rem, 4.8vw, 2.8rem);
-  line-height: 1;
-  letter-spacing: -0.04em;
+  color: #175cd3;
+  font-size: clamp(1.125rem, 2.4vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .standard-page-description {
   max-width: 720px;
-  margin: 20px 0 0;
+  margin: 12px 0 0;
   color: #475467;
   font-size: 1rem;
 }
@@ -917,7 +910,6 @@ input {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  padding-top: 48px;
 }
 
 .standard-page-main {

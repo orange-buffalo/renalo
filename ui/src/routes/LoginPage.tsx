@@ -74,7 +74,6 @@ export function LoginPage() {
   return (
     <AnonymousPage className="anonymous-page-shell--login">
       <section className="login-card" aria-labelledby="login-heading">
-        <p className="eyebrow">Budgeting starts here</p>
         <h1 id="login-heading">Sign in to Renalo</h1>
         <p className="intro">Sign in to continue to your budget workspace.</p>
         <form className="login-form" onSubmit={handleSubmit}>

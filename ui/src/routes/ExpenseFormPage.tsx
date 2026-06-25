@@ -201,7 +201,6 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
 
   return (
     <PageLayout
-      eyebrow="Expenses"
       title={isEditing ? "Edit expense" : "Add expense"}
       description="Record spending against an account and expense category."
     >
