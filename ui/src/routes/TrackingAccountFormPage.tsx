@@ -13,13 +13,13 @@ import {
   updateTrackingAccount,
 } from "@/api/trackingAccounts";
 import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
+import { MoneyInput } from "@/components/MoneyInput";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
-import { Input, InputBase } from "@/components/untitled/base/input/input";
-import { InputGroup } from "@/components/untitled/base/input/input-group";
+import { Input } from "@/components/untitled/base/input/input";
 import { Label } from "@/components/untitled/base/input/label";
 import {
   formatMoneyInput,
@@ -202,35 +202,18 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
             onSearchChange={setCurrencySearch}
             onCurrencyChange={handleCurrencyChange}
           />
-          <InputGroup
+          <MoneyInput
             label="Initial amount"
-            validationBehavior="aria"
+            name="initialBalance"
+            value={amount}
+            currency={currency}
             isInvalid={Boolean(amountError)}
             hint={amountError ?? "This is used for analytics."}
-            trailingAddon={
-              <InputGroup.Prefix className="tracking-account-amount-addon">
-                {currency}
-              </InputGroup.Prefix>
-            }
-          >
-            <InputBase
-              name="initialBalance"
-              value={amount}
-              inputMode="decimal"
-              onChange={(event) => {
-                setAmount(event.target.value);
-                setAmountError(undefined);
-              }}
-              onBlur={() =>
-                setAmount((currentAmount) => {
-                  const parsedAmount = parseMoneyInput(currentAmount, currency);
-                  return parsedAmount === undefined
-                    ? currentAmount
-                    : formatMoneyInput(parsedAmount, currency);
-                })
-              }
-            />
-          </InputGroup>
+            onChange={(nextAmount) => {
+              setAmount(nextAmount);
+              setAmountError(undefined);
+            }}
+          />
           <Checkbox
             className="tracking-account-default-checkbox"
             label="Default account"

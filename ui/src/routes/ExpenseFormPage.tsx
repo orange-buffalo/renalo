@@ -16,12 +16,11 @@ import {
   type TrackingAccount,
 } from "@/api/trackingAccounts";
 import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
+import { MoneyInput } from "@/components/MoneyInput";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { DatePicker } from "@/components/untitled/application/date-picker/date-picker";
 import { Button } from "@/components/untitled/base/buttons/button";
-import { InputBase } from "@/components/untitled/base/input/input";
-import { InputGroup } from "@/components/untitled/base/input/input-group";
 import { Label } from "@/components/untitled/base/input/label";
 import { Select } from "@/components/untitled/base/select/select";
 import { formatMoneyInput, parseMoneyInput } from "@/utils/money";
@@ -234,35 +233,18 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
           >
             {(item) => <Select.Item {...item} />}
           </Select>
-          <InputGroup
+          <MoneyInput
             label="Amount"
-            validationBehavior="aria"
+            name="amount"
+            value={amount}
+            currency={currency}
             isInvalid={Boolean(amountError)}
             hint={amountError}
-            trailingAddon={
-              <InputGroup.Prefix className="tracking-account-amount-addon">
-                {currency}
-              </InputGroup.Prefix>
-            }
-          >
-            <InputBase
-              name="amount"
-              value={amount}
-              inputMode="decimal"
-              onChange={(event) => {
-                setAmount(event.target.value);
-                setAmountError(undefined);
-              }}
-              onBlur={() =>
-                setAmount((currentAmount) => {
-                  const parsedAmount = parseMoneyInput(currentAmount, currency);
-                  return parsedAmount === undefined
-                    ? currentAmount
-                    : formatMoneyInput(parsedAmount, currency);
-                })
-              }
-            />
-          </InputGroup>
+            onChange={(nextAmount) => {
+              setAmount(nextAmount);
+              setAmountError(undefined);
+            }}
+          />
           <div className="expense-date-field">
             <Label isRequired>Date</Label>
             <DatePicker
