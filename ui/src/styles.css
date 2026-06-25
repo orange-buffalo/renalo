@@ -755,7 +755,6 @@ input {
   border-radius: 12px;
   color: #ffffff;
   background: #1570ef;
-  box-shadow: 0 12px 28px rgba(21, 112, 239, 0.28);
 }
 
 .standard-page-topbar-actions {
@@ -816,6 +815,7 @@ input {
 }
 
 .standard-page-account-popover {
+  border: 1px solid #eaecf0;
   box-shadow:
     0 20px 24px -4px rgb(16 24 40 / 0.08),
     0 8px 8px -4px rgb(16 24 40 / 0.03);
@@ -1090,7 +1090,7 @@ input {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 8px;
     height: 64px;
-    padding: 0 16px;
+    padding: 0 8px;
   }
 
   .standard-page-brand {
@@ -1133,7 +1133,7 @@ input {
     width: 100%;
     max-width: 100vw;
     margin: 0;
-    padding: 24px;
+    padding: 12px;
     place-items: stretch;
   }
 
