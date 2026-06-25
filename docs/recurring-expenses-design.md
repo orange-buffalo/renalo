@@ -492,7 +492,9 @@ Mark `RecurringExpenseRule` as deleted.
 Delete all `Expenses` linked to the rule.
 Delete all `RecurringExpenseSkip` rows linked to the rule.
 
-## Import/API Matching
+## Future Design Note: Import/API Matching
+
+This section is out of scope for the initial recurring expenses implementation because import flows do not exist yet. It remains a future design note for externally created/imported expenses, not for normal UI interactions that use the application's REST endpoints.
 
 When a new imported/API-created expense is received, the app should try to match it against already-generated recurring expenses.
 

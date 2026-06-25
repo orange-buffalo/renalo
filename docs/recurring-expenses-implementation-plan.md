@@ -2,11 +2,54 @@
 
 This document tracks implementation progress for recurring expenses. Keep it updated as each step is started and completed.
 
+Source of truth: `docs/recurring-expenses-design.md`.
+
+This plan is an execution guide derived from the design. If this plan conflicts with the design, the design prevails unless the user explicitly overrides it in later instructions. REST endpoints used by the UI are implementation details for user interactions; they are not the future import/API matching flow described in the design.
+
 Status legend:
 
 - `[ ]` Not started
 - `[~]` In progress
 - `[x]` Complete
+
+## Design Traceability
+
+Each implementation step maps back to one or more design sections:
+
+| Design section | Implementation steps |
+| --- | --- |
+| Goal | Steps 2, 3, 4, 5, 6 |
+| Initial Schedule Support | Steps 1, 4, 7 |
+| Terminology | Steps 8, 9, 10, 11 |
+| Core Models | Steps 2, 3, 4 |
+| Constraints | Steps 2, 3 |
+| Generation Strategy | Steps 3, 4, 5 |
+| Hourly Background Job | Step 5 |
+| Schedule Immutability | Steps 8, 9 |
+| Monthly Date Edge Case | Step 1 |
+| Shared Recurrence Infrastructure | Steps 1, 12 |
+| Overview UI | Step 6 |
+| Create/Edit UI | Steps 7, 9 |
+| Editing Recurring Expenses | Steps 8, 9 |
+| Deleting Recurring Expenses | Steps 10, 11 |
+| Regeneration Safety Rules | Steps 3, 5, 8, 10, 12 |
+| Future Design Note: Import/API Matching | Future design note only, out of scope for the current implementation plan |
+| Summary | All steps |
+
+## Current Scope Boundaries
+
+In scope for this plan:
+
+- User-created recurring expenses through the existing UI-backed application flows.
+- Normal REST endpoints required to support those UI interactions.
+- Generated expense display, editing, deleting, and hourly generation.
+- Shared recurrence foundations needed for future recurring incomes.
+
+Out of scope for this plan:
+
+- Import/API matching of externally created expenses into generated recurring expenses.
+- Any dedicated external/import API behavior beyond the existing REST transport needed by the UI.
+- Recurring incomes implementation, although shared recurrence code must be designed so incomes can reuse it later.
 
 ## Principles
 
@@ -326,34 +369,7 @@ Review notes:
 
 - Make destructive scope choices clear without introducing unsupported terminology.
 
-## Step 12: Import/API Matching
-
-Status: `[ ]`
-
-Goal: Merge imported/API-created expenses into already-generated recurring expenses when they match.
-
-Deliverables:
-
-- Before creating an imported/API expense, search for generated recurring expenses with the same date and same amount.
-- If one clear match exists, update/merge into the existing generated expense.
-- Set `recurring_locked = true` on the merged expense.
-- Keep the merged expense linked to its recurring rule.
-- If no match exists, create a normal expense.
-- Define behavior for ambiguous multiple matches before implementation, if possible.
-
-Tests:
-
-- API/service tests for same-date, same-amount matching.
-- Tests proving matched imports do not create duplicates.
-- Tests proving merged expenses become locked.
-- Tests proving non-matches create normal expenses.
-- Tests for ambiguous matches once the behavior is defined.
-
-Review notes:
-
-- This step may be deferred if import/API-created expense flows are not available yet.
-
-## Step 13: Cross-Feature Consistency And Documentation
+## Step 12: Cross-Feature Consistency And Documentation
 
 Status: `[ ]`
 
