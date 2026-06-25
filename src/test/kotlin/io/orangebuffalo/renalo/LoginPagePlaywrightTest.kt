@@ -99,8 +99,8 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
                 }
             }
 
+            setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
             page.navigate(server.url.toString() + "/")
-            page.evaluate("token => window.localStorage.setItem('renalo.authToken', token)", testAuthTokens.issueToken("alice", UserType.USER))
             page.evaluate("setTimeout(() => { window.location.href = '/tracking'; }, 0)")
 
             try {
