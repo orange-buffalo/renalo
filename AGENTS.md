@@ -27,6 +27,7 @@
 - Static assets under `/assets/**` should use long-lived immutable cache headers.
 - Frontend build outputs for all cacheable assets, including CSS, must be fingerprinted before they are referenced by `index.html`.
 - Tests use Testcontainers PostgreSQL, not H2.
+- Tests run with `TestTimeProvider.DEFAULT_TIME`; Playwright pages must centrally move browser time to the same instant and let the clock run normally.
 - Database cleanup for tests must truncate application tables before and after each test, excluding Flyway metadata tables.
 - Every API change must be fully covered with tests, including security verification, business flow coverage, and relevant edge cases.
 

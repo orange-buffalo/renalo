@@ -7,6 +7,7 @@ import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserActivationToken
@@ -447,10 +448,9 @@ class UserManagementApiTest : IntegrationTestSupport() {
             UserActivationToken(
                 userId = alice.id!!,
                 token = "expired-token",
-                expiresAt = Instant.parse("2099-06-15T08:00:00Z"),
+                expiresAt = TestTimeProvider.DEFAULT_TIME.minusSeconds(1),
             ),
         )
-        testTimeProvider.setNow(Instant.parse("2099-06-15T08:00:01Z"))
         val adminToken = api().login("admin", "password")
 
         val response = api().get("/api/users/${alice.id}", adminToken)

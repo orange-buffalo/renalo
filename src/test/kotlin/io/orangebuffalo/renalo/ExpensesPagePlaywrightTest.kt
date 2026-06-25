@@ -10,6 +10,7 @@ import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestAuthTokens
+import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.test.shouldEventually
 import io.orangebuffalo.renalo.tracking.Expense
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
@@ -53,8 +54,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         saveAccount(alice, "Travel", "EUR", isDefault = false)
         val groceries = saveCategory(alice, "Groceries")
         saveCategory(alice, "Rent")
-        val todayExpense = saveExpense(alice, main, groceries, todayDate(), 1234, "Milk")
-        saveExpense(alice, main, groceries, todayDate().minusDays(1), 5500, null)
+        val todayExpense = saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1234, "Milk")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE.minusDays(1), 5500, null)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/expenses")
@@ -116,7 +117,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         val groceries = saveCategory(alice, "Groceries")
-        val expense = saveExpense(alice, main, groceries, todayDate(), 1234, "Milk")
+        val expense = saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1234, "Milk")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
         page.setViewportSize(390, 844)
 
@@ -196,8 +197,6 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             notes = notes,
         ),
     )
-
-    private fun todayDate(): LocalDate = LocalDate.now()
 
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()

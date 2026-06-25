@@ -17,7 +17,6 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
-import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -152,8 +151,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
     @Test
     fun clearsExpiredStoredTokenAndShowsLoginPage(page: Page) {
         saveUser("alice", "password", UserType.USER)
-        testTimeProvider.setNow(Instant.parse("2020-06-14T08:00:00Z"))
-        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        setStoredToken(page, testAuthTokens.issueExpiredToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/tracking")
 

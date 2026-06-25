@@ -3,6 +3,7 @@ package io.orangebuffalo.renalo.test;
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
+import com.microsoft.playwright.Clock;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.Tracing;
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
+
+import java.util.Date;
 
 public class PlaywrightExtension implements BeforeEachCallback, AfterEachCallback, ParameterResolver {
     private static final ExtensionContext.Namespace NAMESPACE = ExtensionContext.Namespace.create(PlaywrightExtension.class);
@@ -31,6 +34,7 @@ public class PlaywrightExtension implements BeforeEachCallback, AfterEachCallbac
                 .setSnapshots(true)
                 .setSources(true));
         Page page = browserContext.newPage();
+        page.clock().install(new Clock.InstallOptions().setTime(Date.from(TestTimeProvider.DEFAULT_TIME)));
 
         ExtensionContext.Store store = context.getStore(NAMESPACE);
         store.put(Playwright.class, playwright);
