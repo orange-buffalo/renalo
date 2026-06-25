@@ -24,8 +24,6 @@ import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -55,8 +53,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         saveAccount(alice, "Travel", "EUR", isDefault = false)
         val groceries = saveCategory(alice, "Groceries")
         saveCategory(alice, "Rent")
-        val todayExpense = saveExpense(alice, main, groceries, todayAt(1), 1234, "Milk")
-        saveExpense(alice, main, groceries, todayAt(1).minusDays(1), 5500, null)
+        val todayExpense = saveExpense(alice, main, groceries, todayDate(), 1234, "Milk")
+        saveExpense(alice, main, groceries, todayDate().minusDays(1), 5500, null)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/expenses")
@@ -75,7 +73,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
-        val rentExpense = expenseRepository.findByUserIdOrderByDateTimeDesc(alice.id!!).first { it.notes == "Weekly rent" }
+        val rentExpense = expenseRepository.findByUserIdOrderByDateDesc(alice.id!!).first { it.notes == "Weekly rent" }
         rentExpense.amountMinor.shouldBe(4200)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
@@ -118,7 +116,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         val groceries = saveCategory(alice, "Groceries")
-        val expense = saveExpense(alice, main, groceries, todayAt(10), 1234, "Milk")
+        val expense = saveExpense(alice, main, groceries, todayDate(), 1234, "Milk")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
         page.setViewportSize(390, 844)
 
@@ -185,7 +183,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         user: User,
         account: TrackingAccount,
         category: ExpenseCategory,
-        dateTime: OffsetDateTime,
+        date: LocalDate,
         amountMinor: Long,
         notes: String?,
     ): Expense = expenseRepository.save(
@@ -193,13 +191,13 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             userId = user.id!!,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
-            dateTime = dateTime,
+            date = date,
             amountMinor = amountMinor,
             notes = notes,
         ),
     )
 
-    private fun todayAt(hour: Int): OffsetDateTime = LocalDate.now().atTime(hour, 0).atOffset(ZoneOffset.UTC)
+    private fun todayDate(): LocalDate = LocalDate.now()
 
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()

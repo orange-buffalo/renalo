@@ -111,7 +111,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
         }
         setTrackingAccountId(loadedExpense.trackingAccount.id);
         setCategoryId(loadedExpense.category.id);
-        setDate(dateToCalendarDate(new Date(loadedExpense.dateTime)));
+        setDate(isoDateToCalendarDate(loadedExpense.date));
         setAmount(
           formatMoneyInput(
             loadedExpense.amountMinor,
@@ -178,7 +178,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     const payload: SaveExpense = {
       trackingAccountId,
       categoryId,
-      dateTime: dateWithCurrentLocalTimeToIso(date),
+      date: calendarDateToIsoDate(date),
       amountMinor,
       notes: notes.trim() || null,
     };
@@ -327,15 +327,11 @@ function dateToCalendarDate(date: Date) {
   );
 }
 
-function dateWithCurrentLocalTimeToIso(date: CalendarDate) {
-  const now = new Date();
-  return new Date(
-    date.year,
-    date.month - 1,
-    date.day,
-    now.getHours(),
-    now.getMinutes(),
-    now.getSeconds(),
-    now.getMilliseconds(),
-  ).toISOString();
+function isoDateToCalendarDate(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new CalendarDate(year, month, day);
+}
+
+function calendarDateToIsoDate(date: CalendarDate) {
+  return date.toString();
 }

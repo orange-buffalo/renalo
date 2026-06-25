@@ -11,7 +11,7 @@ export type Expense = {
     id: number;
     name: string;
   };
-  dateTime: string;
+  date: string;
   amountMinor: number;
   notes?: string | null;
 };
@@ -19,7 +19,7 @@ export type Expense = {
 export type SaveExpense = {
   trackingAccountId: number;
   categoryId: number;
-  dateTime: string;
+  date: string;
   amountMinor: number;
   notes?: string | null;
 };

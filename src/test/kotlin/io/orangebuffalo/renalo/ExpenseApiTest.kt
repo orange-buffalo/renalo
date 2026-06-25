@@ -17,7 +17,7 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
-import java.time.OffsetDateTime
+import java.time.LocalDate
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -46,7 +46,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         saveUser("admin", UserType.ADMIN)
         val userToken = api().login("alice", "password")
         val adminToken = api().login("admin", "password")
-        val body = expenseJson(account, category, "2026-06-15T10:30:00Z", 1234, "Milk")
+        val body = expenseJson(account, category, "2026-06-15", 1234, "Milk")
 
         api().get("/api/tracking/expenses", null).statusCode().shouldBe(401)
         api().get("/api/tracking/expenses", adminToken).statusCode().shouldBe(403)
@@ -61,9 +61,9 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val bob = saveUser("bob", UserType.USER)
         val account = saveAccount(alice, "Everyday", "AUD")
         val category = saveCategory(alice, "Groceries")
-        val older = saveExpense(alice, account, category, "2026-06-14T10:30:00Z", 1200, "Bread")
-        val newer = saveExpense(alice, account, category, "2026-06-15T10:30:00Z", 3400, null)
-        saveExpense(bob, saveAccount(bob, "Bob account", "USD"), saveCategory(bob, "Bob category"), "2026-06-16T10:30:00Z", 999, "Hidden")
+        val older = saveExpense(alice, account, category, "2026-06-14", 1200, "Bread")
+        val newer = saveExpense(alice, account, category, "2026-06-15", 3400, null)
+        saveExpense(bob, saveAccount(bob, "Bob account", "USD"), saveCategory(bob, "Bob category"), "2026-06-16", 999, "Hidden")
 
         val response = api().get("/api/tracking/expenses", api().login("alice", "password"))
 
@@ -82,7 +82,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
                       "id": ${category.id},
                       "name": "Groceries"
                     },
-                    "dateTime": "2026-06-15T10:30:00Z",
+                    "date": "2026-06-15",
                     "amountMinor": 3400
                   },
                   {
@@ -96,7 +96,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
                       "id": ${category.id},
                       "name": "Groceries"
                     },
-                    "dateTime": "2026-06-14T10:30:00Z",
+                    "date": "2026-06-14",
                     "amountMinor": 1200,
                     "notes": "Bread"
                   }
@@ -116,12 +116,12 @@ class ExpenseApiTest : IntegrationTestSupport() {
 
         val createResponse = api().postJson(
             "/api/tracking/expenses",
-            expenseJson(account, groceries, "2026-06-15T10:30:00Z", 1234, " Milk "),
+            expenseJson(account, groceries, "2026-06-15", 1234, " Milk "),
             token,
         )
 
         createResponse.statusCode().shouldBe(201)
-        val expense = expenseRepository.findByUserIdOrderByDateTimeDesc(alice.id!!).single()
+        val expense = expenseRepository.findByUserIdOrderByDateDesc(alice.id!!).single()
         createResponse.body().shouldEqualJson(
             """
                 {
@@ -135,7 +135,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
                     "id": ${groceries.id},
                     "name": "Groceries"
                   },
-                  "dateTime": "2026-06-15T10:30:00Z",
+                  "date": "2026-06-15",
                   "amountMinor": 1234,
                   "notes": "Milk"
                 }
@@ -144,7 +144,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
 
         val updateResponse = api().patchJson(
             "/api/tracking/expenses/${expense.id}",
-            expenseJson(savings, rent, "2026-06-16T09:00:00Z", 2000, null),
+            expenseJson(savings, rent, "2026-06-16", 2000, null),
             token,
         )
 
@@ -162,7 +162,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
                     "id": ${rent.id},
                     "name": "Rent"
                   },
-                  "dateTime": "2026-06-16T09:00:00Z",
+                  "date": "2026-06-16",
                   "amountMinor": 2000
                 }
             """.trimIndent(),
@@ -181,28 +181,28 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val aliceCategory = saveCategory(alice, "Groceries")
         val bobAccount = saveAccount(bob, "Bob account", "USD")
         val bobCategory = saveCategory(bob, "Bob category")
-        val bobExpense = saveExpense(bob, bobAccount, bobCategory, "2026-06-15T10:30:00Z", 999, null)
+        val bobExpense = saveExpense(bob, bobAccount, bobCategory, "2026-06-15", 999, null)
         val token = api().login("alice", "password")
 
         api().postJson(
             "/api/tracking/expenses",
-            expenseJson(aliceAccount, aliceCategory, "2026-06-15T10:30:00Z", 0, null),
+            expenseJson(aliceAccount, aliceCategory, "2026-06-15", 0, null),
             token,
         ).statusCode().shouldBe(400)
         api().postJson(
             "/api/tracking/expenses",
-            expenseJson(bobAccount, aliceCategory, "2026-06-15T10:30:00Z", 1000, null),
+            expenseJson(bobAccount, aliceCategory, "2026-06-15", 1000, null),
             token,
         ).statusCode().shouldBe(400)
         api().postJson(
             "/api/tracking/expenses",
-            expenseJson(aliceAccount, bobCategory, "2026-06-15T10:30:00Z", 1000, null),
+            expenseJson(aliceAccount, bobCategory, "2026-06-15", 1000, null),
             token,
         ).statusCode().shouldBe(400)
         api().get("/api/tracking/expenses/${bobExpense.id}", token).statusCode().shouldBe(404)
         api().patchJson(
             "/api/tracking/expenses/${bobExpense.id}",
-            expenseJson(aliceAccount, aliceCategory, "2026-06-15T10:30:00Z", 1000, null),
+            expenseJson(aliceAccount, aliceCategory, "2026-06-15", 1000, null),
             token,
         ).statusCode().shouldBe(404)
         api().delete("/api/tracking/expenses/${bobExpense.id}", token).statusCode().shouldBe(404)
@@ -237,7 +237,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         user: User,
         account: TrackingAccount,
         category: ExpenseCategory,
-        dateTime: String,
+        date: String,
         amountMinor: Long,
         notes: String?,
     ): Expense = expenseRepository.save(
@@ -245,7 +245,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
             userId = user.id!!,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
-            dateTime = OffsetDateTime.parse(dateTime),
+            date = LocalDate.parse(date),
             amountMinor = amountMinor,
             notes = notes,
         ),
@@ -254,14 +254,14 @@ class ExpenseApiTest : IntegrationTestSupport() {
     private fun expenseJson(
         account: TrackingAccount,
         category: ExpenseCategory,
-        dateTime: String,
+        date: String,
         amountMinor: Long,
         notes: String?,
     ) = """
         {
           "trackingAccountId": ${account.id},
           "categoryId": ${category.id},
-          "dateTime": "$dateTime",
+          "date": "$date",
           "amountMinor": $amountMinor,
           "notes": ${notes?.let { "\"$it\"" } ?: "null"}
         }

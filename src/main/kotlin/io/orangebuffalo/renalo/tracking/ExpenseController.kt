@@ -11,7 +11,7 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
 import io.orangebuffalo.renalo.user.UserRepository
-import java.time.OffsetDateTime
+import java.time.LocalDate
 
 @Controller("/api/tracking/expenses")
 @Secured(UserRoles.USER)
@@ -86,7 +86,7 @@ private fun ExpenseDetails.toResponse() = ExpenseResponse(
         id = category.id ?: error("Expense category must be persisted before it can be returned"),
         name = category.name,
     ),
-    dateTime = expense.dateTime,
+    date = expense.date,
     amountMinor = expense.amountMinor,
     notes = expense.notes,
 )
@@ -95,7 +95,7 @@ data class ExpenseResponse(
     val id: Long,
     val trackingAccount: ExpenseTrackingAccountResponse,
     val category: ExpenseCategorySummaryResponse,
-    val dateTime: OffsetDateTime,
+    val date: LocalDate,
     val amountMinor: Long,
     val notes: String?,
 )

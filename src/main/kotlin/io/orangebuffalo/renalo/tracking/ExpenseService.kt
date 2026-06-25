@@ -2,7 +2,7 @@ package io.orangebuffalo.renalo.tracking
 
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Singleton
-import java.time.OffsetDateTime
+import java.time.LocalDate
 
 @Singleton
 open class ExpenseService(
@@ -11,7 +11,7 @@ open class ExpenseService(
     private val expenseCategoryRepository: ExpenseCategoryRepository,
 ) {
     fun listExpenses(userId: Long): List<ExpenseDetails> =
-        expenseRepository.findByUserIdOrderByDateTimeDesc(userId).mapNotNull { it.toDetails(userId) }
+        expenseRepository.findByUserIdOrderByDateDesc(userId).mapNotNull { it.toDetails(userId) }
 
     fun findExpense(userId: Long, expenseId: Long): ExpenseDetails? =
         expenseRepository.findByIdAndUserId(expenseId, userId)?.toDetails(userId)
@@ -50,7 +50,7 @@ open class ExpenseService(
             userId = userId,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
-            dateTime = request.dateTime,
+            date = request.date,
             amountMinor = request.amountMinor,
             notes = notes,
         )
@@ -81,7 +81,7 @@ data class ExpenseDetails(
 data class SaveExpenseRequest(
     val trackingAccountId: Long,
     val categoryId: Long,
-    val dateTime: OffsetDateTime,
+    val date: LocalDate,
     val amountMinor: Long,
     val notes: String? = null,
 )

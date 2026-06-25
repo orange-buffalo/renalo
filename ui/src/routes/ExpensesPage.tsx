@@ -101,7 +101,7 @@ export function ExpensesPage() {
               <Table.Header>
                 <Table.Head id="category" label="Category" isRowHeader />
                 <Table.Head id="amount" label="Amount" />
-                <Table.Head id="dateTime" label="Date" />
+                <Table.Head id="date" label="Date" />
                 <Table.Head id="account" label="Account" />
                 <Table.Head id="notes" label="Notes" />
                 <Table.Head
@@ -126,7 +126,7 @@ export function ExpensesPage() {
                       )}
                     </Table.Cell>
                     <Table.Cell mobileLabel="Date" mobileRole="detail">
-                      {formatExpenseDate(expense.dateTime)}
+                      {formatExpenseDate(expense.date)}
                     </Table.Cell>
                     <Table.Cell mobileLabel="Account">
                       {expense.trackingAccount.name}
@@ -174,8 +174,9 @@ export function ExpensesPage() {
   );
 }
 
-function formatExpenseDate(dateTime: string) {
-  const date = new Date(dateTime);
+function formatExpenseDate(isoDate: string) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
   const today = startOfLocalDay(new Date());
   const expenseDay = startOfLocalDay(date);
   const dayDifference = Math.round(
