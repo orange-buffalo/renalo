@@ -1167,6 +1167,8 @@ input {
   }
 
   .standard-page-actions {
+    width: 100%;
+    justify-content: flex-end;
     padding-top: 24px;
   }
 
