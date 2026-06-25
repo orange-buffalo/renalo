@@ -51,6 +51,7 @@
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Standard authenticated pages should put page-level descriptions, counters/badges, and primary actions in `PageLayout`, not inside table panels or forms.
+- Standard authenticated page content and the topbar must share the same 1020px maximum content width, and the sticky topbar must be opaque so scrolling content cannot show through it.
 - Table surfaces should use the shared Untitled table/card border treatment so the panel outline is consistent across all current and future tables.
 - Functional UI changes must be covered with Playwright tests. Do not add Playwright assertions solely for visual styling; use trace screenshots for visual review instead.
 - Maintain one Playwright test class per page or route-level surface, for example `LoginPagePlaywrightTest` for login flows and `UserManagementPagePlaywrightTest` for user-management page flows.

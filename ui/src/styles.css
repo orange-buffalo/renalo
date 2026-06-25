@@ -101,6 +101,7 @@
 }
 
 :root {
+  --standard-page-content-width: 1020px;
   color: #101828;
   background: #ffffff;
   font-family:
@@ -698,13 +699,13 @@ input {
   display: flex;
   justify-content: center;
   border-bottom: 1px solid #eaecf0;
-  background: rgba(255, 255, 255, 0.1);
+  background: #ffffff;
 }
 
 .standard-page-topbar-inner {
   display: flex;
   width: 100%;
-  max-width: 1440px;
+  max-width: var(--standard-page-content-width);
   min-width: 0;
   height: 64px;
   align-items: center;
@@ -875,7 +876,7 @@ input {
 }
 
 .standard-page-surface {
-  width: min(100%, 1180px);
+  width: min(100%, var(--standard-page-content-width));
   min-height: calc(100vh - 96px);
   padding: 24px 0;
 }
