@@ -440,6 +440,8 @@ input {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
+  max-width: 300px;
 }
 
 .tracking-account-currency-trigger {
@@ -1018,6 +1020,7 @@ input {
 
 .activation-link-row input {
   width: 100%;
+  max-width: 300px;
   min-width: 0;
   padding: 9px 12px;
   border: 1px solid #d0d5dd;

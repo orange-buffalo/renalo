@@ -216,7 +216,7 @@ export const TextField = ({ className, size = "md", inputClassName, wrapperClass
                 data-input-wrapper
                 data-input-size={size}
                 className={(state) =>
-                    cx("group flex h-max w-full flex-col items-start justify-start gap-1.5", typeof className === "function" ? className(state) : className)
+                    cx("group flex h-max w-full max-w-[300px] flex-col items-start justify-start gap-1.5", typeof className === "function" ? className(state) : className)
                 }
             />
         </TextFieldContext.Provider>

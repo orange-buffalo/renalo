@@ -114,6 +114,7 @@ export const ComboBox = ({
     shortcutClassName,
     icon,
     hideRequiredIndicator,
+    className,
     ...otherProps
 }: ComboBoxProps) => {
     const placeholderRef = useRef<HTMLDivElement>(null);
@@ -136,7 +137,11 @@ export const ComboBox = ({
 
     return (
         <SelectContext.Provider value={{ size }}>
-            <AriaComboBox menuTrigger="focus" {...otherProps}>
+            <AriaComboBox
+                menuTrigger="focus"
+                {...otherProps}
+                className={(state) => cx("w-full max-w-[300px]", typeof className === "function" ? className(state) : className)}
+            >
                 {(state) => (
                     <div className="flex flex-col gap-1.5">
                         {otherProps.label && (

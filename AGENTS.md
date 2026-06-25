@@ -42,6 +42,7 @@
 - Button usage should follow the documented shape: `color`, `size`, optional `iconLeading`/`iconTrailing`, `isDisabled`, and `isLoading`.
 - Input usage should follow the documented shape: `label`, `name`, `size`, optional `hint`, `isInvalid`, `icon`, `tooltip`, and `shortcut` when needed.
 - New standard forms must use the full `standard-page-surface` content width, matching table widths. Do not cap standard forms with narrow `max-width` values. Use a full-width `standard-page-panel` section, a two-column desktop grid, single-column mobile layout, consistent 28px/32px field gaps, and footer actions split with cancel/back on the left and primary save/create on the right. Always preserve the two-column desktop grid, even when a form has only one input; add an empty second-column spacer rather than widening the single input.
+- Standard text inputs and dropdowns should be capped at 300px wide via shared components or reusable styles; textareas should keep their full available form width unless explicitly requested otherwise. Money inputs are capped at 200px wide.
 - Forms that load existing records or required reference data must keep the form surface in place and block it with the shared `FormLoadingOverlay` using the Untitled line spinner without text.
 - Empty table states must use the shared `TableEmptyState` pattern with the search icon card and bold empty-state copy, not plain loading-style text.
 - Table loading states must use the shared `TableLoadingState` spinner with centered padding, not inline loading text.
