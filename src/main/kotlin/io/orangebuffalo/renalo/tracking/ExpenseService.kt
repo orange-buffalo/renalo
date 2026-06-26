@@ -102,7 +102,7 @@ open class ExpenseService(
 
         recurringExpenseGenerationService.generateForRule(rule)
         val firstExpense = expenseRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, request.date)
-            ?: return null
+            ?: error("Recurring expense generation did not create the first occurrence for rule ${rule.id}")
 
         return ExpenseDetails(firstExpense, account, category)
     }
