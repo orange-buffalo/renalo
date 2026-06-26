@@ -181,7 +181,7 @@ Review notes:
 
 ## Step 5: Hourly Background Generation Job
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Keep active recurring rules generated up to the rolling 12-month window.
 
