@@ -20,10 +20,11 @@ open class ExpenseService(
         expenseRepository.findByIdAndUserId(expenseId, userId)?.toDetails(userId)
 
     @Transactional
-    open fun createExpense(userId: Long, request: SaveExpenseRequest): ExpenseDetails? {
+    open fun createExpense(userId: Long, request: SaveExpenseRequest): SaveExpenseResult {
         val recurrence = request.recurrence
         return if (recurrence == null) {
-            saveExpense(userId, null, request)
+            saveExpense(userId, null, request)?.let { SaveExpenseResult.Saved(it) }
+                ?: SaveExpenseResult.BadRequest
         } else {
             createRecurringExpense(userId, request, recurrence)
         }
@@ -76,14 +77,14 @@ open class ExpenseService(
         userId: Long,
         request: SaveExpenseRequest,
         recurrence: SaveExpenseRecurrenceRequest,
-    ): ExpenseDetails? {
+    ): SaveExpenseResult {
         if (request.amountMinor <= 0 || recurrence.frequency <= 0 || recurrence.endDate?.isBefore(request.date) == true) {
-            return null
+            return SaveExpenseResult.BadRequest
         }
         val account = trackingAccountRepository.findByIdAndUserId(request.trackingAccountId, userId)
-            ?: return null
+            ?: return SaveExpenseResult.BadRequest
         val category = expenseCategoryRepository.findByIdAndUserId(request.categoryId, userId)
-            ?: return null
+            ?: return SaveExpenseResult.BadRequest
         val notes = request.notes?.trim()?.takeIf { it.isNotBlank() }
         val rule = recurringExpenseRuleRepository.save(
             RecurringExpenseRule(
@@ -104,7 +105,7 @@ open class ExpenseService(
         val firstExpense = expenseRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, request.date)
             ?: error("Recurring expense generation did not create the first occurrence for rule ${rule.id}")
 
-        return ExpenseDetails(firstExpense, account, category)
+        return SaveExpenseResult.Saved(ExpenseDetails(firstExpense, account, category))
     }
 
     private fun Expense.toDetails(userId: Long): ExpenseDetails? {
@@ -121,6 +122,12 @@ data class ExpenseDetails(
     val account: TrackingAccount,
     val category: ExpenseCategory,
 )
+
+sealed interface SaveExpenseResult {
+    data class Saved(val expense: ExpenseDetails) : SaveExpenseResult
+
+    data object BadRequest : SaveExpenseResult
+}
 
 data class SaveExpenseRequest(
     val trackingAccountId: Long,

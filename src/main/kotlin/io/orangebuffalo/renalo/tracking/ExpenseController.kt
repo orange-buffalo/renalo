@@ -41,10 +41,11 @@ class ExpenseController(
     fun createExpense(authentication: Authentication, @Body request: SaveExpenseRequest): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
-        val expense = expenseService.createExpense(user.id!!, request)
-            ?: return HttpResponse.badRequest<Any>()
 
-        return HttpResponse.created(expense.toResponse())
+        return when (val result = expenseService.createExpense(user.id!!, request)) {
+            is SaveExpenseResult.Saved -> HttpResponse.created(result.expense.toResponse())
+            SaveExpenseResult.BadRequest -> HttpResponse.badRequest<Any>()
+        }
     }
 
     @Patch("/{expenseId}")
