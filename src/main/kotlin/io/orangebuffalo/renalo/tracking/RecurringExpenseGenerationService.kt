@@ -1,6 +1,5 @@
 package io.orangebuffalo.renalo.tracking
 
-import io.micronaut.data.exceptions.DataAccessException
 import io.micronaut.transaction.annotation.Transactional
 import io.orangebuffalo.renalo.recurrence.RecurrenceCalculator
 import io.orangebuffalo.renalo.recurrence.RecurrenceSchedule
@@ -91,24 +90,17 @@ open class RecurringExpenseGenerationService(
         }
     }
 
-    private fun saveGeneratedExpense(rule: RecurringExpenseRule, instanceDate: LocalDate): Boolean = try {
-        expenseRepository.save(
-            Expense(
-                userId = rule.userId,
-                trackingAccountId = rule.trackingAccountId,
-                categoryId = rule.categoryId,
-                date = instanceDate,
-                amountMinor = rule.amountMinor,
-                notes = rule.notes,
-                recurringRuleId = rule.id,
-                recurringInstanceDate = instanceDate,
-                recurringLocked = false,
-            ),
-        )
-        true
-    } catch (_: DataAccessException) {
-        false
-    }
+    private fun saveGeneratedExpense(rule: RecurringExpenseRule, instanceDate: LocalDate): Boolean =
+        expenseRepository.createGeneratedExpenseIfMissing(
+            userId = rule.userId,
+            trackingAccountId = rule.trackingAccountId,
+            categoryId = rule.categoryId,
+            date = instanceDate,
+            amountMinor = rule.amountMinor,
+            notes = rule.notes,
+            recurringRuleId = rule.id!!,
+            recurringInstanceDate = instanceDate,
+        ) != null
 
     private fun updateGeneratedExpenseIfNeeded(
         rule: RecurringExpenseRule,
