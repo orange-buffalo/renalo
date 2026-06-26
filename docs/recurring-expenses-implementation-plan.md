@@ -153,7 +153,7 @@ Review notes:
 
 ## Step 4: Create Recurring Expense API Flow
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Allow users to create recurring expenses and immediately generate their expense rows.
 

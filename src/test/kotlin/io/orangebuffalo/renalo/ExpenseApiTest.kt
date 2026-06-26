@@ -1,6 +1,7 @@
 package io.orangebuffalo.renalo
 
 import io.kotest.assertions.json.shouldEqualJson
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
@@ -9,6 +10,7 @@ import io.orangebuffalo.renalo.tracking.Expense
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.ExpenseRepository
+import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -34,6 +36,8 @@ class ExpenseApiTest : IntegrationTestSupport() {
     @Inject
     lateinit var expenseRepository: ExpenseRepository
 
+    @Inject
+    lateinit var recurringExpenseRuleRepository: RecurringExpenseRuleRepository
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -174,6 +178,104 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun createsRecurringExpenseAndImmediatelyGeneratesOccurrences() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val token = api().login("alice", "password")
+
+        val createResponse = api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(
+                account = account,
+                category = category,
+                date = "2099-06-01",
+                amountMinor = 1234,
+                notes = " Rent ",
+                frequency = 2,
+                interval = "WEEK",
+                endDate = "2099-06-29",
+            ),
+            token,
+        )
+
+        createResponse.statusCode().shouldBe(201)
+        val rule = recurringExpenseRuleRepository.findAll().single()
+        val firstExpense = expenseRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, LocalDate.parse("2099-06-01"))!!
+        createResponse.body().shouldEqualJson(
+            """
+                {
+                  "id": ${firstExpense.id},
+                  "trackingAccount": {
+                    "id": ${account.id},
+                    "name": "Main",
+                    "currency": "AUD"
+                  },
+                  "category": {
+                    "id": ${category.id},
+                    "name": "Rent"
+                  },
+                  "date": "2099-06-01",
+                  "amountMinor": 1234,
+                  "notes": "Rent"
+                }
+            """.trimIndent(),
+        )
+        rule.userId.shouldBe(alice.id)
+        rule.trackingAccountId.shouldBe(account.id)
+        rule.categoryId.shouldBe(category.id)
+        rule.startDate.shouldBe(LocalDate.parse("2099-06-01"))
+        rule.endDate.shouldBe(LocalDate.parse("2099-06-29"))
+        rule.recurrenceFrequency.shouldBe(2)
+        rule.recurrenceInterval.name.shouldBe("WEEK")
+        rule.amountMinor.shouldBe(1234)
+        rule.notes.shouldBe("Rent")
+        expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!).map { it.recurringInstanceDate }
+            .shouldContainExactly(
+                LocalDate.parse("2099-06-01"),
+                LocalDate.parse("2099-06-15"),
+                LocalDate.parse("2099-06-29"),
+            )
+    }
+
+    @Test
+    fun createsInitialRecurringScheduleTypes() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "General")
+        val token = api().login("alice", "password")
+
+        api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(account, category, "2099-06-01", 100, null, 1, "DAY", "2099-06-03"),
+            token,
+        ).statusCode().shouldBe(201)
+        api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(account, category, "2099-06-04", 100, null, 1, "WEEK", "2099-06-18"),
+            token,
+        ).statusCode().shouldBe(201)
+        api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(account, category, "2099-06-05", 100, null, 2, "WEEK", "2099-07-03"),
+            token,
+        ).statusCode().shouldBe(201)
+        api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(account, category, "2099-06-30", 100, null, 1, "MONTH", "2099-08-31"),
+            token,
+        ).statusCode().shouldBe(201)
+
+        recurringExpenseRuleRepository.findAll().map { it.recurrenceFrequency to it.recurrenceInterval.name }
+            .shouldContainExactly(
+                1 to "DAY",
+                1 to "WEEK",
+                2 to "WEEK",
+                1 to "MONTH",
+            )
+    }
+
+    @Test
     fun rejectsInvalidAndOtherUsersExpenseReferences() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)
@@ -197,6 +299,21 @@ class ExpenseApiTest : IntegrationTestSupport() {
         api().postJson(
             "/api/tracking/expenses",
             expenseJson(aliceAccount, bobCategory, "2026-06-15", 1000, null),
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(aliceAccount, aliceCategory, "2026-06-15", 1000, null, 0, "WEEK", "2026-06-22"),
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(aliceAccount, aliceCategory, "2026-06-15", 1000, null, 1, "WEEK", "2026-06-14"),
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(bobAccount, aliceCategory, "2026-06-15", 1000, null, 1, "WEEK", "2026-06-22"),
             token,
         ).statusCode().shouldBe(400)
         api().get("/api/tracking/expenses/${bobExpense.id}", token).statusCode().shouldBe(404)
@@ -264,6 +381,30 @@ class ExpenseApiTest : IntegrationTestSupport() {
           "date": "$date",
           "amountMinor": $amountMinor,
           "notes": ${notes?.let { "\"$it\"" } ?: "null"}
+        }
+    """.trimIndent()
+
+    private fun recurringExpenseJson(
+        account: TrackingAccount,
+        category: ExpenseCategory,
+        date: String,
+        amountMinor: Long,
+        notes: String?,
+        frequency: Int,
+        interval: String,
+        endDate: String?,
+    ) = """
+        {
+          "trackingAccountId": ${account.id},
+          "categoryId": ${category.id},
+          "date": "$date",
+          "amountMinor": $amountMinor,
+          "notes": ${notes?.let { "\"$it\"" } ?: "null"},
+          "recurrence": {
+            "frequency": $frequency,
+            "interval": "$interval",
+            "endDate": ${endDate?.let { "\"$it\"" } ?: "null"}
+          }
         }
     """.trimIndent()
 }
