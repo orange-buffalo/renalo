@@ -5,7 +5,6 @@ import io.orangebuffalo.renalo.recurrence.RecurrenceCalculator
 import io.orangebuffalo.renalo.recurrence.RecurrenceSchedule
 import io.orangebuffalo.renalo.time.TimeProvider
 import jakarta.inject.Singleton
-import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -16,18 +15,9 @@ open class RecurringExpenseGenerationService(
     private val expenseRepository: ExpenseRepository,
     private val timeProvider: TimeProvider,
 ) {
-    private val logger = LoggerFactory.getLogger(javaClass)
-
     fun generateForActiveRules(): RecurringExpenseGenerationSummary {
         val results = recurringExpenseRuleRepository.findByStatus(RecurringExpenseRuleStatus.ACTIVE)
-            .mapNotNull { rule ->
-                try {
-                    generateForRule(rule)
-                } catch (ex: Exception) {
-                    logger.warn("Failed to generate recurring expenses for rule ${rule.id}", ex)
-                    null
-                }
-            }
+            .map { rule -> generateForRule(rule) }
         return RecurringExpenseGenerationSummary(
             processedRules = results.size,
             createdExpenses = results.sumOf { it.createdExpenses },
