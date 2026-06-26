@@ -19,6 +19,7 @@
 - Micronaut serves the Bun-compiled frontend from `classpath:public` as an SPA.
 - Budget-tracking data is always regular-user-bound. `TrackingAccount` owns the account currency and initial balance used by later incomes, expenses, transfers, and analytics settings.
 - Expense dates are date-only values (`LocalDate` / ISO `YYYY-MM-DD`), not timestamps.
+- Recurrence schedule calculation and display formatting must stay in shared code under `io.orangebuffalo.renalo.recurrence`, not in expense- or income-specific services.
 - A regular user must always have at least one `TrackingAccount`; new and migrated users get a default `Main` account in `AUD` with zero initial balance.
 - Income and expense categories are regular-user-bound; new and migrated users get default `General` income and expense categories.
 - Exactly one `TrackingAccount` per regular user must have `isDefault = true`; changing the default means nominating another account, not unchecking the current default.

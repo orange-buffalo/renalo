@@ -62,7 +62,7 @@ Out of scope for this plan:
 
 ## Step 1: Shared Recurrence Foundation
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Introduce reusable recurrence primitives without wiring them into expense persistence yet.
 
