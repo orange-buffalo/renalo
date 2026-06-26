@@ -16,4 +16,7 @@ data class Expense(
     val date: LocalDate,
     val amountMinor: Long,
     val notes: String? = null,
+    val recurringRuleId: Long? = null,
+    val recurringInstanceDate: LocalDate? = null,
+    val recurringLocked: Boolean = false,
 )

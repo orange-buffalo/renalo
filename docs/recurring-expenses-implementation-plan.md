@@ -90,7 +90,7 @@ Review notes:
 
 ## Step 2: Database Model And Entities
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Add recurrence persistence structures while preserving current one-off expense behavior.
 
