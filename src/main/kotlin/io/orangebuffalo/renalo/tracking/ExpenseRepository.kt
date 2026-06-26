@@ -15,4 +15,6 @@ interface ExpenseRepository : CrudRepository<Expense, Long> {
         recurringRuleId: Long,
         recurringInstanceDate: LocalDate,
     ): Expense?
+
+    fun findByRecurringRuleIdOrderByRecurringInstanceDate(recurringRuleId: Long): List<Expense>
 }

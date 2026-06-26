@@ -120,7 +120,7 @@ Review notes:
 
 ## Step 3: Recurring Expense Generation Service
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Generate normal expense rows from recurring expense rules through a write-side service.
 

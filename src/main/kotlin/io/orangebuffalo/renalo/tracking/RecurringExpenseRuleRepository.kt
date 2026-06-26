@@ -6,5 +6,7 @@ import io.micronaut.data.repository.CrudRepository
 
 @JdbcRepository(dialect = Dialect.POSTGRES)
 interface RecurringExpenseRuleRepository : CrudRepository<RecurringExpenseRule, Long> {
+    fun findByStatus(status: RecurringExpenseRuleStatus): List<RecurringExpenseRule>
+
     fun findByUserIdAndStatus(userId: Long, status: RecurringExpenseRuleStatus): List<RecurringExpenseRule>
 }
