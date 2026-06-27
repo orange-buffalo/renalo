@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Dialog,
   Modal,
@@ -10,6 +11,7 @@ type ConfirmationDialogProps = {
   title: string;
   description: string;
   confirmLabel: string;
+  children?: ReactNode;
   isConfirming?: boolean;
   dataTestId?: string;
   onCancel: () => void;
@@ -21,6 +23,7 @@ export function ConfirmationDialog({
   title,
   description,
   confirmLabel,
+  children,
   isConfirming,
   dataTestId,
   onCancel,
@@ -43,6 +46,7 @@ export function ConfirmationDialog({
           <div className="p-6">
             <h2 className="m-0 text-lg font-semibold text-primary">{title}</h2>
             <p className="mt-2 mb-0 text-sm text-tertiary">{description}</p>
+            {children && <div className="mt-5">{children}</div>}
           </div>
           <div className="flex justify-between gap-3 border-t border-secondary px-6 py-4">
             <Button

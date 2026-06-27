@@ -377,7 +377,7 @@ Completion notes:
 
 ## Step 11: Delete UI Flows
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Add recurring delete scope UX.
 
@@ -401,6 +401,15 @@ Tests:
 Review notes:
 
 - Make destructive scope choices clear without introducing unsupported terminology.
+
+Completion notes:
+
+- Added recurring delete-scope choices to the expense delete confirmation using the exact labels `This occurrence only`, `This and all following occurrences`, and `All occurrences`.
+- Kept one-off delete behavior unchanged while sending `recurringDeleteScope` only for recurring expenses.
+- Refreshed the expenses table after recurring deletes so scope-wide deletions are reflected from the API result without triggering generation.
+- Covered one-off delete through the existing expenses page flow and added Playwright coverage for all recurring delete scopes.
+- Verified with `bun run format` and `./gradlew test --tests 'io.orangebuffalo.renalo.ExpensesPagePlaywrightTest'`.
+- Reviewed trace screenshots under `build/trace-screenshots/recurring-expense-delete-review/resources/`.
 
 ## Step 12: Cross-Feature Consistency And Documentation
 

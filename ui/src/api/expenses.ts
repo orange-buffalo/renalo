@@ -39,6 +39,11 @@ export type SaveExpense = {
   } | null;
 };
 
+export type RecurringExpenseDeleteScope =
+  | "THIS_OCCURRENCE_ONLY"
+  | "THIS_AND_ALL_FOLLOWING_OCCURRENCES"
+  | "ALL_OCCURRENCES";
+
 export function fetchExpenses() {
   return apiRequest<Expense[]>("/api/tracking/expenses");
 }
@@ -63,8 +68,15 @@ export function updateExpense(expenseId: number, expense: SaveExpense) {
   });
 }
 
-export function deleteExpense(expenseId: number) {
+export function deleteExpense(
+  expenseId: number,
+  recurringDeleteScope?: RecurringExpenseDeleteScope,
+) {
   return apiRequest<void>(`/api/tracking/expenses/${expenseId}`, {
     method: "DELETE",
+    ...(recurringDeleteScope && {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recurringDeleteScope }),
+    }),
   });
 }

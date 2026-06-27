@@ -1,7 +1,12 @@
 import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { deleteExpense, type Expense, fetchExpenses } from "@/api/expenses";
+import {
+  deleteExpense,
+  type Expense,
+  fetchExpenses,
+  type RecurringExpenseDeleteScope,
+} from "@/api/expenses";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
@@ -17,6 +22,10 @@ import {
   TableCard,
 } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
+import {
+  RadioButton,
+  RadioGroup,
+} from "@/components/untitled/base/radio-buttons/radio-buttons";
 import { formatMoney } from "@/utils/money";
 
 export function ExpensesPage() {
@@ -24,6 +33,8 @@ export function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>();
   const [error, setError] = useState<string>();
   const [confirmingExpense, setConfirmingExpense] = useState<Expense>();
+  const [recurringDeleteScope, setRecurringDeleteScope] =
+    useState<RecurringExpenseDeleteScope>("THIS_OCCURRENCE_ONLY");
   const [deletingExpenseId, setDeletingExpenseId] = useState<number>();
 
   useEffect(() => {
@@ -53,12 +64,19 @@ export function ExpensesPage() {
     setDeletingExpenseId(confirmingExpense.id);
     setError(undefined);
     try {
-      await deleteExpense(confirmingExpense.id);
-      setExpenses((currentExpenses) =>
-        currentExpenses?.filter(
-          (currentExpense) => currentExpense.id !== confirmingExpense.id,
-        ),
+      await deleteExpense(
+        confirmingExpense.id,
+        confirmingExpense.recurrence ? recurringDeleteScope : undefined,
       );
+      if (confirmingExpense.recurrence) {
+        setExpenses(await fetchExpenses());
+      } else {
+        setExpenses((currentExpenses) =>
+          currentExpenses?.filter(
+            (currentExpense) => currentExpense.id !== confirmingExpense.id,
+          ),
+        );
+      }
       setConfirmingExpense(undefined);
     } catch {
       setError("Expense could not be deleted. Try again in a moment.");
@@ -151,7 +169,10 @@ export function ExpensesPage() {
                         <TableDeleteAction
                           label={`Delete ${expense.category.name} expense`}
                           isLoading={deletingExpenseId === expense.id}
-                          onPress={() => setConfirmingExpense(expense)}
+                          onPress={() => {
+                            setRecurringDeleteScope("THIS_OCCURRENCE_ONLY");
+                            setConfirmingExpense(expense);
+                          }}
                         />
                       </TableRowActions>
                     </Table.Cell>
@@ -172,7 +193,33 @@ export function ExpensesPage() {
             isConfirming={deletingExpenseId === confirmingExpense.id}
             onCancel={() => setConfirmingExpense(undefined)}
             onConfirm={handleDeleteConfirmed}
-          />
+          >
+            {confirmingExpense.recurrence && (
+              <RadioGroup
+                aria-label="Delete scope"
+                value={recurringDeleteScope}
+                onChange={(scope) =>
+                  setRecurringDeleteScope(scope as RecurringExpenseDeleteScope)
+                }
+              >
+                <RadioButton
+                  value="THIS_OCCURRENCE_ONLY"
+                  label="This occurrence only"
+                  hint="Delete only this generated expense."
+                />
+                <RadioButton
+                  value="THIS_AND_ALL_FOLLOWING_OCCURRENCES"
+                  label="This and all following occurrences"
+                  hint="Delete this expense and every later expense in the series."
+                />
+                <RadioButton
+                  value="ALL_OCCURRENCES"
+                  label="All occurrences"
+                  hint="Delete the entire recurring expense series."
+                />
+              </RadioGroup>
+            )}
+          </ConfirmationDialog>
         )}
       </section>
     </PageLayout>

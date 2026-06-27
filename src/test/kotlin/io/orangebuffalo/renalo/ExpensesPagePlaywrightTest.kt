@@ -302,6 +302,149 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun deletesRecurringExpensesWithSelectedScopeFromExpensesPage(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val rent = saveCategory(alice, "Rent")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        val occurrenceOnlyRule = saveRecurringRule(alice, main, rent, notes = "Occurrence only")
+        val occurrenceOnlySelected = saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE,
+            2500,
+            "Occurrence only selected",
+            occurrenceOnlyRule,
+        )
+        val occurrenceOnlyFollowing = saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE.plusWeeks(1),
+            2500,
+            "Occurrence only following",
+            occurrenceOnlyRule,
+        )
+
+        page.navigate(server.url.toString() + "/expenses")
+        page.locator("[data-testid='expense-row-${occurrenceOnlySelected.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Delete Rent expense"))
+            .click()
+
+        assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Delete Rent expense?"))).isVisible()
+        assertThat(page.getByLabel("Delete scope")).isVisible()
+        assertThat(page.getByText("This occurrence only")).isVisible()
+        assertThat(page.getByText("This and all following occurrences")).isVisible()
+        assertThat(page.getByText("All occurrences")).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Delete expense")).click()
+
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow(
+                "Rent",
+                "A$25.00",
+                "Jun 21 Repeats weekly until 21 Jun 2099",
+                "Main",
+                "Occurrence only following",
+                "edit delete",
+            ),
+        )
+        expenseRepository.findById(occurrenceOnlySelected.id!!).isPresent.shouldBe(false)
+        expenseRepository.findById(occurrenceOnlyFollowing.id!!).isPresent.shouldBe(true)
+
+        val followingRule = saveRecurringRule(alice, main, rent, notes = "Following")
+        val followingBefore = saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE,
+            2500,
+            "Following before",
+            followingRule,
+        )
+        val followingSelected = saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE.plusWeeks(1),
+            2500,
+            "Following selected",
+            followingRule,
+        )
+        val followingLater = saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE.plusWeeks(2),
+            2500,
+            "Following later",
+            followingRule,
+        )
+
+        page.navigate(server.url.toString() + "/expenses")
+        page.locator("[data-testid='expense-row-${followingSelected.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Delete Rent expense"))
+            .click()
+        page.getByText("This and all following occurrences").click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Delete expense")).click()
+
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow(
+                "Rent",
+                "A$25.00",
+                "Today Repeats weekly until 20 Jun 2099",
+                "Main",
+                "Following before",
+                "edit delete",
+            ),
+            ExpenseRow(
+                "Rent",
+                "A$25.00",
+                "Jun 21 Repeats weekly until 21 Jun 2099",
+                "Main",
+                "Occurrence only following",
+                "edit delete",
+            ),
+        )
+        expenseRepository.findById(followingBefore.id!!).isPresent.shouldBe(true)
+        expenseRepository.findById(followingSelected.id!!).isPresent.shouldBe(false)
+        expenseRepository.findById(followingLater.id!!).isPresent.shouldBe(false)
+
+        val allRule = saveRecurringRule(alice, main, rent, notes = "All")
+        val allFirst = saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE, 2500, "All first", allRule)
+        val allSecond = saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE.plusWeeks(1), 2500, "All second", allRule)
+
+        page.navigate(server.url.toString() + "/expenses")
+        page.locator("[data-testid='expense-row-${allFirst.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Delete Rent expense"))
+            .click()
+        page.getByText("All occurrences").click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Delete expense")).click()
+
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow(
+                "Rent",
+                "A$25.00",
+                "Today Repeats weekly until 20 Jun 2099",
+                "Main",
+                "Following before",
+                "edit delete",
+            ),
+            ExpenseRow(
+                "Rent",
+                "A$25.00",
+                "Jun 21 Repeats weekly until 21 Jun 2099",
+                "Main",
+                "Occurrence only following",
+                "edit delete",
+            ),
+        )
+        expenseRepository.findById(allFirst.id!!).isPresent.shouldBe(false)
+        expenseRepository.findById(allSecond.id!!).isPresent.shouldBe(false)
+    }
+
+    @Test
     fun showsSharedEmptyStateWhenNoExpensesExist(page: Page) {
         saveUser("alice")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
