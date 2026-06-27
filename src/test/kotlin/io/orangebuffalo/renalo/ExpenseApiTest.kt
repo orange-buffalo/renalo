@@ -394,6 +394,143 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun updatesOnlySelectedRecurringExpenseOccurrence() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val first = saveExpense(alice, account, category, "2099-06-01", 5600, "Rent", rule.id, "2099-06-01")
+        val selected = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08")
+        val token = api().login("alice", "password")
+
+        val response = api().patchJson(
+            "/api/tracking/expenses/${selected.id}",
+            recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "id": ${selected.id},
+                  "trackingAccount": {
+                    "id": ${account.id},
+                    "name": "Main",
+                    "currency": "AUD"
+                  },
+                  "category": {
+                    "id": ${category.id},
+                    "name": "Rent"
+                  },
+                  "date": "2099-06-08",
+                  "amountMinor": 6200,
+                  "notes": "Updated",
+                  "recurrence": {
+                    "ruleId": ${rule.id},
+                    "instanceDate": "2099-06-08",
+                    "description": "Repeats weekly until 15 Jun 2099"
+                  }
+                }
+            """.trimIndent(),
+        )
+        expenseRepository.findById(selected.id!!).get().recurringLocked.shouldBe(true)
+        expenseRepository.findById(first.id!!).get().amountMinor.shouldBe(5600)
+        recurringExpenseRuleRepository.findById(rule.id!!).get().amountMinor.shouldBe(5600)
+    }
+
+    @Test
+    fun updatesRecurringExpenseThisAndAllFollowingOccurrences() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-29")
+        saveExpense(alice, account, category, "2099-06-01", 5600, "Original", rule.id, "2099-06-01")
+        val selected = saveExpense(alice, account, category, "2099-06-08", 5600, "Original", rule.id, "2099-06-08")
+        val locked = saveExpense(alice, account, category, "2099-06-15", 7000, "Custom", rule.id, "2099-06-15", true)
+        saveExpense(alice, account, category, "2099-06-22", 5600, "Original", rule.id, "2099-06-22")
+        val token = api().login("alice", "password")
+
+        api().patchJson(
+            "/api/tracking/expenses/${selected.id}",
+            recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "THIS_AND_ALL_FOLLOWING_OCCURRENCES"),
+            token,
+        ).statusCode().shouldBe(200)
+
+        recurringExpenseRuleRepository.findById(rule.id!!).get().endDate.shouldBe(LocalDate.parse("2099-06-07"))
+        val newRule = recurringExpenseRuleRepository.findAll().single { it.id != rule.id }
+        newRule.startDate.shouldBe(LocalDate.parse("2099-06-08"))
+        newRule.endDate.shouldBe(LocalDate.parse("2099-06-29"))
+        newRule.recurrenceFrequency.shouldBe(1)
+        newRule.recurrenceInterval.shouldBe(RecurrenceInterval.WEEK)
+        newRule.amountMinor.shouldBe(6200)
+        newRule.notes.shouldBe("Updated")
+        expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(newRule.id!!)
+            .map { it.recurringInstanceDate }
+            .shouldContainExactly(
+                LocalDate.parse("2099-06-08"),
+                LocalDate.parse("2099-06-15"),
+                LocalDate.parse("2099-06-22"),
+                LocalDate.parse("2099-06-29"),
+            )
+        expenseRepository.findById(selected.id!!).get().amountMinor.shouldBe(6200)
+        expenseRepository.findById(locked.id!!).get().amountMinor.shouldBe(7000)
+        expenseRepository.findById(locked.id!!).get().recurringRuleId.shouldBe(newRule.id)
+    }
+
+    @Test
+    fun updatesAllUnlockedRecurringExpenseOccurrences() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val first = saveExpense(alice, account, category, "2099-06-01", 5600, "Original", rule.id, "2099-06-01")
+        val selected = saveExpense(alice, account, category, "2099-06-08", 5600, "Original", rule.id, "2099-06-08")
+        val locked = saveExpense(alice, account, category, "2099-06-15", 7000, "Custom", rule.id, "2099-06-15", true)
+        val token = api().login("alice", "password")
+
+        api().patchJson(
+            "/api/tracking/expenses/${selected.id}",
+            recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "ALL_OCCURRENCES"),
+            token,
+        ).statusCode().shouldBe(200)
+
+        recurringExpenseRuleRepository.findById(rule.id!!).get().amountMinor.shouldBe(6200)
+        expenseRepository.findById(first.id!!).get().amountMinor.shouldBe(6200)
+        expenseRepository.findById(selected.id!!).get().notes.shouldBe("Updated")
+        expenseRepository.findById(locked.id!!).get().amountMinor.shouldBe(7000)
+        expenseRepository.findById(locked.id!!).get().notes.shouldBe("Custom")
+    }
+
+    @Test
+    fun rejectsRecurringExpenseScheduleChangesAndOtherUsersReferences() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val bobAccount = saveAccount(bob, "Bob account", "USD")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val expense = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08")
+        val token = api().login("alice", "password")
+
+        api().patchJson(
+            "/api/tracking/expenses/${expense.id}",
+            recurringExpenseEditJson(account, category, "2099-06-09", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
+            token,
+        ).statusCode().shouldBe(400)
+        api().patchJson(
+            "/api/tracking/expenses/${expense.id}",
+            recurringExpenseJson(account, category, "2099-06-08", 6200, "Updated", 2, "WEEK", "2099-06-29"),
+            token,
+        ).statusCode().shouldBe(400)
+        api().patchJson(
+            "/api/tracking/expenses/${expense.id}",
+            recurringExpenseEditJson(bobAccount, category, "2099-06-08", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
+            token,
+        ).statusCode().shouldBe(400)
+    }
+
+    @Test
     fun rejectsInvalidAndOtherUsersExpenseReferences() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)
@@ -477,6 +614,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         notes: String?,
         recurringRuleId: Long? = null,
         recurringInstanceDate: String? = null,
+        recurringLocked: Boolean = false,
     ): Expense = expenseRepository.save(
         Expense(
             userId = user.id!!,
@@ -487,6 +625,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
             notes = notes,
             recurringRuleId = recurringRuleId,
             recurringInstanceDate = recurringInstanceDate?.let { LocalDate.parse(it) },
+            recurringLocked = recurringLocked,
         ),
     )
 
@@ -548,6 +687,24 @@ class ExpenseApiTest : IntegrationTestSupport() {
             "interval": "$interval",
             "endDate": ${endDate?.let { "\"$it\"" } ?: "null"}
           }
+        }
+    """.trimIndent()
+
+    private fun recurringExpenseEditJson(
+        account: TrackingAccount,
+        category: ExpenseCategory,
+        date: String,
+        amountMinor: Long,
+        notes: String?,
+        recurringEditScope: String,
+    ) = """
+        {
+          "trackingAccountId": ${account.id},
+          "categoryId": ${category.id},
+          "date": "$date",
+          "amountMinor": $amountMinor,
+          "notes": ${notes?.let { "\"$it\"" } ?: "null"},
+          "recurringEditScope": "$recurringEditScope"
         }
     """.trimIndent()
 }

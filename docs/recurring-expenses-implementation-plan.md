@@ -265,7 +265,7 @@ Completion notes:
 
 ## Step 8: Edit Scope API Flows
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Implement edit behavior for the three recurring scopes.
 
@@ -291,6 +291,14 @@ Tests:
 Review notes:
 
 - Keep scope terminology exactly as defined in the design.
+
+Completion notes:
+
+- Added explicit recurring edit scopes to the expense PATCH API using `THIS_OCCURRENCE_ONLY`, `THIS_AND_ALL_FOLLOWING_OCCURRENCES`, and `ALL_OCCURRENCES`.
+- Preserved one-off PATCH behavior while requiring a scope for recurring generated expenses.
+- Enforced schedule immutability by rejecting recurrence payloads and date changes on existing recurring expenses.
+- Covered selected-occurrence locking, following-series split/regeneration, all-occurrence unlocked updates, locked occurrence preservation, and invalid cross-user references in `ExpenseApiTest`.
+- Verified with `./gradlew test --tests 'io.orangebuffalo.renalo.ExpenseApiTest'`.
 
 ## Step 9: Edit Screen UI
 

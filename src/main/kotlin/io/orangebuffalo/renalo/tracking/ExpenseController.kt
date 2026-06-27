@@ -60,10 +60,10 @@ class ExpenseController(
             ?: return HttpResponse.unauthorized<Any>()
         val existingExpense = expenseService.findExpense(user.id!!, expenseId)
             ?: return HttpResponse.notFound<Any>()
-        val expense = expenseService.updateExpense(user.id!!, existingExpense.expense.id!!, request)
-            ?: return HttpResponse.badRequest<Any>()
-
-        return HttpResponse.ok(expense.toResponse())
+        return when (val result = expenseService.updateExpense(user.id!!, existingExpense.expense.id!!, request)) {
+            is SaveExpenseResult.Saved -> HttpResponse.ok(result.expense.toResponse())
+            SaveExpenseResult.BadRequest -> HttpResponse.badRequest<Any>()
+        }
     }
 
     @Delete("/{expenseId}")
