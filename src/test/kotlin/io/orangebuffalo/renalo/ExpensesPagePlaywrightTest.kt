@@ -4,6 +4,7 @@ import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
@@ -164,34 +165,41 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun createsRecurringExpenseFromExpenseForm(page: Page) {
+    fun createsRecurringExpensesForEveryScheduleOptionFromExpenseForm(page: Page) {
         val alice = saveUser("alice")
         saveAccount(alice, "Main", "AUD", isDefault = true)
         saveCategory(alice, "Rent")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
-        page.navigate(server.url.toString() + "/expenses/create")
+        listOf(
+            ScheduleOptionExpectation("Daily", 1, RecurrenceInterval.DAY, TestTimeProvider.DEFAULT_DATE.plusDays(1)),
+            ScheduleOptionExpectation("Weekly", 1, RecurrenceInterval.WEEK, TestTimeProvider.DEFAULT_DATE.plusWeeks(1)),
+            ScheduleOptionExpectation("Biweekly", 2, RecurrenceInterval.WEEK, TestTimeProvider.DEFAULT_DATE.plusWeeks(2)),
+            ScheduleOptionExpectation("Monthly", 1, RecurrenceInterval.MONTH, TestTimeProvider.DEFAULT_DATE.plusMonths(1)),
+        ).forEach { expectation ->
+            val notes = "${expectation.label} membership"
+            page.navigate(server.url.toString() + "/expenses/create")
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
-        selectOption(page, "Category", "Rent")
-        page.locator("input[name='amount']").fill("25")
-        page.getByLabel("Notes").fill("Gym membership")
-        page.getByLabel("Recurring expense").press("Space")
-        page.getByLabel("Repeat").click()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Daily").setExact(true))).isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Weekly").setExact(true))).isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Biweekly").setExact(true))).isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Monthly").setExact(true))).isVisible()
-        page.keyboard().press("Escape")
-        selectOption(page, "Repeat", "Biweekly")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
+            assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+            selectOption(page, "Category", "Rent")
+            page.locator("input[name='amount']").fill("25")
+            page.getByLabel("Notes").fill(notes)
+            page.getByLabel("Recurring expense").press("Space")
+            selectOption(page, "Repeat", expectation.label)
+            page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
 
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
-        val rule = recurringExpenseRuleRepository.findAll().single()
-        rule.recurrenceFrequency.shouldBe(2)
-        rule.recurrenceInterval.shouldBe(RecurrenceInterval.WEEK)
-        rule.endDate.shouldBe(null)
-        expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!).first().notes.shouldBe("Gym membership")
+            assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+            val rule = recurringExpenseRuleRepository.findAll().single { it.notes == notes }
+            rule.recurrenceFrequency.shouldBe(expectation.frequency)
+            rule.recurrenceInterval.shouldBe(expectation.interval)
+            rule.endDate.shouldBe(null)
+            val generatedExpenses = expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
+            generatedExpenses.take(2).map { it.recurringInstanceDate }.shouldContainExactly(
+                TestTimeProvider.DEFAULT_DATE,
+                expectation.secondOccurrenceDate,
+            )
+            generatedExpenses.first().notes.shouldBe(notes)
+        }
         assertThat(page.getByText("Repeats every 2 weeks").first()).isVisible()
     }
 
@@ -271,7 +279,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option)).click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
     }
 
     private fun extractExpenseRows(page: Page): List<ExpenseRow> {
@@ -312,5 +320,12 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val account: String,
         val notes: String,
         val action: String,
+    )
+
+    private data class ScheduleOptionExpectation(
+        val label: String,
+        val frequency: Int,
+        val interval: RecurrenceInterval,
+        val secondOccurrenceDate: LocalDate,
     )
 }
