@@ -503,7 +503,41 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun rejectsRecurringExpenseScheduleChangesAndOtherUsersReferences() {
+    fun rejectsRecurringExpenseDateAndScheduleChanges() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val expense = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08")
+        val token = api().login("alice", "password")
+
+        listOf(
+            recurringExpenseEditJson(account, category, "2099-06-09", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
+            recurringExpenseEditWithRecurrenceJson(account, category, "2099-06-08", 6200, "Updated", 1, "WEEK", "2099-06-15"),
+            recurringExpenseEditWithRecurrenceJson(account, category, "2099-06-08", 6200, "Updated", 2, "WEEK", "2099-06-15"),
+            recurringExpenseEditWithRecurrenceJson(account, category, "2099-06-08", 6200, "Updated", 1, "MONTH", "2099-06-15"),
+            recurringExpenseEditWithRecurrenceJson(account, category, "2099-06-08", 6200, "Updated", 1, "WEEK", "2099-06-29"),
+        ).forEach { requestBody ->
+            api().patchJson(
+                "/api/tracking/expenses/${expense.id}",
+                requestBody,
+                token,
+            ).statusCode().shouldBe(400)
+        }
+
+        val unchangedRule = recurringExpenseRuleRepository.findById(rule.id!!).get()
+        unchangedRule.startDate.shouldBe(LocalDate.parse("2099-06-01"))
+        unchangedRule.endDate.shouldBe(LocalDate.parse("2099-06-15"))
+        unchangedRule.recurrenceFrequency.shouldBe(1)
+        unchangedRule.recurrenceInterval.shouldBe(RecurrenceInterval.WEEK)
+        val unchangedExpense = expenseRepository.findById(expense.id!!).get()
+        unchangedExpense.date.shouldBe(LocalDate.parse("2099-06-08"))
+        unchangedExpense.amountMinor.shouldBe(5600)
+        unchangedExpense.notes.shouldBe("Rent")
+    }
+
+    @Test
+    fun rejectsRecurringExpenseEditsWithOtherUsersReferences() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD")
@@ -513,16 +547,6 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val expense = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08")
         val token = api().login("alice", "password")
 
-        api().patchJson(
-            "/api/tracking/expenses/${expense.id}",
-            recurringExpenseEditJson(account, category, "2099-06-09", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
-            token,
-        ).statusCode().shouldBe(400)
-        api().patchJson(
-            "/api/tracking/expenses/${expense.id}",
-            recurringExpenseJson(account, category, "2099-06-08", 6200, "Updated", 2, "WEEK", "2099-06-29"),
-            token,
-        ).statusCode().shouldBe(400)
         api().patchJson(
             "/api/tracking/expenses/${expense.id}",
             recurringExpenseEditJson(bobAccount, category, "2099-06-08", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
@@ -705,6 +729,31 @@ class ExpenseApiTest : IntegrationTestSupport() {
           "amountMinor": $amountMinor,
           "notes": ${notes?.let { "\"$it\"" } ?: "null"},
           "recurringEditScope": "$recurringEditScope"
+        }
+    """.trimIndent()
+
+    private fun recurringExpenseEditWithRecurrenceJson(
+        account: TrackingAccount,
+        category: ExpenseCategory,
+        date: String,
+        amountMinor: Long,
+        notes: String?,
+        frequency: Int,
+        interval: String,
+        endDate: String?,
+    ) = """
+        {
+          "trackingAccountId": ${account.id},
+          "categoryId": ${category.id},
+          "date": "$date",
+          "amountMinor": $amountMinor,
+          "notes": ${notes?.let { "\"$it\"" } ?: "null"},
+          "recurringEditScope": "THIS_OCCURRENCE_ONLY",
+          "recurrence": {
+            "frequency": $frequency,
+            "interval": "$interval",
+            "endDate": ${endDate?.let { "\"$it\"" } ?: "null"}
+          }
         }
     """.trimIndent()
 }
