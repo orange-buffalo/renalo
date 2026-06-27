@@ -1,10 +1,12 @@
 package io.orangebuffalo.renalo.tracking
 
+import io.micronaut.context.annotation.Requires
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Singleton
 import org.slf4j.LoggerFactory
 
 @Singleton
+@Requires(property = "renalo.recurring-expense-generation-job.enabled", value = "true", defaultValue = "true")
 open class RecurringExpenseGenerationJob(
     private val recurringExpenseRuleRepository: RecurringExpenseRuleRepository,
     private val recurringExpenseGenerationService: RecurringExpenseGenerationService,

@@ -14,6 +14,11 @@ export type Expense = {
   date: string;
   amountMinor: number;
   notes?: string | null;
+  recurrence?: {
+    ruleId: number;
+    instanceDate: string;
+    description: string;
+  } | null;
 };
 
 export type SaveExpense = {

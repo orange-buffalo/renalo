@@ -105,7 +105,7 @@ open class ExpenseService(
         val firstExpense = expenseRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, request.date)
             ?: error("Recurring expense generation did not create the first occurrence for rule ${rule.id}")
 
-        return SaveExpenseResult.Saved(ExpenseDetails(firstExpense, account, category))
+        return SaveExpenseResult.Saved(ExpenseDetails(firstExpense, account, category, rule))
     }
 
     private fun Expense.toDetails(userId: Long): ExpenseDetails? {
@@ -113,7 +113,8 @@ open class ExpenseService(
             ?: return null
         val category = expenseCategoryRepository.findByIdAndUserId(categoryId, userId)
             ?: return null
-        return ExpenseDetails(this, account, category)
+        val recurringRule = recurringRuleId?.let { recurringExpenseRuleRepository.findByIdAndUserId(it, userId) }
+        return ExpenseDetails(this, account, category, recurringRule)
     }
 }
 
@@ -121,6 +122,7 @@ data class ExpenseDetails(
     val expense: Expense,
     val account: TrackingAccount,
     val category: ExpenseCategory,
+    val recurringRule: RecurringExpenseRule? = null,
 )
 
 sealed interface SaveExpenseResult {

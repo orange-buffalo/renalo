@@ -10,6 +10,8 @@ import io.micronaut.http.annotation.Post
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
+import io.orangebuffalo.renalo.recurrence.RecurrenceDescriptionFormatter
+import io.orangebuffalo.renalo.recurrence.RecurrenceSchedule
 import io.orangebuffalo.renalo.user.UserRepository
 import java.time.LocalDate
 
@@ -90,7 +92,21 @@ private fun ExpenseDetails.toResponse() = ExpenseResponse(
     date = expense.date,
     amountMinor = expense.amountMinor,
     notes = expense.notes,
+    recurrence = recurrenceResponse(),
 )
+
+private fun ExpenseDetails.recurrenceResponse(): ExpenseRecurrenceResponse? {
+    val rule = recurringRule ?: return null
+    val instanceDate = expense.recurringInstanceDate ?: return null
+    return ExpenseRecurrenceResponse(
+        ruleId = rule.id ?: error("Recurring expense rule must be persisted before it can be returned"),
+        instanceDate = instanceDate,
+        description = RecurrenceDescriptionFormatter.describe(
+            RecurrenceSchedule(rule.recurrenceFrequency, rule.recurrenceInterval),
+            rule.endDate,
+        ),
+    )
+}
 
 data class ExpenseResponse(
     val id: Long,
@@ -99,6 +115,13 @@ data class ExpenseResponse(
     val date: LocalDate,
     val amountMinor: Long,
     val notes: String?,
+    val recurrence: ExpenseRecurrenceResponse?,
+)
+
+data class ExpenseRecurrenceResponse(
+    val ruleId: Long,
+    val instanceDate: LocalDate,
+    val description: String,
 )
 
 data class ExpenseTrackingAccountResponse(

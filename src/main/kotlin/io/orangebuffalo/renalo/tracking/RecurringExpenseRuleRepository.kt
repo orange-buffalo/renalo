@@ -9,4 +9,6 @@ interface RecurringExpenseRuleRepository : CrudRepository<RecurringExpenseRule, 
     fun findByStatus(status: RecurringExpenseRuleStatus): List<RecurringExpenseRule>
 
     fun findByUserIdAndStatus(userId: Long, status: RecurringExpenseRuleStatus): List<RecurringExpenseRule>
+
+    fun findByIdAndUserId(id: Long, userId: Long): RecurringExpenseRule?
 }

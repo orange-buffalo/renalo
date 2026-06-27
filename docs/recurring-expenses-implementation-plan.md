@@ -205,7 +205,7 @@ Review notes:
 
 ## Step 6: Overview API And Table Display
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Show recurring metadata in the expenses overview without changing reporting semantics.
 

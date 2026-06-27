@@ -5,11 +5,13 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
+import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.tracking.Expense
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.ExpenseRepository
+import io.orangebuffalo.renalo.tracking.RecurringExpenseRule
 import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
@@ -67,6 +69,17 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val category = saveCategory(alice, "Groceries")
         val older = saveExpense(alice, account, category, "2026-06-14", 1200, "Bread")
         val newer = saveExpense(alice, account, category, "2026-06-15", 3400, null)
+        val recurringRule = saveRecurringRule(alice, account, category, "2026-06-16", "2026-07-01")
+        val recurring = saveExpense(
+            alice,
+            account,
+            category,
+            "2026-06-16",
+            5600,
+            "Rent",
+            recurringRuleId = recurringRule.id,
+            recurringInstanceDate = "2026-06-16",
+        )
         saveExpense(bob, saveAccount(bob, "Bob account", "USD"), saveCategory(bob, "Bob category"), "2026-06-16", 999, "Hidden")
 
         val response = api().get("/api/tracking/expenses", api().login("alice", "password"))
@@ -75,6 +88,26 @@ class ExpenseApiTest : IntegrationTestSupport() {
         response.body().shouldEqualJson(
             """
                 [
+                  {
+                    "id": ${recurring.id},
+                    "trackingAccount": {
+                      "id": ${account.id},
+                      "name": "Everyday",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${category.id},
+                      "name": "Groceries"
+                    },
+                    "date": "2026-06-16",
+                    "amountMinor": 5600,
+                    "notes": "Rent",
+                    "recurrence": {
+                      "ruleId": ${recurringRule.id},
+                      "instanceDate": "2026-06-16",
+                      "description": "Repeats weekly until 1 Jul 2026"
+                    }
+                  },
                   {
                     "id": ${newer.id},
                     "trackingAccount": {
@@ -217,7 +250,12 @@ class ExpenseApiTest : IntegrationTestSupport() {
                   },
                   "date": "2099-06-01",
                   "amountMinor": 1234,
-                  "notes": "Rent"
+                  "notes": "Rent",
+                  "recurrence": {
+                    "ruleId": ${rule.id},
+                    "instanceDate": "2099-06-01",
+                    "description": "Repeats every 2 weeks until 29 Jun 2099"
+                  }
                 }
             """.trimIndent(),
         )
@@ -357,6 +395,8 @@ class ExpenseApiTest : IntegrationTestSupport() {
         date: String,
         amountMinor: Long,
         notes: String?,
+        recurringRuleId: Long? = null,
+        recurringInstanceDate: String? = null,
     ): Expense = expenseRepository.save(
         Expense(
             userId = user.id!!,
@@ -365,6 +405,29 @@ class ExpenseApiTest : IntegrationTestSupport() {
             date = LocalDate.parse(date),
             amountMinor = amountMinor,
             notes = notes,
+            recurringRuleId = recurringRuleId,
+            recurringInstanceDate = recurringInstanceDate?.let { LocalDate.parse(it) },
+        ),
+    )
+
+    private fun saveRecurringRule(
+        user: User,
+        account: TrackingAccount,
+        category: ExpenseCategory,
+        startDate: String,
+        endDate: String?,
+    ): RecurringExpenseRule = recurringExpenseRuleRepository.save(
+        RecurringExpenseRule(
+            userId = user.id!!,
+            trackingAccountId = account.id!!,
+            categoryId = category.id!!,
+            startDate = LocalDate.parse(startDate),
+            endDate = endDate?.let { LocalDate.parse(it) },
+            recurrenceFrequency = 1,
+            recurrenceInterval = RecurrenceInterval.WEEK,
+            generatedUntil = LocalDate.parse(startDate),
+            amountMinor = 5600,
+            notes = "Rent",
         ),
     )
 

@@ -129,6 +129,14 @@ input {
   display: none;
 }
 
+.expense-recurrence-description {
+  display: block;
+  margin-top: 2px;
+  color: #667085;
+  font-size: 0.9em;
+  line-height: 1.35;
+}
+
 @media (max-width: 767px) {
   .table-card-root:has(.responsive-table) {
     overflow: visible;
@@ -259,6 +267,14 @@ input {
     content: attr(data-mobile-label);
     color: #667085;
     font-weight: 500;
+  }
+
+  .responsive-table
+    tbody
+    [data-mobile-role="detail"]
+    .expense-recurrence-description {
+    grid-column: 2;
+    margin-top: 0;
   }
 
   .responsive-table tbody [data-mobile-role="actions"] {

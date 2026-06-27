@@ -126,7 +126,12 @@ export function ExpensesPage() {
                       )}
                     </Table.Cell>
                     <Table.Cell mobileLabel="Date" mobileRole="detail">
-                      {formatExpenseDate(expense.date)}
+                      <span>{formatExpenseDate(expense.date)}</span>
+                      {expense.recurrence && (
+                        <span className="expense-recurrence-description">
+                          {expense.recurrence.description}
+                        </span>
+                      )}
                     </Table.Cell>
                     <Table.Cell mobileLabel="Account">
                       {expense.trackingAccount.name}

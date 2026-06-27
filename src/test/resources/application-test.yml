@@ -1,0 +1,3 @@
+renalo:
+  recurring-expense-generation-job:
+    enabled: false

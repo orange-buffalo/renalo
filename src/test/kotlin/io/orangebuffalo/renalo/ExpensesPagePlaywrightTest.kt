@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
+import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestAuthTokens
 import io.orangebuffalo.renalo.test.TestTimeProvider
@@ -16,6 +17,8 @@ import io.orangebuffalo.renalo.tracking.Expense
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.ExpenseRepository
+import io.orangebuffalo.renalo.tracking.RecurringExpenseRule
+import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -42,6 +45,9 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     lateinit var expenseRepository: ExpenseRepository
 
     @Inject
+    lateinit var recurringExpenseRuleRepository: RecurringExpenseRuleRepository
+
+    @Inject
     lateinit var passwordHasher: PasswordHasher
 
     @Inject
@@ -53,9 +59,19 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         saveAccount(alice, "Travel", "EUR", isDefault = false)
         val groceries = saveCategory(alice, "Groceries")
-        saveCategory(alice, "Rent")
+        val rent = saveCategory(alice, "Rent")
         val todayExpense = saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1234, "Milk")
         saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE.minusDays(1), 5500, null)
+        val recurringRule = saveRecurringRule(alice, main, rent)
+        saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE,
+            2500,
+            "Subscription",
+            recurringRule = recurringRule,
+        )
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/expenses")
@@ -63,6 +79,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
+            ExpenseRow("Rent", "A$25.00", "Today Repeats weekly until 21 Jun 2099", "Main", "Subscription", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
         )
 
@@ -78,6 +95,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         rentExpense.amountMinor.shouldBe(4200)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
+            ExpenseRow("Rent", "A$25.00", "Today Repeats weekly until 21 Jun 2099", "Main", "Subscription", "edit delete"),
             ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
         )
@@ -95,6 +113,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         expenseRepository.findById(todayExpense.id!!).get().amountMinor.shouldBe(1900)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Rent", "A$19.00", "Today", "Main", "Lunch", "edit delete"),
+            ExpenseRow("Rent", "A$25.00", "Today Repeats weekly until 21 Jun 2099", "Main", "Subscription", "edit delete"),
             ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
         )
@@ -106,6 +125,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Delete expense")).click()
 
         page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Rent", "A$25.00", "Today Repeats weekly until 21 Jun 2099", "Main", "Subscription", "edit delete"),
             ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
         )
@@ -187,6 +207,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         date: LocalDate,
         amountMinor: Long,
         notes: String?,
+        recurringRule: RecurringExpenseRule? = null,
     ): Expense = expenseRepository.save(
         Expense(
             userId = user.id!!,
@@ -195,8 +216,26 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             date = date,
             amountMinor = amountMinor,
             notes = notes,
+            recurringRuleId = recurringRule?.id,
+            recurringInstanceDate = recurringRule?.let { date },
         ),
     )
+
+    private fun saveRecurringRule(user: User, account: TrackingAccount, category: ExpenseCategory): RecurringExpenseRule =
+        recurringExpenseRuleRepository.save(
+            RecurringExpenseRule(
+                userId = user.id!!,
+                trackingAccountId = account.id!!,
+                categoryId = category.id!!,
+                startDate = TestTimeProvider.DEFAULT_DATE,
+                endDate = TestTimeProvider.DEFAULT_DATE.plusWeeks(1),
+                recurrenceFrequency = 1,
+                recurrenceInterval = RecurrenceInterval.WEEK,
+                generatedUntil = TestTimeProvider.DEFAULT_DATE,
+                amountMinor = 2500,
+                notes = "Subscription",
+            ),
+        )
 
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
@@ -211,7 +250,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
                     .map(cell => {
                         const actions = Array.from(cell.querySelectorAll('[data-action-icon]'))
                             .map(icon => icon.dataset.actionIcon);
-                        return actions.length ? actions.join(' ') : cell.textContent.trim();
+                        return actions.length ? actions.join(' ') : cell.innerText.trim().replace(/\n+/g, ' ');
                     }))
             """.trimIndent(),
         ) as List<List<String>>
