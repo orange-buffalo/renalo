@@ -404,6 +404,24 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun readOnlyExpenseEndpointsDoNotGenerateRecurringExpenses() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val existing = saveExpense(alice, account, category, "2099-06-01", 5600, "Rent", rule.id, "2099-06-01")
+        val token = api().login("alice", "password")
+
+        api().get("/api/tracking/expenses", token).statusCode().shouldBe(200)
+        api().get("/api/tracking/expenses/${existing.id}", token).statusCode().shouldBe(200)
+
+        expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
+            .map { it.recurringInstanceDate }
+            .shouldContainExactly(LocalDate.parse("2099-06-01"))
+        recurringExpenseRuleRepository.findById(rule.id!!).get().generatedUntil.shouldBe(LocalDate.parse("2099-06-01"))
+    }
+
+    @Test
     fun updatesOnlySelectedRecurringExpenseOccurrence() {
         val alice = saveUser("alice", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD")
@@ -691,21 +709,63 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun rejectsRecurringExpenseEditsWithOtherUsersReferences() {
+    fun rejectsRecurringExpenseEditsWithoutScope() {
         val alice = saveUser("alice", UserType.USER)
-        val bob = saveUser("bob", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD")
         val category = saveCategory(alice, "Rent")
-        val bobAccount = saveAccount(bob, "Bob account", "USD")
         val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
         val expense = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08")
         val token = api().login("alice", "password")
 
         api().patchJson(
             "/api/tracking/expenses/${expense.id}",
-            recurringExpenseEditJson(bobAccount, category, "2099-06-08", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
+            expenseJson(account, category, "2099-06-08", 6200, "Updated"),
             token,
         ).statusCode().shouldBe(400)
+
+        val unchangedExpense = expenseRepository.findById(expense.id!!).get()
+        unchangedExpense.amountMinor.shouldBe(5600)
+        unchangedExpense.notes.shouldBe("Rent")
+        unchangedExpense.recurringLocked.shouldBe(false)
+    }
+
+    @Test
+    fun rejectsRecurringExpenseDeletesWithoutScope() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val expense = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08")
+        val token = api().login("alice", "password")
+
+        api().delete("/api/tracking/expenses/${expense.id}", token).statusCode().shouldBe(400)
+
+        expenseRepository.findById(expense.id!!).isPresent.shouldBe(true)
+        recurringExpenseSkipRepository.findByRecurringRuleId(rule.id!!).shouldBe(emptyList())
+    }
+
+    @Test
+    fun rejectsRecurringExpenseEditsWithOtherUsersReferences() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val bobAccount = saveAccount(bob, "Bob account", "USD")
+        val bobCategory = saveCategory(bob, "Bob category")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val expense = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08")
+        val token = api().login("alice", "password")
+
+        listOf(
+            recurringExpenseEditJson(bobAccount, category, "2099-06-08", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
+            recurringExpenseEditJson(account, bobCategory, "2099-06-08", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
+        ).forEach { requestBody ->
+            api().patchJson(
+                "/api/tracking/expenses/${expense.id}",
+                requestBody,
+                token,
+            ).statusCode().shouldBe(400)
+        }
     }
 
     @Test
@@ -758,6 +818,11 @@ class ExpenseApiTest : IntegrationTestSupport() {
         api().postJson(
             "/api/tracking/expenses",
             recurringExpenseJson(bobAccount, aliceCategory, "2026-06-15", 1000, null, 1, "WEEK", "2026-06-22"),
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/expenses",
+            recurringExpenseJson(aliceAccount, bobCategory, "2026-06-15", 1000, null, 1, "WEEK", "2026-06-22"),
             token,
         ).statusCode().shouldBe(400)
         api().get("/api/tracking/expenses/${bobExpense.id}", token).statusCode().shouldBe(404)
