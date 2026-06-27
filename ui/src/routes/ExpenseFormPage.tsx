@@ -21,9 +21,22 @@ import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { DatePicker } from "@/components/untitled/application/date-picker/date-picker";
 import { Button } from "@/components/untitled/base/buttons/button";
+import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Label } from "@/components/untitled/base/input/label";
 import { Select } from "@/components/untitled/base/select/select";
 import { formatMoneyInput, parseMoneyInput } from "@/utils/money";
+
+type RecurrenceScheduleOption = "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+
+const recurrenceScheduleOptions: Array<{
+  id: RecurrenceScheduleOption;
+  label: string;
+}> = [
+  { id: "DAILY", label: "Daily" },
+  { id: "WEEKLY", label: "Weekly" },
+  { id: "BIWEEKLY", label: "Biweekly" },
+  { id: "MONTHLY", label: "Monthly" },
+];
 
 export function CreateExpensePage() {
   return <ExpenseFormPage mode="create" />;
@@ -43,6 +56,11 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
   const [date, setDate] = useState<CalendarDate | null>(
     dateToCalendarDate(new Date()),
   );
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceSchedule, setRecurrenceSchedule] =
+    useState<RecurrenceScheduleOption>("WEEKLY");
+  const [recurrenceEndDate, setRecurrenceEndDate] =
+    useState<CalendarDate | null>(null);
   const [amount, setAmount] = useState(formatMoneyInput(0, "AUD"));
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string>();
@@ -50,6 +68,8 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
   const [categoryError, setCategoryError] = useState<string>();
   const [dateError, setDateError] = useState<string>();
   const [amountError, setAmountError] = useState<string>();
+  const [recurrenceEndDateError, setRecurrenceEndDateError] =
+    useState<string>();
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [isLoadingExpense, setIsLoadingExpense] = useState(mode === "edit");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -158,15 +178,24 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
       amountMinor === undefined || amountMinor <= 0
         ? "Enter a valid amount greater than zero."
         : undefined;
+    const nextRecurrenceEndDateError =
+      isRecurring &&
+      date &&
+      recurrenceEndDate &&
+      recurrenceEndDate.compare(date) < 0
+        ? "Choose an end date on or after the expense date."
+        : undefined;
     setAccountError(nextAccountError);
     setCategoryError(nextCategoryError);
     setDateError(nextDateError);
     setAmountError(nextAmountError);
+    setRecurrenceEndDateError(nextRecurrenceEndDateError);
     if (
       nextAccountError ||
       nextCategoryError ||
       nextDateError ||
       nextAmountError ||
+      nextRecurrenceEndDateError ||
       !trackingAccountId ||
       !categoryId ||
       !date ||
@@ -182,6 +211,14 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
       amountMinor,
       notes: notes.trim() || null,
     };
+    if (isRecurring && !isEditing) {
+      payload.recurrence = {
+        ...recurrencePayloadFor(recurrenceSchedule),
+        endDate: recurrenceEndDate
+          ? calendarDateToIsoDate(recurrenceEndDate)
+          : null,
+      };
+    }
     setIsSubmitting(true);
     setError(undefined);
 
@@ -293,7 +330,67 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
               onChange={(event) => setNotes(event.target.value)}
             />
           </div>
-          <div aria-hidden="true" className="tracking-account-form-spacer" />
+          {!isEditing && (
+            <div className="expense-recurrence-section">
+              <Checkbox
+                label="Recurring expense"
+                hint="Generate matching expense rows from this schedule."
+                size="md"
+                isSelected={isRecurring}
+                onChange={(selected) => {
+                  setIsRecurring(selected);
+                  if (!selected) {
+                    setRecurrenceEndDate(null);
+                    setRecurrenceEndDateError(undefined);
+                  }
+                }}
+              />
+              {isRecurring && (
+                <div className="expense-recurrence-controls">
+                  <Select
+                    label="Repeat"
+                    placeholder="Choose schedule"
+                    size="md"
+                    selectedKey={recurrenceSchedule}
+                    items={recurrenceScheduleOptions}
+                    onSelectionChange={(key) =>
+                      setRecurrenceSchedule(key as RecurrenceScheduleOption)
+                    }
+                  >
+                    {(item) => <Select.Item {...item} />}
+                  </Select>
+                  <div className="expense-date-field">
+                    <Label>End date</Label>
+                    <DatePicker
+                      value={recurrenceEndDate}
+                      onChange={(nextDate) => {
+                        setRecurrenceEndDate(
+                          nextDate
+                            ? new CalendarDate(
+                                nextDate.year,
+                                nextDate.month,
+                                nextDate.day,
+                              )
+                            : null,
+                        );
+                        setRecurrenceEndDateError(undefined);
+                      }}
+                      size="md"
+                      aria-label="End date"
+                    />
+                    {recurrenceEndDateError && (
+                      <p className="expense-field-error">
+                        {recurrenceEndDateError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {isEditing && (
+            <div aria-hidden="true" className="tracking-account-form-spacer" />
+          )}
           <div className="tracking-account-actions">
             <Button
               color="tertiary"
@@ -334,4 +431,17 @@ function isoDateToCalendarDate(date: string) {
 
 function calendarDateToIsoDate(date: CalendarDate) {
   return date.toString();
+}
+
+function recurrencePayloadFor(schedule: RecurrenceScheduleOption) {
+  switch (schedule) {
+    case "DAILY":
+      return { frequency: 1, interval: "DAY" as const };
+    case "WEEKLY":
+      return { frequency: 1, interval: "WEEK" as const };
+    case "BIWEEKLY":
+      return { frequency: 2, interval: "WEEK" as const };
+    case "MONTHLY":
+      return { frequency: 1, interval: "MONTH" as const };
+  }
 }

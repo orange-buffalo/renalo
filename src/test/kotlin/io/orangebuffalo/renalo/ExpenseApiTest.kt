@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.tracking.Expense
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
@@ -304,13 +305,92 @@ class ExpenseApiTest : IntegrationTestSupport() {
             token,
         ).statusCode().shouldBe(201)
 
-        recurringExpenseRuleRepository.findAll().map { it.recurrenceFrequency to it.recurrenceInterval.name }
+        val rules = recurringExpenseRuleRepository.findAll().sortedBy { it.startDate }
+        rules.map { it.recurrenceFrequency to it.recurrenceInterval.name }
             .shouldContainExactly(
                 1 to "DAY",
                 1 to "WEEK",
                 2 to "WEEK",
                 1 to "MONTH",
             )
+        rules.map { rule ->
+            expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
+                .map { it.recurringInstanceDate }
+        }.shouldContainExactly(
+            listOf(
+                LocalDate.parse("2099-06-01"),
+                LocalDate.parse("2099-06-02"),
+                LocalDate.parse("2099-06-03"),
+            ),
+            listOf(
+                LocalDate.parse("2099-06-04"),
+                LocalDate.parse("2099-06-11"),
+                LocalDate.parse("2099-06-18"),
+            ),
+            listOf(
+                LocalDate.parse("2099-06-05"),
+                LocalDate.parse("2099-06-19"),
+                LocalDate.parse("2099-07-03"),
+            ),
+            listOf(
+                LocalDate.parse("2099-06-30"),
+                LocalDate.parse("2099-07-30"),
+                LocalDate.parse("2099-08-30"),
+            ),
+        )
+    }
+
+    @Test
+    fun createsRecurringExpensesForPastTodayAndFutureStartDatesWithAndWithoutEndDate() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "General")
+        val token = api().login("alice", "password")
+
+        listOf(
+            TestTimeProvider.DEFAULT_DATE.minusWeeks(2),
+            TestTimeProvider.DEFAULT_DATE,
+            TestTimeProvider.DEFAULT_DATE.plusWeeks(2),
+        ).forEach { startDate ->
+            listOf(null, startDate.plusWeeks(2)).forEach { endDate ->
+                val existingRuleIds = recurringExpenseRuleRepository.findAll().mapNotNull { it.id }.toSet()
+
+                api().postJson(
+                    "/api/tracking/expenses",
+                    recurringExpenseJson(
+                        account = account,
+                        category = category,
+                        date = startDate.toString(),
+                        amountMinor = 100,
+                        notes = "Start $startDate end ${endDate ?: "none"}",
+                        frequency = 1,
+                        interval = "WEEK",
+                        endDate = endDate?.toString(),
+                    ),
+                    token,
+                ).statusCode().shouldBe(201)
+
+                val rule = recurringExpenseRuleRepository.findAll().single { it.id !in existingRuleIds }
+                rule.startDate.shouldBe(startDate)
+                rule.endDate.shouldBe(endDate)
+                val generatedDates = expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
+                    .map { it.recurringInstanceDate }
+                if (endDate == null) {
+                    generatedDates.take(3).shouldContainExactly(
+                        startDate,
+                        startDate.plusWeeks(1),
+                        startDate.plusWeeks(2),
+                    )
+                    generatedDates.last()!!.isAfter(TestTimeProvider.DEFAULT_DATE.plusYears(1)).shouldBe(false)
+                } else {
+                    generatedDates.shouldContainExactly(
+                        startDate,
+                        startDate.plusWeeks(1),
+                        endDate,
+                    )
+                }
+            }
+        }
     }
 
     @Test

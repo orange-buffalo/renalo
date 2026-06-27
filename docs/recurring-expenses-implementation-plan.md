@@ -231,7 +231,7 @@ Review notes:
 
 ## Step 7: Create Screen UI
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Add recurring expense controls to the create expense UI.
 
@@ -255,6 +255,13 @@ Review notes:
 
 - Use Untitled UI components where applicable.
 - Do not hand-write component replacements if existing Untitled UI components cover the controls.
+
+Completion notes:
+
+- Added create-only recurrence controls using the Untitled checkbox, select, and date picker components.
+- Covered unchecked one-off creation through existing Playwright create flow and representative biweekly recurring creation through `ExpensesPagePlaywrightTest`.
+- Verified with `bun run format` and `./gradlew test --rerun-tasks --tests 'io.orangebuffalo.renalo.ExpensesPagePlaywrightTest'`.
+- Reviewed trace screenshots under `build/trace-screenshots/recurring-expense-create-review/resources/`.
 
 ## Step 8: Edit Scope API Flows
 

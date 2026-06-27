@@ -27,6 +27,11 @@ export type SaveExpense = {
   date: string;
   amountMinor: number;
   notes?: string | null;
+  recurrence?: {
+    frequency: number;
+    interval: "DAY" | "WEEK" | "MONTH";
+    endDate?: string | null;
+  } | null;
 };
 
 export function fetchExpenses() {

@@ -164,6 +164,38 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun createsRecurringExpenseFromExpenseForm(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Rent")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses/create")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        selectOption(page, "Category", "Rent")
+        page.locator("input[name='amount']").fill("25")
+        page.getByLabel("Notes").fill("Gym membership")
+        page.getByLabel("Recurring expense").press("Space")
+        page.getByLabel("Repeat").click()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Daily").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Weekly").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Biweekly").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Monthly").setExact(true))).isVisible()
+        page.keyboard().press("Escape")
+        selectOption(page, "Repeat", "Biweekly")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        val rule = recurringExpenseRuleRepository.findAll().single()
+        rule.recurrenceFrequency.shouldBe(2)
+        rule.recurrenceInterval.shouldBe(RecurrenceInterval.WEEK)
+        rule.endDate.shouldBe(null)
+        expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!).first().notes.shouldBe("Gym membership")
+        assertThat(page.getByText("Repeats every 2 weeks").first()).isVisible()
+    }
+
+    @Test
     fun showsSharedEmptyStateWhenNoExpensesExist(page: Page) {
         saveUser("alice")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
