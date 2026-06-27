@@ -440,7 +440,8 @@ Behavior:
 
 Update the `RecurringExpenseRule`.
 Update all unlocked `Expenses` linked to that rule, including past expenses.
-Do not overwrite locked `Expenses`.
+Also update the selected `Expense` even if it is already locked, because the user is explicitly editing that occurrence as the entry point for the all-occurrences action.
+Do not overwrite any other locked `Expenses`.
 
 This is intended for correcting the whole recurring series.
 
@@ -450,7 +451,8 @@ User entered the wrong amount/category/name when creating the recurrence.
 They select "All occurrences".
 The rule is updated.
 All unlocked generated expenses are updated.
-Locked/custom occurrences remain unchanged.
+The selected expense is updated even when it was previously locked by a "This occurrence only" edit.
+Other locked/custom occurrences remain unchanged.
 
 ## Deleting Recurring Expenses
 

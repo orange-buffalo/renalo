@@ -503,6 +503,34 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun updatesSelectedLockedRecurringExpenseWhenUpdatingAllOccurrences() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val first = saveExpense(alice, account, category, "2099-06-01", 5600, "Original", rule.id, "2099-06-01")
+        val selectedLocked = saveExpense(alice, account, category, "2099-06-08", 7000, "Custom", rule.id, "2099-06-08", true)
+        val otherLocked = saveExpense(alice, account, category, "2099-06-15", 8000, "Other custom", rule.id, "2099-06-15", true)
+        val token = api().login("alice", "password")
+
+        api().patchJson(
+            "/api/tracking/expenses/${selectedLocked.id}",
+            recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "ALL_OCCURRENCES"),
+            token,
+        ).statusCode().shouldBe(200)
+
+        recurringExpenseRuleRepository.findById(rule.id!!).get().amountMinor.shouldBe(6200)
+        expenseRepository.findById(first.id!!).get().amountMinor.shouldBe(6200)
+        val updatedSelected = expenseRepository.findById(selectedLocked.id!!).get()
+        updatedSelected.amountMinor.shouldBe(6200)
+        updatedSelected.notes.shouldBe("Updated")
+        updatedSelected.recurringLocked.shouldBe(true)
+        val unchangedOtherLocked = expenseRepository.findById(otherLocked.id!!).get()
+        unchangedOtherLocked.amountMinor.shouldBe(8000)
+        unchangedOtherLocked.notes.shouldBe("Other custom")
+    }
+
+    @Test
     fun rejectsRecurringExpenseDateAndScheduleChanges() {
         val alice = saveUser("alice", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD")

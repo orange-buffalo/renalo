@@ -176,7 +176,7 @@ open class ExpenseService(
                     ),
                 )
                 expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
-                    .filter { !it.recurringLocked }
+                    .filter { !it.recurringLocked || it.id == existingExpense.id }
                     .forEach {
                         expenseRepository.update(
                             it.copy(
