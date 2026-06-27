@@ -11,6 +11,7 @@ open class ExpenseService(
     private val trackingAccountRepository: TrackingAccountRepository,
     private val expenseCategoryRepository: ExpenseCategoryRepository,
     private val recurringExpenseRuleRepository: RecurringExpenseRuleRepository,
+    private val recurringExpenseSkipRepository: RecurringExpenseSkipRepository,
     private val recurringExpenseGenerationService: RecurringExpenseGenerationService,
 ) {
     fun listExpenses(userId: Long): List<ExpenseDetails> =
@@ -44,11 +45,56 @@ open class ExpenseService(
     }
 
     @Transactional
-    open fun deleteExpense(userId: Long, expenseId: Long): Boolean {
+    open fun deleteExpense(userId: Long, expenseId: Long, request: DeleteExpenseRequest? = null): DeleteExpenseResult {
         val expense = expenseRepository.findByIdAndUserId(expenseId, userId)
-            ?: return false
+            ?: return DeleteExpenseResult.NotFound
+        if (expense.recurringRuleId != null) {
+            return deleteRecurringExpense(userId, expense, request)
+        }
+
         expenseRepository.delete(expense)
-        return true
+        return DeleteExpenseResult.Deleted
+    }
+
+    private fun deleteRecurringExpense(
+        userId: Long,
+        expense: Expense,
+        request: DeleteExpenseRequest?,
+    ): DeleteExpenseResult {
+        val scope = request?.recurringDeleteScope ?: return DeleteExpenseResult.BadRequest
+        val rule = recurringExpenseRuleRepository.findByIdAndUserId(expense.recurringRuleId!!, userId)
+            ?: return DeleteExpenseResult.BadRequest
+        val ruleId = rule.id ?: return DeleteExpenseResult.BadRequest
+        val instanceDate = expense.recurringInstanceDate ?: return DeleteExpenseResult.BadRequest
+
+        when (scope) {
+            RecurringExpenseDeleteScope.THIS_OCCURRENCE_ONLY -> {
+                expenseRepository.delete(expense)
+                recurringExpenseSkipRepository.save(
+                    RecurringExpenseSkip(recurringRuleId = ruleId, recurringInstanceDate = instanceDate),
+                )
+            }
+
+            RecurringExpenseDeleteScope.THIS_AND_ALL_FOLLOWING_OCCURRENCES -> {
+                recurringExpenseRuleRepository.update(rule.copy(endDate = instanceDate.minusDays(1)))
+                expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(ruleId)
+                    .filter { it.recurringInstanceDate?.let { date -> date >= instanceDate } == true }
+                    .forEach(expenseRepository::delete)
+                recurringExpenseSkipRepository.findByRecurringRuleId(ruleId)
+                    .filter { it.recurringInstanceDate >= instanceDate }
+                    .forEach(recurringExpenseSkipRepository::delete)
+            }
+
+            RecurringExpenseDeleteScope.ALL_OCCURRENCES -> {
+                recurringExpenseRuleRepository.update(rule.copy(status = RecurringExpenseRuleStatus.DELETED))
+                expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(ruleId)
+                    .forEach(expenseRepository::delete)
+                recurringExpenseSkipRepository.findByRecurringRuleId(ruleId)
+                    .forEach(recurringExpenseSkipRepository::delete)
+            }
+        }
+
+        return DeleteExpenseResult.Deleted
     }
 
     private fun saveExpense(userId: Long, existingExpense: Expense?, request: SaveExpenseRequest): ExpenseDetails? {
@@ -256,7 +302,25 @@ data class SaveExpenseRecurrenceRequest(
     val endDate: LocalDate? = null,
 )
 
+sealed interface DeleteExpenseResult {
+    data object Deleted : DeleteExpenseResult
+
+    data object NotFound : DeleteExpenseResult
+
+    data object BadRequest : DeleteExpenseResult
+}
+
+data class DeleteExpenseRequest(
+    val recurringDeleteScope: RecurringExpenseDeleteScope? = null,
+)
+
 enum class RecurringExpenseEditScope {
+    THIS_OCCURRENCE_ONLY,
+    THIS_AND_ALL_FOLLOWING_OCCURRENCES,
+    ALL_OCCURRENCES,
+}
+
+enum class RecurringExpenseDeleteScope {
     THIS_OCCURRENCE_ONLY,
     THIS_AND_ALL_FOLLOWING_OCCURRENCES,
     ALL_OCCURRENCES,

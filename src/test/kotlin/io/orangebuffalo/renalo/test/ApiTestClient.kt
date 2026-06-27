@@ -79,6 +79,16 @@ class ApiTestClient(
         return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
     }
 
+    fun deleteJson(path: String, body: String, token: String?): HttpResponse<String> {
+        val builder = HttpRequest.newBuilder(URI.create(server.url.toString() + path))
+            .header("Content-Type", "application/json")
+            .method("DELETE", HttpRequest.BodyPublishers.ofString(body))
+        if (token != null) {
+            builder.header("Authorization", "Bearer $token")
+        }
+        return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
+    }
+
     companion object {
         private val tokenRegex = Regex("\"token\"\\s*:\\s*\"([^\"]+)\"")
     }

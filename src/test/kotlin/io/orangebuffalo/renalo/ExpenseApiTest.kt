@@ -14,6 +14,10 @@ import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.ExpenseRepository
 import io.orangebuffalo.renalo.tracking.RecurringExpenseRule
 import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleRepository
+import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleStatus
+import io.orangebuffalo.renalo.tracking.RecurringExpenseGenerationService
+import io.orangebuffalo.renalo.tracking.RecurringExpenseSkip
+import io.orangebuffalo.renalo.tracking.RecurringExpenseSkipRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -41,6 +45,12 @@ class ExpenseApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var recurringExpenseRuleRepository: RecurringExpenseRuleRepository
+
+    @Inject
+    lateinit var recurringExpenseSkipRepository: RecurringExpenseSkipRepository
+
+    @Inject
+    lateinit var recurringExpenseGenerationService: RecurringExpenseGenerationService
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -479,6 +489,39 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun updatesSelectedLockedRecurringExpenseWhenUpdatingThisAndAllFollowingOccurrences() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-29")
+        saveExpense(alice, account, category, "2099-06-01", 5600, "Original", rule.id, "2099-06-01")
+        val selectedLocked = saveExpense(alice, account, category, "2099-06-08", 7000, "Custom", rule.id, "2099-06-08", true)
+        val otherLocked = saveExpense(alice, account, category, "2099-06-15", 8000, "Other custom", rule.id, "2099-06-15", true)
+        saveExpense(alice, account, category, "2099-06-22", 5600, "Original", rule.id, "2099-06-22")
+        val token = api().login("alice", "password")
+
+        api().patchJson(
+            "/api/tracking/expenses/${selectedLocked.id}",
+            recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "THIS_AND_ALL_FOLLOWING_OCCURRENCES"),
+            token,
+        ).statusCode().shouldBe(200)
+
+        recurringExpenseRuleRepository.findById(rule.id!!).get().endDate.shouldBe(LocalDate.parse("2099-06-07"))
+        val newRule = recurringExpenseRuleRepository.findAll().single { it.id != rule.id }
+        newRule.startDate.shouldBe(LocalDate.parse("2099-06-08"))
+        newRule.amountMinor.shouldBe(6200)
+        val updatedSelected = expenseRepository.findById(selectedLocked.id!!).get()
+        updatedSelected.recurringRuleId.shouldBe(newRule.id)
+        updatedSelected.amountMinor.shouldBe(6200)
+        updatedSelected.notes.shouldBe("Updated")
+        updatedSelected.recurringLocked.shouldBe(true)
+        val unchangedOtherLocked = expenseRepository.findById(otherLocked.id!!).get()
+        unchangedOtherLocked.recurringRuleId.shouldBe(newRule.id)
+        unchangedOtherLocked.amountMinor.shouldBe(8000)
+        unchangedOtherLocked.notes.shouldBe("Other custom")
+    }
+
+    @Test
     fun updatesAllUnlockedRecurringExpenseOccurrences() {
         val alice = saveUser("alice", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD")
@@ -528,6 +571,89 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val unchangedOtherLocked = expenseRepository.findById(otherLocked.id!!).get()
         unchangedOtherLocked.amountMinor.shouldBe(8000)
         unchangedOtherLocked.notes.shouldBe("Other custom")
+    }
+
+    @Test
+    fun deletesOnlySelectedRecurringExpenseOccurrenceAndCreatesSkip() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val selected = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08", true)
+        val remaining = saveExpense(alice, account, category, "2099-06-15", 5600, "Rent", rule.id, "2099-06-15")
+        val token = api().login("alice", "password")
+
+        api().deleteJson(
+            "/api/tracking/expenses/${selected.id}",
+            recurringExpenseDeleteJson("THIS_OCCURRENCE_ONLY"),
+            token,
+        ).statusCode().shouldBe(204)
+
+        expenseRepository.findById(selected.id!!).isPresent.shouldBe(false)
+        expenseRepository.findById(remaining.id!!).isPresent.shouldBe(true)
+        recurringExpenseSkipRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, LocalDate.parse("2099-06-08"))
+            ?.recurringInstanceDate.shouldBe(LocalDate.parse("2099-06-08"))
+
+        recurringExpenseGenerationService.generateForRule(recurringExpenseRuleRepository.findById(rule.id!!).get())
+        expenseRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, LocalDate.parse("2099-06-08"))
+            .shouldBe(null)
+    }
+
+    @Test
+    fun deletesRecurringExpenseThisAndAllFollowingOccurrences() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-29")
+        val before = saveExpense(alice, account, category, "2099-06-01", 5600, "Before", rule.id, "2099-06-01")
+        val selected = saveExpense(alice, account, category, "2099-06-08", 5600, "Selected", rule.id, "2099-06-08")
+        val lockedFollowing = saveExpense(alice, account, category, "2099-06-15", 7000, "Locked", rule.id, "2099-06-15", true)
+        saveExpense(alice, account, category, "2099-06-22", 5600, "Following", rule.id, "2099-06-22")
+        val preservedSkip = recurringExpenseSkipRepository.save(
+            RecurringExpenseSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-01")),
+        )
+        val deletedSkip = recurringExpenseSkipRepository.save(
+            RecurringExpenseSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-15")),
+        )
+        val token = api().login("alice", "password")
+
+        api().deleteJson(
+            "/api/tracking/expenses/${selected.id}",
+            recurringExpenseDeleteJson("THIS_AND_ALL_FOLLOWING_OCCURRENCES"),
+            token,
+        ).statusCode().shouldBe(204)
+
+        recurringExpenseRuleRepository.findById(rule.id!!).get().endDate.shouldBe(LocalDate.parse("2099-06-07"))
+        expenseRepository.findById(before.id!!).isPresent.shouldBe(true)
+        expenseRepository.findById(selected.id!!).isPresent.shouldBe(false)
+        expenseRepository.findById(lockedFollowing.id!!).isPresent.shouldBe(false)
+        recurringExpenseSkipRepository.findById(preservedSkip.id!!).isPresent.shouldBe(true)
+        recurringExpenseSkipRepository.findById(deletedSkip.id!!).isPresent.shouldBe(false)
+    }
+
+    @Test
+    fun deletesAllRecurringExpenseOccurrencesAndMarksRuleDeleted() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val category = saveCategory(alice, "Rent")
+        val rule = saveRecurringRule(alice, account, category, "2099-06-01", "2099-06-15")
+        val first = saveExpense(alice, account, category, "2099-06-01", 5600, "First", rule.id, "2099-06-01")
+        val locked = saveExpense(alice, account, category, "2099-06-08", 7000, "Locked", rule.id, "2099-06-08", true)
+        val skip = recurringExpenseSkipRepository.save(
+            RecurringExpenseSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-15")),
+        )
+        val token = api().login("alice", "password")
+
+        api().deleteJson(
+            "/api/tracking/expenses/${first.id}",
+            recurringExpenseDeleteJson("ALL_OCCURRENCES"),
+            token,
+        ).statusCode().shouldBe(204)
+
+        recurringExpenseRuleRepository.findById(rule.id!!).get().status.shouldBe(RecurringExpenseRuleStatus.DELETED)
+        expenseRepository.findById(first.id!!).isPresent.shouldBe(false)
+        expenseRepository.findById(locked.id!!).isPresent.shouldBe(false)
+        recurringExpenseSkipRepository.findById(skip.id!!).isPresent.shouldBe(false)
     }
 
     @Test
@@ -591,6 +717,17 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val bobAccount = saveAccount(bob, "Bob account", "USD")
         val bobCategory = saveCategory(bob, "Bob category")
         val bobExpense = saveExpense(bob, bobAccount, bobCategory, "2026-06-15", 999, null)
+        val bobRecurringRule = saveRecurringRule(bob, bobAccount, bobCategory, "2026-06-15", "2026-06-29")
+        val bobRecurringExpense = saveExpense(
+            bob,
+            bobAccount,
+            bobCategory,
+            "2026-06-15",
+            999,
+            "Hidden recurring",
+            recurringRuleId = bobRecurringRule.id,
+            recurringInstanceDate = "2026-06-15",
+        )
         val token = api().login("alice", "password")
 
         api().postJson(
@@ -630,6 +767,11 @@ class ExpenseApiTest : IntegrationTestSupport() {
             token,
         ).statusCode().shouldBe(404)
         api().delete("/api/tracking/expenses/${bobExpense.id}", token).statusCode().shouldBe(404)
+        api().deleteJson(
+            "/api/tracking/expenses/${bobRecurringExpense.id}",
+            recurringExpenseDeleteJson("ALL_OCCURRENCES"),
+            token,
+        ).statusCode().shouldBe(404)
     }
 
     private fun saveUser(username: String, type: UserType): User = userRepository.save(
@@ -782,6 +924,12 @@ class ExpenseApiTest : IntegrationTestSupport() {
             "interval": "$interval",
             "endDate": ${endDate?.let { "\"$it\"" } ?: "null"}
           }
+        }
+    """.trimIndent()
+
+    private fun recurringExpenseDeleteJson(recurringDeleteScope: String) = """
+        {
+          "recurringDeleteScope": "$recurringDeleteScope"
         }
     """.trimIndent()
 }

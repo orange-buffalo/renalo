@@ -67,14 +67,19 @@ class ExpenseController(
     }
 
     @Delete("/{expenseId}")
-    fun deleteExpense(expenseId: Long, authentication: Authentication): HttpResponse<*> {
+    fun deleteExpense(
+        expenseId: Long,
+        authentication: Authentication,
+        @Body request: DeleteExpenseRequest?,
+    ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
-        if (!expenseService.deleteExpense(user.id!!, expenseId)) {
-            return HttpResponse.notFound<Any>()
-        }
 
-        return HttpResponse.noContent<Any>()
+        return when (expenseService.deleteExpense(user.id!!, expenseId, request)) {
+            DeleteExpenseResult.Deleted -> HttpResponse.noContent<Any>()
+            DeleteExpenseResult.NotFound -> HttpResponse.notFound<Any>()
+            DeleteExpenseResult.BadRequest -> HttpResponse.badRequest<Any>()
+        }
     }
 }
 

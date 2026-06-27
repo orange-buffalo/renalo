@@ -340,7 +340,7 @@ Completion notes:
 
 ## Step 10: Delete Scope API Flows
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Implement delete behavior for the three recurring scopes.
 
@@ -365,6 +365,15 @@ Tests:
 Review notes:
 
 - Scope behavior must be based on `recurring_instance_date`, not the current date.
+
+Completion notes:
+
+- Added explicit recurring delete scopes to the expense DELETE API using `THIS_OCCURRENCE_ONLY`, `THIS_AND_ALL_FOLLOWING_OCCURRENCES`, and `ALL_OCCURRENCES`.
+- Preserved one-off DELETE behavior while requiring a scope for recurring generated expenses.
+- Implemented selected-occurrence skip creation, following-series rule ending/range deletion, all-occurrence rule deletion, and skip cleanup.
+- Allowed explicit recurring deletes to remove locked expenses within the selected scope.
+- Covered skip-based regeneration prevention, range deletion by `recurring_instance_date`, locked expense deletion, all-occurrence deletion, and cross-user security in `ExpenseApiTest`.
+- Verified with `./gradlew test --tests 'io.orangebuffalo.renalo.ExpenseApiTest'`.
 
 ## Step 11: Delete UI Flows
 
