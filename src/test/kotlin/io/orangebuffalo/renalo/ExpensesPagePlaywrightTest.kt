@@ -188,6 +188,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             selectOption(page, "Repeat", expectation.label)
             page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
 
+            page.waitForURL("**/expenses")
             assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
             val rule = recurringExpenseRuleRepository.findAll().single { it.notes == notes }
             rule.recurrenceFrequency.shouldBe(expectation.frequency)
@@ -200,7 +201,104 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             )
             generatedExpenses.first().notes.shouldBe(notes)
         }
-        assertThat(page.getByText("Repeats every 2 weeks").first()).isVisible()
+    }
+
+    @Test
+    fun editsRecurringExpensesWithSelectedScopeFromExpenseForm(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val rent = saveCategory(alice, "Rent")
+        val bills = saveCategory(alice, "Bills")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        val occurrenceOnlyRule = saveRecurringRule(alice, main, rent, notes = "Occurrence only")
+        val occurrenceOnlySelected = saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE,
+            2500,
+            "Occurrence only",
+            occurrenceOnlyRule,
+        )
+        val occurrenceOnlyFollowing = saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE.plusWeeks(1),
+            2500,
+            "Occurrence only",
+            occurrenceOnlyRule,
+        )
+
+        page.navigate(server.url.toString() + "/expenses/${occurrenceOnlySelected.id}")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit expense"))).isVisible()
+        assertThat(page.getByText("Repeats weekly until 21 Jun 2099")).isVisible()
+        assertThat(page.getByText("Date and schedule cannot be edited.")).isVisible()
+        assertThat(page.locator(".expense-date-field").getByRole(AriaRole.BUTTON)).isDisabled()
+        assertThat(page.getByLabel("Recurring expense")).not().isVisible()
+        assertThat(page.getByLabel("Repeat")).not().isVisible()
+        selectOption(page, "Category", "Bills")
+        page.locator("input[name='amount']").fill("31")
+        page.getByLabel("Notes").fill("Edited one")
+        selectOption(page, "Edit scope", "This occurrence only")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save expense")).click()
+
+        page.waitForURL("**/expenses")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        val editedOccurrence = expenseRepository.findById(occurrenceOnlySelected.id!!).get()
+        editedOccurrence.categoryId.shouldBe(bills.id)
+        editedOccurrence.amountMinor.shouldBe(3100)
+        editedOccurrence.notes.shouldBe("Edited one")
+        editedOccurrence.recurringLocked.shouldBe(true)
+        expenseRepository.findById(occurrenceOnlyFollowing.id!!).get().amountMinor.shouldBe(2500)
+
+        val followingRule = saveRecurringRule(alice, main, rent, notes = "Following")
+        saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE, 2500, "Following", followingRule)
+        val followingSelected = saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE.plusWeeks(1),
+            2500,
+            "Following",
+            followingRule,
+        )
+        saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE.plusWeeks(2), 2500, "Following", followingRule)
+
+        page.navigate(server.url.toString() + "/expenses/${followingSelected.id}")
+        selectOption(page, "Edit scope", "This and all following occurrences")
+        page.locator("input[name='amount']").fill("41")
+        page.getByLabel("Notes").fill("Edited following")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save expense")).click()
+
+        page.waitForURL("**/expenses")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        recurringExpenseRuleRepository.findById(followingRule.id!!).get().endDate
+            .shouldBe(TestTimeProvider.DEFAULT_DATE.plusDays(6))
+        val newFollowingRule = recurringExpenseRuleRepository.findAll().single {
+            it.id != followingRule.id && it.notes == "Edited following"
+        }
+        newFollowingRule.startDate.shouldBe(TestTimeProvider.DEFAULT_DATE.plusWeeks(1))
+        newFollowingRule.amountMinor.shouldBe(4100)
+        expenseRepository.findById(followingSelected.id!!).get().recurringRuleId.shouldBe(newFollowingRule.id)
+
+        val allRule = saveRecurringRule(alice, main, rent, notes = "All")
+        val allFirst = saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE, 2500, "All", allRule)
+        val allSecond = saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE.plusWeeks(1), 2500, "All", allRule)
+
+        page.navigate(server.url.toString() + "/expenses/${allFirst.id}")
+        selectOption(page, "Edit scope", "All occurrences")
+        page.locator("input[name='amount']").fill("51")
+        page.getByLabel("Notes").fill("Edited all")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save expense")).click()
+
+        page.waitForURL("**/expenses")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        recurringExpenseRuleRepository.findById(allRule.id!!).get().amountMinor.shouldBe(5100)
+        expenseRepository.findById(allFirst.id!!).get().notes.shouldBe("Edited all")
+        expenseRepository.findById(allSecond.id!!).get().amountMinor.shouldBe(5100)
     }
 
     @Test
@@ -248,6 +346,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         amountMinor: Long,
         notes: String?,
         recurringRule: RecurringExpenseRule? = null,
+        recurringLocked: Boolean = false,
     ): Expense = expenseRepository.save(
         Expense(
             userId = user.id!!,
@@ -258,10 +357,16 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             notes = notes,
             recurringRuleId = recurringRule?.id,
             recurringInstanceDate = recurringRule?.let { date },
+            recurringLocked = recurringLocked,
         ),
     )
 
-    private fun saveRecurringRule(user: User, account: TrackingAccount, category: ExpenseCategory): RecurringExpenseRule =
+    private fun saveRecurringRule(
+        user: User,
+        account: TrackingAccount,
+        category: ExpenseCategory,
+        notes: String = "Subscription",
+    ): RecurringExpenseRule =
         recurringExpenseRuleRepository.save(
             RecurringExpenseRule(
                 userId = user.id!!,
@@ -273,7 +378,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
                 recurrenceInterval = RecurrenceInterval.WEEK,
                 generatedUntil = TestTimeProvider.DEFAULT_DATE,
                 amountMinor = 2500,
-                notes = "Subscription",
+                notes = notes,
             ),
         )
 

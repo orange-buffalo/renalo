@@ -302,7 +302,7 @@ Completion notes:
 
 ## Step 9: Edit Screen UI
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Add recurring edit scope UX while keeping schedule fields immutable.
 
@@ -328,6 +328,15 @@ Tests:
 Review notes:
 
 - Do not use the term future occurrences in UI copy.
+
+Completion notes:
+
+- Added recurring edit detection from expense recurrence metadata and submit `recurringEditScope` with non-schedule edits.
+- Added a read-only recurring schedule context panel on recurring edit pages using exact scope labels.
+- Disabled the existing date picker for recurring edits and kept create-only recurrence controls hidden on edit.
+- Covered one-off edit behavior through existing Playwright flow and all three recurring edit scopes through `ExpensesPagePlaywrightTest`.
+- Verified with `bun run format` and `./gradlew test --tests 'io.orangebuffalo.renalo.ExpensesPagePlaywrightTest'`.
+- Reviewed trace screenshots under `build/trace-screenshots/recurring-expense-edit-review/resources/`.
 
 ## Step 10: Delete Scope API Flows
 

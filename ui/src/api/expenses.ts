@@ -27,6 +27,11 @@ export type SaveExpense = {
   date: string;
   amountMinor: number;
   notes?: string | null;
+  recurringEditScope?:
+    | "THIS_OCCURRENCE_ONLY"
+    | "THIS_AND_ALL_FOLLOWING_OCCURRENCES"
+    | "ALL_OCCURRENCES"
+    | null;
   recurrence?: {
     frequency: number;
     interval: "DAY" | "WEEK" | "MONTH";

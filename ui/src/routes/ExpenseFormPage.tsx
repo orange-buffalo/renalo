@@ -7,6 +7,7 @@ import {
 } from "@/api/expenseCategories";
 import {
   createExpense,
+  type Expense,
   fetchExpense,
   type SaveExpense,
   updateExpense,
@@ -27,6 +28,7 @@ import { Select } from "@/components/untitled/base/select/select";
 import { formatMoneyInput, parseMoneyInput } from "@/utils/money";
 
 type RecurrenceScheduleOption = "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+type RecurringEditScope = NonNullable<SaveExpense["recurringEditScope"]>;
 
 const recurrenceScheduleOptions: Array<{
   id: RecurrenceScheduleOption;
@@ -36,6 +38,18 @@ const recurrenceScheduleOptions: Array<{
   { id: "WEEKLY", label: "Weekly" },
   { id: "BIWEEKLY", label: "Biweekly" },
   { id: "MONTHLY", label: "Monthly" },
+];
+
+const recurringEditScopeOptions: Array<{
+  id: RecurringEditScope;
+  label: string;
+}> = [
+  { id: "THIS_OCCURRENCE_ONLY", label: "This occurrence only" },
+  {
+    id: "THIS_AND_ALL_FOLLOWING_OCCURRENCES",
+    label: "This and all following occurrences",
+  },
+  { id: "ALL_OCCURRENCES", label: "All occurrences" },
 ];
 
 export function CreateExpensePage() {
@@ -61,6 +75,9 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     useState<RecurrenceScheduleOption>("WEEKLY");
   const [recurrenceEndDate, setRecurrenceEndDate] =
     useState<CalendarDate | null>(null);
+  const [loadedExpense, setLoadedExpense] = useState<Expense>();
+  const [recurringEditScope, setRecurringEditScope] =
+    useState<RecurringEditScope>("THIS_OCCURRENCE_ONLY");
   const [amount, setAmount] = useState(formatMoneyInput(0, "AUD"));
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string>();
@@ -75,6 +92,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = mode === "edit";
+  const isEditingRecurringExpense = Boolean(loadedExpense?.recurrence);
   const selectedAccount = accounts?.find(
     (account) => account.id === trackingAccountId,
   );
@@ -132,6 +150,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
         setTrackingAccountId(loadedExpense.trackingAccount.id);
         setCategoryId(loadedExpense.category.id);
         setDate(isoDateToCalendarDate(loadedExpense.date));
+        setLoadedExpense(loadedExpense);
         setAmount(
           formatMoneyInput(
             loadedExpense.amountMinor,
@@ -219,6 +238,9 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
           : null,
       };
     }
+    if (isEditingRecurringExpense) {
+      payload.recurringEditScope = recurringEditScope;
+    }
     setIsSubmitting(true);
     setError(undefined);
 
@@ -285,6 +307,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
             <Label isRequired>Date</Label>
             <DatePicker
               value={date}
+              isDisabled={isEditingRecurringExpense}
               onChange={(nextDate) => {
                 setDate(
                   nextDate
@@ -388,7 +411,35 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
               )}
             </div>
           )}
-          {isEditing && (
+          {isEditingRecurringExpense && loadedExpense?.recurrence && (
+            <div className="expense-recurrence-section">
+              <div className="expense-recurrence-context">
+                <p className="expense-recurrence-context-label">
+                  Recurring schedule
+                </p>
+                <p className="expense-recurrence-context-value">
+                  {loadedExpense.recurrence.description}
+                </p>
+                <p className="expense-recurrence-context-hint">
+                  Date and schedule cannot be edited. Delete and recreate the
+                  relevant scope to change when this repeats.
+                </p>
+              </div>
+              <Select
+                label="Edit scope"
+                placeholder="Choose scope"
+                size="md"
+                selectedKey={recurringEditScope}
+                items={recurringEditScopeOptions}
+                onSelectionChange={(key) =>
+                  setRecurringEditScope(key as RecurringEditScope)
+                }
+              >
+                {(item) => <Select.Item {...item} />}
+              </Select>
+            </div>
+          )}
+          {isEditing && !isEditingRecurringExpense && (
             <div aria-hidden="true" className="tracking-account-form-spacer" />
           )}
           <div className="tracking-account-actions">

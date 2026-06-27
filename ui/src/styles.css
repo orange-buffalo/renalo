@@ -653,6 +653,34 @@ input {
   gap: 28px 32px;
 }
 
+.expense-recurrence-context {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.expense-recurrence-context-label,
+.expense-recurrence-context-value,
+.expense-recurrence-context-hint {
+  margin: 0;
+}
+
+.expense-recurrence-context-label {
+  color: #344054;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.expense-recurrence-context-value {
+  color: #101828;
+  font-weight: 600;
+}
+
+.expense-recurrence-context-hint {
+  color: #475467;
+  font-size: 0.875rem;
+}
+
 .table-empty-state {
   display: grid;
   min-height: 220px;
