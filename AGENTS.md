@@ -21,6 +21,10 @@
 - Budget-tracking data is always regular-user-bound. `TrackingAccount` owns the account currency and initial balance used by later incomes, expenses, transfers, and analytics settings.
 - Expense dates are date-only values (`LocalDate` / ISO `YYYY-MM-DD`), not timestamps.
 - Recurrence schedule calculation and display formatting must stay in shared code under `io.orangebuffalo.renalo.recurrence`, not in expense- or income-specific services.
+- Generated recurring expenses are regular `Expense` rows linked to a recurring rule by `recurringRuleId` and `recurringInstanceDate`; there is no separate occurrence model.
+- Recurring expense generation must only run from explicit write/job boundaries, not from read-only list/detail flows.
+- Scoped recurring expense edits/deletes are based on `recurringInstanceDate`, not the current date.
+- User-edited generated expenses use `recurringLocked = true`; scheduled generation must preserve locked rows unless an explicit scoped edit/delete targets them.
 - A regular user must always have at least one `TrackingAccount`; new and migrated users get a default `Main` account in `AUD` with zero initial balance.
 - Income and expense categories are regular-user-bound; new and migrated users get default `General` income and expense categories.
 - Exactly one `TrackingAccount` per regular user must have `isDefault = true`; changing the default means nominating another account, not unchecking the current default.

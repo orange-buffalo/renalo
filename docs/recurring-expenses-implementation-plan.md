@@ -413,7 +413,7 @@ Completion notes:
 
 ## Step 12: Cross-Feature Consistency And Documentation
 
-Status: `[ ]`
+Status: `[x]`
 
 Goal: Harden the implementation and leave a clear base for recurring incomes.
 
@@ -433,3 +433,13 @@ Tests:
 Review notes:
 
 - Do not run the full test suite by default unless targeted coverage is insufficient or the change is broadly cross-cutting.
+
+Completion notes:
+
+- Reviewed recurrence boundaries and confirmed schedule calculation/description formatting remain in shared `io.orangebuffalo.renalo.recurrence` code, while expense-specific persistence/generation remains in tracking services.
+- Confirmed read-only expense list/detail flows do not call recurrence generation; generation is limited to recurring create, scoped following edit, and the scheduled job/process boundary.
+- Confirmed API recurrence descriptions are produced through `RecurrenceDescriptionFormatter` and the UI renders the API-provided description.
+- Updated `AGENTS.md` with durable recurring expense conventions for generated rows, read-flow generation, instance-date scope handling, and locked occurrence behavior.
+- No Step 12 production code changes were needed.
+- Verified with `./gradlew test --tests 'io.orangebuffalo.renalo.recurrence.RecurrenceCalculatorTest' --tests 'io.orangebuffalo.renalo.recurrence.RecurrenceDescriptionFormatterTest' --tests 'io.orangebuffalo.renalo.RecurringExpenseGenerationServiceTest' --tests 'io.orangebuffalo.renalo.ExpenseApiTest' --tests 'io.orangebuffalo.renalo.ExpensesPagePlaywrightTest'`.
+- Reviewed trace screenshots under `build/trace-screenshots/recurring-expenses-final-review/` for overview, create, edit, and delete recurring flows.
