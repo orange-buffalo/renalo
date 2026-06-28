@@ -176,7 +176,11 @@ export function TransactionsPage({
                       key="planned-transactions"
                       data-testid={`${config.rowTestIdPrefix}-planned`}
                     >
-                      <Table.Cell>{config.plannedGroupLabel}</Table.Cell>
+                      <Table.Cell>
+                        <span className="transaction-planned-label">
+                          {config.plannedGroupLabel}
+                        </span>
+                      </Table.Cell>
                       <Table.Cell>
                         <div className="transaction-planned-amounts">
                           {row.amounts.map((amount) => (

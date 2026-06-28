@@ -147,6 +147,11 @@ input {
 .transaction-planned-amounts {
   display: grid;
   gap: 2px;
+  font-style: italic;
+}
+
+.transaction-planned-label {
+  font-style: italic;
 }
 
 @media (max-width: 767px) {
