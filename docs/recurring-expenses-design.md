@@ -22,6 +22,7 @@ The initial phase supports these schedules in the UI:
 - Weekly
 - Biweekly
 - Monthly
+- Custom
 
 The persisted model must be extensible from the beginning. Schedules should be stored as a frequency plus an interval unit, not as fixed schedule names.
 
@@ -31,8 +32,9 @@ Examples:
 - Weekly: every `1` `week`
 - Biweekly: every `2` `weeks`
 - Monthly: every `1` `month`
+- Custom: user-selected frequency from `1` to `100` plus interval unit `day`, `week`, or `month`
 
-This allows future schedules such as every 3 days, every 6 weeks, yearly, or custom recurrence options without changing the core recurrence model.
+This allows schedules such as every 3 days or every 6 weeks without changing the core recurrence model, while still leaving room for future interval units such as yearly.
 
 Schedule calculation must be centralized in shared recurrence code. It must not be duplicated inside expense-specific services or UI-specific helpers.
 
@@ -395,7 +397,7 @@ When checked:
 - schedule controls are displayed
 - the submitted data creates or updates the recurrence according to the supported scope behavior
 
-Initial schedule controls should map to the extensible frequency/interval model. For example, a `Biweekly` choice in the UI should submit/store every `2` `weeks`, not a separate `biweekly` schedule type.
+Initial schedule controls should map to the extensible frequency/interval model. For example, a `Biweekly` choice in the UI should submit/store every `2` `weeks`, not a separate `biweekly` schedule type. A `Custom` choice should reveal a second row with `Repeat every` and `Cadence` dropdowns, where the frequency options are `1` through `100` and cadence options are day, week, and month.
 
 On existing recurring expenses, schedule/date fields remain immutable. Edit screens display the current schedule and the first occurrence date for context, using text such as `The first occurrence in this series is on 5 Jun 2022.` Users cannot change the recurrence date, start date, frequency, interval, or recurrence pattern on the existing recurring rule. To change the schedule, they must delete the relevant scope and create a new expense or recurring expense.
 

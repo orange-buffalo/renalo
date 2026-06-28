@@ -222,6 +222,32 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             )
             generatedExpenses.first().notes.shouldBe(notes)
         }
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        selectOption(page, "Category", "Rent")
+        page.locator("input[name='amount']").fill("25")
+        page.getByLabel("Notes").fill("Custom membership")
+        page.getByLabel("Recurring expense").press("Space")
+        selectOption(page, "Repeat", "Custom")
+        assertThat(page.getByLabel("Repeat every")).isVisible()
+        assertThat(page.getByLabel("Cadence")).isVisible()
+        selectOption(page, "Repeat every", "3")
+        selectOption(page, "Cadence", "Weeks")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
+
+        page.waitForURL("**/expenses")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        val customRule = recurringExpenseRuleRepository.findAll().single { it.notes == "Custom membership" }
+        customRule.recurrenceFrequency.shouldBe(3)
+        customRule.recurrenceInterval.shouldBe(RecurrenceInterval.WEEK)
+        customRule.endDate.shouldBe(null)
+        val customGeneratedExpenses = expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(customRule.id!!)
+        customGeneratedExpenses.take(2).map { it.recurringInstanceDate }.shouldContainExactly(
+            TestTimeProvider.DEFAULT_DATE,
+            TestTimeProvider.DEFAULT_DATE.plusWeeks(3),
+        )
+        customGeneratedExpenses.first().notes.shouldBe("Custom membership")
     }
 
     @Test

@@ -27,7 +27,15 @@ import { Label } from "@/components/untitled/base/input/label";
 import { Select } from "@/components/untitled/base/select/select";
 import { formatMoneyInput, parseMoneyInput } from "@/utils/money";
 
-type RecurrenceScheduleOption = "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+type RecurrenceScheduleOption =
+  | "DAILY"
+  | "WEEKLY"
+  | "BIWEEKLY"
+  | "MONTHLY"
+  | "CUSTOM";
+type RecurrenceIntervalOption = NonNullable<
+  SaveExpense["recurrence"]
+>["interval"];
 type RecurringEditScope = NonNullable<SaveExpense["recurringEditScope"]>;
 
 const recurrenceScheduleOptions: Array<{
@@ -38,6 +46,21 @@ const recurrenceScheduleOptions: Array<{
   { id: "WEEKLY", label: "Weekly" },
   { id: "BIWEEKLY", label: "Biweekly" },
   { id: "MONTHLY", label: "Monthly" },
+  { id: "CUSTOM", label: "Custom" },
+];
+
+const customFrequencyOptions = Array.from({ length: 100 }, (_, index) => ({
+  id: String(index + 1),
+  label: String(index + 1),
+}));
+
+const customIntervalOptions: Array<{
+  id: RecurrenceIntervalOption;
+  label: string;
+}> = [
+  { id: "DAY", label: "Days" },
+  { id: "WEEK", label: "Weeks" },
+  { id: "MONTH", label: "Months" },
 ];
 
 const recurringEditScopeOptions: Array<{
@@ -73,6 +96,9 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceSchedule, setRecurrenceSchedule] =
     useState<RecurrenceScheduleOption>("WEEKLY");
+  const [customRecurrenceFrequency, setCustomRecurrenceFrequency] = useState(1);
+  const [customRecurrenceInterval, setCustomRecurrenceInterval] =
+    useState<RecurrenceIntervalOption>("WEEK");
   const [recurrenceEndDate, setRecurrenceEndDate] =
     useState<CalendarDate | null>(null);
   const [loadedExpense, setLoadedExpense] = useState<Expense>();
@@ -232,7 +258,11 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     };
     if (isRecurring && !isEditing) {
       payload.recurrence = {
-        ...recurrencePayloadFor(recurrenceSchedule),
+        ...recurrencePayloadFor(
+          recurrenceSchedule,
+          customRecurrenceFrequency,
+          customRecurrenceInterval,
+        ),
         endDate: recurrenceEndDate
           ? calendarDateToIsoDate(recurrenceEndDate)
           : null,
@@ -382,6 +412,36 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                   >
                     {(item) => <Select.Item {...item} />}
                   </Select>
+                  {recurrenceSchedule === "CUSTOM" && (
+                    <div className="expense-custom-recurrence-controls">
+                      <Select
+                        label="Repeat every"
+                        placeholder="Choose interval"
+                        size="md"
+                        selectedKey={String(customRecurrenceFrequency)}
+                        items={customFrequencyOptions}
+                        onSelectionChange={(key) =>
+                          setCustomRecurrenceFrequency(Number(key))
+                        }
+                      >
+                        {(item) => <Select.Item {...item} />}
+                      </Select>
+                      <Select
+                        label="Cadence"
+                        placeholder="Choose cadence"
+                        size="md"
+                        selectedKey={customRecurrenceInterval}
+                        items={customIntervalOptions}
+                        onSelectionChange={(key) =>
+                          setCustomRecurrenceInterval(
+                            key as RecurrenceIntervalOption,
+                          )
+                        }
+                      >
+                        {(item) => <Select.Item {...item} />}
+                      </Select>
+                    </div>
+                  )}
                   <div className="expense-date-field">
                     <Label>End date</Label>
                     <DatePicker
@@ -497,7 +557,11 @@ function formatShortDate(isoDate: string) {
   }).format(new Date(year, month - 1, day));
 }
 
-function recurrencePayloadFor(schedule: RecurrenceScheduleOption) {
+function recurrencePayloadFor(
+  schedule: RecurrenceScheduleOption,
+  customFrequency: number,
+  customInterval: RecurrenceIntervalOption,
+) {
   switch (schedule) {
     case "DAILY":
       return { frequency: 1, interval: "DAY" as const };
@@ -507,5 +571,7 @@ function recurrencePayloadFor(schedule: RecurrenceScheduleOption) {
       return { frequency: 2, interval: "WEEK" as const };
     case "MONTHLY":
       return { frequency: 1, interval: "MONTH" as const };
+    case "CUSTOM":
+      return { frequency: customFrequency, interval: customInterval };
   }
 }

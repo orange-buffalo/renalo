@@ -660,6 +660,13 @@ input {
   gap: 28px 32px;
 }
 
+.expense-custom-recurrence-controls {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .expense-recurrence-context {
   display: flex;
   flex-direction: column;
@@ -1244,6 +1251,10 @@ input {
   }
 
   .expense-recurrence-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-custom-recurrence-controls {
     grid-template-columns: 1fr;
   }
 
