@@ -399,6 +399,8 @@ When checked:
 
 Initial schedule controls should map to the extensible frequency/interval model. For example, a `Biweekly` choice in the UI should submit/store every `2` `weeks`, not a separate `biweekly` schedule type. A `Custom` choice should reveal a second row with `Repeat every` and `Cadence` dropdowns, where the frequency options are `1` through `100` and cadence options are day, week, and month.
 
+Create screens should also provide an `End after repetitions` helper in the same row as `End date`. The helper is UI-only and must not change the API contract: selecting `Endless` submits no end date, while selecting a value from `2` through `100` calculates the inclusive recurrence end date and submits that date. For example, selecting `2` means the initial expense plus one additional generated occurrence. Changing the schedule, custom cadence, start date, end date, or repetition count should keep the end date and repetition helper synchronized where the chosen end date maps to a value from `2` through `100`.
+
 On existing recurring expenses, schedule/date fields remain immutable. Edit screens display the current schedule and the first occurrence date for context, using text such as `The first occurrence in this series is on 5 Jun 2022.` Users cannot change the recurrence date, start date, frequency, interval, or recurrence pattern on the existing recurring rule. To change the schedule, they must delete the relevant scope and create a new expense or recurring expense.
 
 ## Editing Recurring Expenses

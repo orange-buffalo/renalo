@@ -232,8 +232,15 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         selectOption(page, "Repeat", "Custom")
         assertThat(page.getByLabel("Repeat every")).isVisible()
         assertThat(page.getByLabel("Cadence")).isVisible()
+        assertThat(page.getByLabel("End after repetitions")).isVisible()
+        selectOption(page, "End after repetitions", "3")
+        assertThat(page.getByText("Jun 28, 2099", Page.GetByTextOptions().setExact(true))).isVisible()
         selectOption(page, "Repeat every", "3")
+        assertThat(page.getByText("Jul 26, 2099", Page.GetByTextOptions().setExact(true))).isVisible()
+        selectOption(page, "Cadence", "Days")
+        assertThat(page.getByText("Jun 20, 2099", Page.GetByTextOptions().setExact(true))).isVisible()
         selectOption(page, "Cadence", "Weeks")
+        assertThat(page.getByText("Jul 26, 2099", Page.GetByTextOptions().setExact(true))).isVisible()
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
 
         page.waitForURL("**/expenses")
@@ -241,7 +248,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val customRule = recurringExpenseRuleRepository.findAll().single { it.notes == "Custom membership" }
         customRule.recurrenceFrequency.shouldBe(3)
         customRule.recurrenceInterval.shouldBe(RecurrenceInterval.WEEK)
-        customRule.endDate.shouldBe(null)
+        customRule.endDate.shouldBe(TestTimeProvider.DEFAULT_DATE.plusWeeks(6))
         val customGeneratedExpenses = expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(customRule.id!!)
         customGeneratedExpenses.take(2).map { it.recurringInstanceDate }.shouldContainExactly(
             TestTimeProvider.DEFAULT_DATE,

@@ -36,6 +36,7 @@ type RecurrenceScheduleOption =
 type RecurrenceIntervalOption = NonNullable<
   SaveExpense["recurrence"]
 >["interval"];
+type RecurrenceRepetitionOption = "ENDLESS" | `${number}`;
 type RecurringEditScope = NonNullable<SaveExpense["recurringEditScope"]>;
 
 const recurrenceScheduleOptions: Array<{
@@ -61,6 +62,20 @@ const customIntervalOptions: Array<{
   { id: "DAY", label: "Days" },
   { id: "WEEK", label: "Weeks" },
   { id: "MONTH", label: "Months" },
+];
+
+const recurrenceRepetitionOptions: Array<{
+  id: RecurrenceRepetitionOption;
+  label: string;
+}> = [
+  { id: "ENDLESS", label: "Endless" },
+  ...Array.from({ length: 99 }, (_, index) => {
+    const repetitions = index + 2;
+    return {
+      id: String(repetitions) as `${number}`,
+      label: String(repetitions),
+    };
+  }),
 ];
 
 const recurringEditScopeOptions: Array<{
@@ -101,6 +116,8 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     useState<RecurrenceIntervalOption>("WEEK");
   const [recurrenceEndDate, setRecurrenceEndDate] =
     useState<CalendarDate | null>(null);
+  const [recurrenceRepetitions, setRecurrenceRepetitions] =
+    useState<RecurrenceRepetitionOption>("ENDLESS");
   const [loadedExpense, setLoadedExpense] = useState<Expense>();
   const [recurringEditScope, setRecurringEditScope] =
     useState<RecurringEditScope>("THIS_OCCURRENCE_ONLY");
@@ -209,6 +226,130 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
       const parsedAmount = parseMoneyInput(amount, previousCurrency) ?? 0;
       setAmount(formatMoneyInput(parsedAmount, nextAccount.currency));
     }
+  }
+
+  function handleDateChange(nextDate: CalendarDate | null) {
+    setDate(nextDate);
+    setDateError(undefined);
+    if (!nextDate) {
+      return;
+    }
+    if (recurrenceRepetitions !== "ENDLESS") {
+      setRecurrenceEndDate(
+        calculateEndDateForRepetitions(
+          nextDate,
+          recurrencePayloadFor(
+            recurrenceSchedule,
+            customRecurrenceFrequency,
+            customRecurrenceInterval,
+          ),
+          Number(recurrenceRepetitions),
+        ),
+      );
+      setRecurrenceEndDateError(undefined);
+    } else if (recurrenceEndDate) {
+      setRecurrenceRepetitions(
+        calculateRepetitionsForEndDate(
+          nextDate,
+          recurrencePayloadFor(
+            recurrenceSchedule,
+            customRecurrenceFrequency,
+            customRecurrenceInterval,
+          ),
+          recurrenceEndDate,
+        ),
+      );
+    }
+  }
+
+  function handleRecurrenceScheduleChange(
+    nextSchedule: RecurrenceScheduleOption,
+  ) {
+    setRecurrenceSchedule(nextSchedule);
+    syncEndDateFromSchedule(
+      recurrencePayloadFor(
+        nextSchedule,
+        customRecurrenceFrequency,
+        customRecurrenceInterval,
+      ),
+    );
+  }
+
+  function handleCustomFrequencyChange(nextFrequency: number) {
+    setCustomRecurrenceFrequency(nextFrequency);
+    syncEndDateFromSchedule(
+      recurrencePayloadFor(
+        recurrenceSchedule,
+        nextFrequency,
+        customRecurrenceInterval,
+      ),
+    );
+  }
+
+  function handleCustomIntervalChange(nextInterval: RecurrenceIntervalOption) {
+    setCustomRecurrenceInterval(nextInterval);
+    syncEndDateFromSchedule(
+      recurrencePayloadFor(
+        recurrenceSchedule,
+        customRecurrenceFrequency,
+        nextInterval,
+      ),
+    );
+  }
+
+  function syncEndDateFromSchedule(schedule: RecurrencePayload) {
+    if (recurrenceRepetitions !== "ENDLESS" && date) {
+      setRecurrenceEndDate(
+        calculateEndDateForRepetitions(
+          date,
+          schedule,
+          Number(recurrenceRepetitions),
+        ),
+      );
+      setRecurrenceEndDateError(undefined);
+    } else if (recurrenceEndDate && date) {
+      setRecurrenceRepetitions(
+        calculateRepetitionsForEndDate(date, schedule, recurrenceEndDate),
+      );
+    }
+  }
+
+  function handleRecurrenceEndDateChange(nextDate: CalendarDate | null) {
+    setRecurrenceEndDate(nextDate);
+    setRecurrenceEndDateError(undefined);
+    setRecurrenceRepetitions(
+      nextDate && date
+        ? calculateRepetitionsForEndDate(
+            date,
+            recurrencePayloadFor(
+              recurrenceSchedule,
+              customRecurrenceFrequency,
+              customRecurrenceInterval,
+            ),
+            nextDate,
+          )
+        : "ENDLESS",
+    );
+  }
+
+  function handleRecurrenceRepetitionChange(
+    nextRepetitions: RecurrenceRepetitionOption,
+  ) {
+    setRecurrenceRepetitions(nextRepetitions);
+    setRecurrenceEndDate(
+      nextRepetitions === "ENDLESS" || !date
+        ? null
+        : calculateEndDateForRepetitions(
+            date,
+            recurrencePayloadFor(
+              recurrenceSchedule,
+              customRecurrenceFrequency,
+              customRecurrenceInterval,
+            ),
+            Number(nextRepetitions),
+          ),
+    );
+    setRecurrenceEndDateError(undefined);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -339,7 +480,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
               value={date}
               isDisabled={isEditingRecurringExpense}
               onChange={(nextDate) => {
-                setDate(
+                handleDateChange(
                   nextDate
                     ? new CalendarDate(
                         nextDate.year,
@@ -348,7 +489,6 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                       )
                     : null,
                 );
-                setDateError(undefined);
               }}
               size="md"
               aria-label="Date"
@@ -394,6 +534,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                   setIsRecurring(selected);
                   if (!selected) {
                     setRecurrenceEndDate(null);
+                    setRecurrenceRepetitions("ENDLESS");
                     setRecurrenceEndDateError(undefined);
                   }
                 }}
@@ -407,7 +548,9 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                     selectedKey={recurrenceSchedule}
                     items={recurrenceScheduleOptions}
                     onSelectionChange={(key) =>
-                      setRecurrenceSchedule(key as RecurrenceScheduleOption)
+                      handleRecurrenceScheduleChange(
+                        key as RecurrenceScheduleOption,
+                      )
                     }
                   >
                     {(item) => <Select.Item {...item} />}
@@ -421,7 +564,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                         selectedKey={String(customRecurrenceFrequency)}
                         items={customFrequencyOptions}
                         onSelectionChange={(key) =>
-                          setCustomRecurrenceFrequency(Number(key))
+                          handleCustomFrequencyChange(Number(key))
                         }
                       >
                         {(item) => <Select.Item {...item} />}
@@ -433,7 +576,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                         selectedKey={customRecurrenceInterval}
                         items={customIntervalOptions}
                         onSelectionChange={(key) =>
-                          setCustomRecurrenceInterval(
+                          handleCustomIntervalChange(
                             key as RecurrenceIntervalOption,
                           )
                         }
@@ -442,30 +585,45 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                       </Select>
                     </div>
                   )}
-                  <div className="expense-date-field">
-                    <Label>End date</Label>
-                    <DatePicker
-                      value={recurrenceEndDate}
-                      onChange={(nextDate) => {
-                        setRecurrenceEndDate(
-                          nextDate
-                            ? new CalendarDate(
-                                nextDate.year,
-                                nextDate.month,
-                                nextDate.day,
-                              )
-                            : null,
-                        );
-                        setRecurrenceEndDateError(undefined);
-                      }}
+                  <div className="expense-recurrence-end-controls">
+                    <div className="expense-date-field">
+                      <Label>End date</Label>
+                      <DatePicker
+                        value={recurrenceEndDate}
+                        onChange={(nextDate) => {
+                          handleRecurrenceEndDateChange(
+                            nextDate
+                              ? new CalendarDate(
+                                  nextDate.year,
+                                  nextDate.month,
+                                  nextDate.day,
+                                )
+                              : null,
+                          );
+                        }}
+                        size="md"
+                        aria-label="End date"
+                      />
+                      {recurrenceEndDateError && (
+                        <p className="expense-field-error">
+                          {recurrenceEndDateError}
+                        </p>
+                      )}
+                    </div>
+                    <Select
+                      label="End after repetitions"
+                      placeholder="Choose repetitions"
                       size="md"
-                      aria-label="End date"
-                    />
-                    {recurrenceEndDateError && (
-                      <p className="expense-field-error">
-                        {recurrenceEndDateError}
-                      </p>
-                    )}
+                      selectedKey={recurrenceRepetitions}
+                      items={recurrenceRepetitionOptions}
+                      onSelectionChange={(key) =>
+                        handleRecurrenceRepetitionChange(
+                          key as RecurrenceRepetitionOption,
+                        )
+                      }
+                    >
+                      {(item) => <Select.Item {...item} />}
+                    </Select>
                   </div>
                 </div>
               )}
@@ -557,11 +715,16 @@ function formatShortDate(isoDate: string) {
   }).format(new Date(year, month - 1, day));
 }
 
+type RecurrencePayload = {
+  frequency: number;
+  interval: RecurrenceIntervalOption;
+};
+
 function recurrencePayloadFor(
   schedule: RecurrenceScheduleOption,
   customFrequency: number,
   customInterval: RecurrenceIntervalOption,
-) {
+): RecurrencePayload {
   switch (schedule) {
     case "DAILY":
       return { frequency: 1, interval: "DAY" as const };
@@ -573,5 +736,59 @@ function recurrencePayloadFor(
       return { frequency: 1, interval: "MONTH" as const };
     case "CUSTOM":
       return { frequency: customFrequency, interval: customInterval };
+  }
+}
+
+function calculateEndDateForRepetitions(
+  startDate: CalendarDate,
+  schedule: RecurrencePayload,
+  repetitions: number,
+) {
+  return addScheduleInterval(
+    startDate,
+    schedule,
+    (repetitions - 1) * schedule.frequency,
+  );
+}
+
+function calculateRepetitionsForEndDate(
+  startDate: CalendarDate,
+  schedule: RecurrencePayload,
+  endDate: CalendarDate,
+): RecurrenceRepetitionOption {
+  let occurrenceDate = startDate;
+  let repetitions = 1;
+  while (repetitions <= 100 && occurrenceDate.compare(endDate) <= 0) {
+    if (occurrenceDate.compare(endDate) === 0) {
+      return repetitions >= 2
+        ? (String(repetitions) as RecurrenceRepetitionOption)
+        : "ENDLESS";
+    }
+    occurrenceDate = addScheduleInterval(
+      occurrenceDate,
+      schedule,
+      schedule.frequency,
+    );
+    repetitions += 1;
+  }
+
+  const previousRepetitions = repetitions - 1;
+  return previousRepetitions >= 2 && previousRepetitions <= 100
+    ? (String(previousRepetitions) as RecurrenceRepetitionOption)
+    : "ENDLESS";
+}
+
+function addScheduleInterval(
+  date: CalendarDate,
+  schedule: RecurrencePayload,
+  amount: number,
+) {
+  switch (schedule.interval) {
+    case "DAY":
+      return date.add({ days: amount });
+    case "WEEK":
+      return date.add({ weeks: amount });
+    case "MONTH":
+      return date.add({ months: amount });
   }
 }
