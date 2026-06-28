@@ -14,12 +14,13 @@ import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestAuthTokens
 import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.test.shouldEventually
-import io.orangebuffalo.renalo.tracking.Expense
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
-import io.orangebuffalo.renalo.tracking.ExpenseRepository
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRule
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleRepository
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRule
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRuleRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -43,10 +44,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     lateinit var expenseCategoryRepository: ExpenseCategoryRepository
 
     @Inject
-    lateinit var expenseRepository: ExpenseRepository
+    lateinit var expenseRepository: TransactionRepository
 
     @Inject
-    lateinit var recurringExpenseRuleRepository: RecurringExpenseRuleRepository
+    lateinit var recurringExpenseRuleRepository: RecurringTransactionRuleRepository
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -110,7 +111,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
-        val rentExpense = expenseRepository.findByUserIdOrderByDateDesc(alice.id!!).first { it.notes == "Weekly rent" }
+        val rentExpense = expenseRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE).first { it.notes == "Weekly rent" }
         rentExpense.amountMinor.shouldBe(4200)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
@@ -565,11 +566,12 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         date: LocalDate,
         amountMinor: Long,
         notes: String?,
-        recurringRule: RecurringExpenseRule? = null,
+        recurringRule: RecurringTransactionRule? = null,
         recurringLocked: Boolean = false,
-    ): Expense = expenseRepository.save(
-        Expense(
+    ): Transaction = expenseRepository.save(
+        Transaction(
             userId = user.id!!,
+                type = TransactionType.EXPENSE,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
             date = date,
@@ -588,10 +590,11 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         notes: String = "Subscription",
         startDate: LocalDate = TestTimeProvider.DEFAULT_DATE,
         endDate: LocalDate = TestTimeProvider.DEFAULT_DATE.plusWeeks(1),
-    ): RecurringExpenseRule =
+    ): RecurringTransactionRule =
         recurringExpenseRuleRepository.save(
-            RecurringExpenseRule(
+            RecurringTransactionRule(
                 userId = user.id!!,
+                transactionType = TransactionType.EXPENSE,
                 trackingAccountId = account.id!!,
                 categoryId = category.id!!,
                 startDate = startDate,

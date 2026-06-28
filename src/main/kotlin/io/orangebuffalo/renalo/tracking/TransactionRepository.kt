@@ -7,22 +7,23 @@ import io.micronaut.data.repository.CrudRepository
 import java.time.LocalDate
 
 @JdbcRepository(dialect = Dialect.POSTGRES)
-interface ExpenseRepository : CrudRepository<Expense, Long> {
-    fun findByUserIdOrderByDateDesc(userId: Long): List<Expense>
+interface TransactionRepository : CrudRepository<Transaction, Long> {
+    fun findByUserIdAndTypeOrderByDateDesc(userId: Long, type: TransactionType): List<Transaction>
 
-    fun findByIdAndUserId(id: Long, userId: Long): Expense?
+    fun findByIdAndUserIdAndType(id: Long, userId: Long, type: TransactionType): Transaction?
 
     fun findByRecurringRuleIdAndRecurringInstanceDate(
         recurringRuleId: Long,
         recurringInstanceDate: LocalDate,
-    ): Expense?
+    ): Transaction?
 
-    fun findByRecurringRuleIdOrderByRecurringInstanceDate(recurringRuleId: Long): List<Expense>
+    fun findByRecurringRuleIdOrderByRecurringInstanceDate(recurringRuleId: Long): List<Transaction>
 
     @Query(
         """
-            INSERT INTO expenses (
+            INSERT INTO transactions (
                 user_id,
+                type,
                 tracking_account_id,
                 category_id,
                 date,
@@ -33,6 +34,7 @@ interface ExpenseRepository : CrudRepository<Expense, Long> {
                 recurring_locked
             ) VALUES (
                 :userId,
+                :type,
                 :trackingAccountId,
                 :categoryId,
                 :date,
@@ -48,8 +50,9 @@ interface ExpenseRepository : CrudRepository<Expense, Long> {
             RETURNING id
         """,
     )
-    fun createGeneratedExpenseIfMissing(
+    fun createGeneratedTransactionIfMissing(
         userId: Long,
+        type: TransactionType,
         trackingAccountId: Long,
         categoryId: Long,
         date: LocalDate,

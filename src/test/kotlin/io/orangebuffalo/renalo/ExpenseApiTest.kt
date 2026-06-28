@@ -8,16 +8,17 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestTimeProvider
-import io.orangebuffalo.renalo.tracking.Expense
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
-import io.orangebuffalo.renalo.tracking.ExpenseRepository
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRule
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleRepository
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleStatus
-import io.orangebuffalo.renalo.tracking.RecurringExpenseGenerationService
-import io.orangebuffalo.renalo.tracking.RecurringExpenseSkip
-import io.orangebuffalo.renalo.tracking.RecurringExpenseSkipRepository
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRule
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRuleRepository
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRuleStatus
+import io.orangebuffalo.renalo.tracking.RecurringTransactionGenerationService
+import io.orangebuffalo.renalo.tracking.RecurringTransactionSkip
+import io.orangebuffalo.renalo.tracking.RecurringTransactionSkipRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -41,16 +42,16 @@ class ExpenseApiTest : IntegrationTestSupport() {
     lateinit var expenseCategoryRepository: ExpenseCategoryRepository
 
     @Inject
-    lateinit var expenseRepository: ExpenseRepository
+    lateinit var expenseRepository: TransactionRepository
 
     @Inject
-    lateinit var recurringExpenseRuleRepository: RecurringExpenseRuleRepository
+    lateinit var recurringExpenseRuleRepository: RecurringTransactionRuleRepository
 
     @Inject
-    lateinit var recurringExpenseSkipRepository: RecurringExpenseSkipRepository
+    lateinit var recurringExpenseSkipRepository: RecurringTransactionSkipRepository
 
     @Inject
-    lateinit var recurringExpenseGenerationService: RecurringExpenseGenerationService
+    lateinit var recurringExpenseGenerationService: RecurringTransactionGenerationService
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -171,7 +172,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         )
 
         createResponse.statusCode().shouldBe(201)
-        val expense = expenseRepository.findByUserIdOrderByDateDesc(alice.id!!).single()
+        val expense = expenseRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE).single()
         createResponse.body().shouldEqualJson(
             """
                 {
@@ -634,10 +635,10 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val lockedFollowing = saveExpense(alice, account, category, "2099-06-15", 7000, "Locked", rule.id, "2099-06-15", true)
         saveExpense(alice, account, category, "2099-06-22", 5600, "Following", rule.id, "2099-06-22")
         val preservedSkip = recurringExpenseSkipRepository.save(
-            RecurringExpenseSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-01")),
+            RecurringTransactionSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-01")),
         )
         val deletedSkip = recurringExpenseSkipRepository.save(
-            RecurringExpenseSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-15")),
+            RecurringTransactionSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-15")),
         )
         val token = api().login("alice", "password")
 
@@ -664,7 +665,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val first = saveExpense(alice, account, category, "2099-06-01", 5600, "First", rule.id, "2099-06-01")
         val locked = saveExpense(alice, account, category, "2099-06-08", 7000, "Locked", rule.id, "2099-06-08", true)
         val skip = recurringExpenseSkipRepository.save(
-            RecurringExpenseSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-15")),
+            RecurringTransactionSkip(recurringRuleId = rule.id!!, recurringInstanceDate = LocalDate.parse("2099-06-15")),
         )
         val token = api().login("alice", "password")
 
@@ -674,7 +675,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
             token,
         ).statusCode().shouldBe(204)
 
-        recurringExpenseRuleRepository.findById(rule.id!!).get().status.shouldBe(RecurringExpenseRuleStatus.DELETED)
+        recurringExpenseRuleRepository.findById(rule.id!!).get().status.shouldBe(RecurringTransactionRuleStatus.DELETED)
         expenseRepository.findById(first.id!!).isPresent.shouldBe(false)
         expenseRepository.findById(locked.id!!).isPresent.shouldBe(false)
         recurringExpenseSkipRepository.findById(skip.id!!).isPresent.shouldBe(false)
@@ -880,9 +881,10 @@ class ExpenseApiTest : IntegrationTestSupport() {
         recurringRuleId: Long? = null,
         recurringInstanceDate: String? = null,
         recurringLocked: Boolean = false,
-    ): Expense = expenseRepository.save(
-        Expense(
+    ): Transaction = expenseRepository.save(
+        Transaction(
             userId = user.id!!,
+                type = TransactionType.EXPENSE,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
             date = LocalDate.parse(date),
@@ -900,9 +902,10 @@ class ExpenseApiTest : IntegrationTestSupport() {
         category: ExpenseCategory,
         startDate: String,
         endDate: String?,
-    ): RecurringExpenseRule = recurringExpenseRuleRepository.save(
-        RecurringExpenseRule(
+    ): RecurringTransactionRule = recurringExpenseRuleRepository.save(
+        RecurringTransactionRule(
             userId = user.id!!,
+                transactionType = TransactionType.EXPENSE,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
             startDate = LocalDate.parse(startDate),

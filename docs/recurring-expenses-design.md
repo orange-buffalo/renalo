@@ -2,15 +2,17 @@
 
 ## Goal
 
-Recurring expenses are implemented as a generator of normal `Expense` records.
+Recurring expenses are implemented as a generator of normal expense transactions.
 
-The application does not distinguish between manual, imported, API-created, past, present, or future expenses for reporting purposes. If an `Expense` exists, it is considered a real expense and is shown/reported normally.
+The backend stores expenses and incomes in a shared type-discriminated `Transaction` model. Current recurring expense behavior operates on `TransactionType.EXPENSE` rows through the existing expense API/UI facade.
+
+The application does not distinguish between manual, imported, API-created, past, present, or future expenses for reporting purposes. If an expense transaction exists, it is considered a real expense and is shown/reported normally.
 
 There is no separate `ExpenseOccurrence` model.
 
-`RecurringExpenseRule -> Expense`
+`RecurringTransactionRule(type = EXPENSE) -> Transaction(type = EXPENSE)`
 
-Generated recurring expenses are normal `Expense` rows with recurrence metadata.
+Generated recurring expenses are normal expense transaction rows with recurrence metadata.
 
 The same design is expected to apply later to recurring incomes. Expense implementation must therefore avoid expense-only recurrence logic where practical. Recurrence schedule calculation, scope semantics, locking rules, and human-readable recurrence descriptions should be generalized so they can be reused consistently by expenses and incomes.
 
@@ -353,7 +355,9 @@ Shared behavior should include:
 - lock/skip safety semantics where the owning domain model supports them
 - human-readable recurrence description formatting
 
-Expense-specific behavior should be limited to expense persistence, expense field copying, expense security, expense API contracts, and expense UI forms/tables.
+Expense-specific behavior should be limited to the expense API/UI facade, expense labels, expense category validation, and `TransactionType.EXPENSE` filtering.
+
+Expense UI pages should be rendered by transaction-aware components configured with expense labels and routes. Income UI can reuse the same components later with income labels and transaction filtering.
 
 The implementation should make it difficult for future recurring incomes to diverge in occurrence calculation or scope behavior. If a recurrence calculation bug is fixed, expenses and incomes should receive the fix through the same shared code path.
 

@@ -1,6 +1,6 @@
 package io.orangebuffalo.renalo.tracking
 
-enum class RecurringExpenseRuleStatus {
+enum class RecurringTransactionRuleStatus {
     ACTIVE,
     ENDED,
     DELETED,

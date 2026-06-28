@@ -7,15 +7,16 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestTimeProvider
-import io.orangebuffalo.renalo.tracking.Expense
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
-import io.orangebuffalo.renalo.tracking.ExpenseRepository
-import io.orangebuffalo.renalo.tracking.RecurringExpenseGenerationService
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRule
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleRepository
-import io.orangebuffalo.renalo.tracking.RecurringExpenseSkip
-import io.orangebuffalo.renalo.tracking.RecurringExpenseSkipRepository
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.RecurringTransactionGenerationService
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRule
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRuleRepository
+import io.orangebuffalo.renalo.tracking.RecurringTransactionSkip
+import io.orangebuffalo.renalo.tracking.RecurringTransactionSkipRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -28,7 +29,7 @@ import java.time.LocalDate
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
-class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
+class RecurringTransactionGenerationServiceTest : IntegrationTestSupport() {
     @Inject
     lateinit var userRepository: UserRepository
 
@@ -39,16 +40,16 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
     lateinit var expenseCategoryRepository: ExpenseCategoryRepository
 
     @Inject
-    lateinit var expenseRepository: ExpenseRepository
+    lateinit var expenseRepository: TransactionRepository
 
     @Inject
-    lateinit var recurringExpenseRuleRepository: RecurringExpenseRuleRepository
+    lateinit var recurringExpenseRuleRepository: RecurringTransactionRuleRepository
 
     @Inject
-    lateinit var recurringExpenseSkipRepository: RecurringExpenseSkipRepository
+    lateinit var recurringExpenseSkipRepository: RecurringTransactionSkipRepository
 
     @Inject
-    lateinit var recurringExpenseGenerationService: RecurringExpenseGenerationService
+    lateinit var recurringExpenseGenerationService: RecurringTransactionGenerationService
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -69,8 +70,8 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
 
         val result = recurringExpenseGenerationService.generateForRule(rule)
 
-        result.createdExpenses.shouldBe(5)
-        result.updatedExpenses.shouldBe(0)
+        result.createdTransactions.shouldBe(5)
+        result.updatedTransactions.shouldBe(0)
         result.skippedOccurrences.shouldBe(0)
         result.generatedUntil.shouldBe(LocalDate.parse("2099-06-29"))
         generatedDates(rule).shouldContainExactly(
@@ -95,10 +96,10 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
             generatedUntil = LocalDate.parse("2099-05-31"),
         )
 
-        recurringExpenseGenerationService.generateForRule(rule).createdExpenses.shouldBe(3)
+        recurringExpenseGenerationService.generateForRule(rule).createdTransactions.shouldBe(3)
         val updatedRule = recurringExpenseRuleRepository.findById(rule.id!!).get()
 
-        recurringExpenseGenerationService.generateForRule(updatedRule).createdExpenses.shouldBe(0)
+        recurringExpenseGenerationService.generateForRule(updatedRule).createdTransactions.shouldBe(0)
         generatedDates(rule).shouldContainExactly(
             LocalDate.parse("2099-06-01"),
             LocalDate.parse("2099-06-08"),
@@ -116,7 +117,7 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
             generatedUntil = LocalDate.parse("2099-05-31"),
         )
         recurringExpenseSkipRepository.save(
-            RecurringExpenseSkip(
+            RecurringTransactionSkip(
                 recurringRuleId = rule.id!!,
                 recurringInstanceDate = LocalDate.parse("2099-06-15"),
             ),
@@ -124,7 +125,7 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
 
         val result = recurringExpenseGenerationService.generateForRule(rule)
 
-        result.createdExpenses.shouldBe(3)
+        result.createdTransactions.shouldBe(3)
         result.skippedOccurrences.shouldBe(1)
         generatedDates(rule).shouldContainExactly(
             LocalDate.parse("2099-06-01"),
@@ -171,8 +172,8 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
 
         val result = recurringExpenseGenerationService.generateForRule(rule)
 
-        result.createdExpenses.shouldBe(0)
-        result.updatedExpenses.shouldBe(1)
+        result.createdTransactions.shouldBe(0)
+        result.updatedTransactions.shouldBe(1)
         val savedLockedExpense = expenseRepository.findById(lockedExpense.id!!).get()
         savedLockedExpense.amountMinor.shouldBe(1000)
         savedLockedExpense.notes.shouldBe("Locked rent")
@@ -195,7 +196,7 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
 
         val result = recurringExpenseGenerationService.generateForRule(rule)
 
-        result.createdExpenses.shouldBe(2)
+        result.createdTransactions.shouldBe(2)
         result.generatedUntil.shouldBe(LocalDate.parse("2100-06-14"))
         generatedDates(rule).shouldContainExactly(
             LocalDate.parse("2100-06-07"),
@@ -203,7 +204,7 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
         )
     }
 
-    private fun generatedDates(rule: RecurringExpenseRule): List<LocalDate> =
+    private fun generatedDates(rule: RecurringTransactionRule): List<LocalDate> =
         expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
             .map { it.recurringInstanceDate!! }
 
@@ -234,9 +235,10 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
         generatedUntil: LocalDate,
         amountMinor: Long = 1234,
         notes: String? = "Rent",
-    ): RecurringExpenseRule = recurringExpenseRuleRepository.save(
-        RecurringExpenseRule(
+    ): RecurringTransactionRule = recurringExpenseRuleRepository.save(
+        RecurringTransactionRule(
             userId = user.id!!,
+                transactionType = TransactionType.EXPENSE,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
             startDate = startDate,
@@ -253,14 +255,15 @@ class RecurringExpenseGenerationServiceTest : IntegrationTestSupport() {
         user: User,
         account: TrackingAccount,
         category: ExpenseCategory,
-        rule: RecurringExpenseRule,
+        rule: RecurringTransactionRule,
         instanceDate: LocalDate,
         amountMinor: Long,
         notes: String,
         recurringLocked: Boolean,
-    ): Expense = expenseRepository.save(
-        Expense(
+    ): Transaction = expenseRepository.save(
+        Transaction(
             userId = user.id!!,
+                type = TransactionType.EXPENSE,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
             date = instanceDate,

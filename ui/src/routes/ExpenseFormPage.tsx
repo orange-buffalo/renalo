@@ -6,16 +6,18 @@ import {
   fetchExpenseCategories,
 } from "@/api/expenseCategories";
 import {
-  createExpense,
-  type Expense,
-  fetchExpense,
-  type SaveExpense,
-  updateExpense,
-} from "@/api/expenses";
-import {
   fetchTrackingAccounts,
   type TrackingAccount,
 } from "@/api/trackingAccounts";
+import {
+  createTransaction,
+  expenseTransactionApi,
+  fetchTransaction,
+  type SaveTransaction,
+  type Transaction,
+  type TransactionApiConfig,
+  updateTransaction,
+} from "@/api/transactions";
 import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { MoneyInput } from "@/components/MoneyInput";
 import { PageLayout } from "@/components/PageLayout";
@@ -34,10 +36,10 @@ type RecurrenceScheduleOption =
   | "MONTHLY"
   | "CUSTOM";
 type RecurrenceIntervalOption = NonNullable<
-  SaveExpense["recurrence"]
+  SaveTransaction["recurrence"]
 >["interval"];
 type RecurrenceRepetitionOption = "ENDLESS" | `${number}`;
-type RecurringEditScope = NonNullable<SaveExpense["recurringEditScope"]>;
+type RecurringEditScope = NonNullable<SaveTransaction["recurringEditScope"]>;
 
 type StoredRecurrenceConfiguration = {
   schedule: RecurrenceScheduleOption;
@@ -45,9 +47,6 @@ type StoredRecurrenceConfiguration = {
   customInterval: RecurrenceIntervalOption;
   repetitions: RecurrenceRepetitionOption;
 };
-
-const recurrenceConfigurationStorageKey =
-  "renalo.expenses.lastRecurrenceConfiguration";
 
 const recurrenceScheduleOptions: Array<{
   id: RecurrenceScheduleOption;
@@ -101,14 +100,63 @@ const recurringEditScopeOptions: Array<{
 ];
 
 export function CreateExpensePage() {
-  return <ExpenseFormPage mode="create" />;
+  return (
+    <TransactionFormPage config={expenseTransactionFormConfig} mode="create" />
+  );
 }
 
 export function EditExpensePage() {
-  return <ExpenseFormPage mode="edit" />;
+  return (
+    <TransactionFormPage config={expenseTransactionFormConfig} mode="edit" />
+  );
 }
 
-function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
+type TransactionFormConfig = {
+  api: TransactionApiConfig;
+  routeBasePath: string;
+  storageKey: string;
+  categoryLabel: string;
+  categoryPlaceholder: string;
+  categoryError: string;
+  optionsLoadError: string;
+  loadError: string;
+  saveError: string;
+  title: (isEditing: boolean) => string;
+  description: string;
+  recurringCheckboxLabel: string;
+  recurringCheckboxHint: string;
+  createButtonLabel: string;
+  saveButtonLabel: string;
+  fetchCategories: () => Promise<ExpenseCategory[]>;
+};
+
+const expenseTransactionFormConfig: TransactionFormConfig = {
+  api: expenseTransactionApi,
+  routeBasePath: "/expenses",
+  storageKey: "renalo.expenses.lastRecurrenceConfiguration",
+  categoryLabel: "Category",
+  categoryPlaceholder: "Choose category",
+  categoryError: "Choose a category.",
+  optionsLoadError:
+    "Expense form options could not be loaded. Try again in a moment.",
+  loadError: "Expense could not be loaded. Try again in a moment.",
+  saveError: "Expense could not be saved. Try again in a moment.",
+  title: (isEditing) => (isEditing ? "Edit expense" : "Add expense"),
+  description: "Record spending against an account and expense category.",
+  recurringCheckboxLabel: "Recurring expense",
+  recurringCheckboxHint: "Generate matching expense rows from this schedule.",
+  createButtonLabel: "Create expense",
+  saveButtonLabel: "Save expense",
+  fetchCategories: fetchExpenseCategories,
+};
+
+function TransactionFormPage({
+  config,
+  mode,
+}: {
+  config: TransactionFormConfig;
+  mode: "create" | "edit";
+}) {
   const navigate = useNavigate();
   const { expenseId } = useParams();
   const [accounts, setAccounts] = useState<TrackingAccount[]>();
@@ -128,7 +176,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     useState<CalendarDate | null>(null);
   const [recurrenceRepetitions, setRecurrenceRepetitions] =
     useState<RecurrenceRepetitionOption>("ENDLESS");
-  const [loadedExpense, setLoadedExpense] = useState<Expense>();
+  const [loadedTransaction, setLoadedTransaction] = useState<Transaction>();
   const [recurringEditScope, setRecurringEditScope] =
     useState<RecurringEditScope>("THIS_OCCURRENCE_ONLY");
   const [amount, setAmount] = useState(formatMoneyInput(0, "AUD"));
@@ -145,7 +193,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = mode === "edit";
-  const isEditingRecurringExpense = Boolean(loadedExpense?.recurrence);
+  const isEditingRecurringTransaction = Boolean(loadedTransaction?.recurrence);
   const selectedAccount = accounts?.find(
     (account) => account.id === trackingAccountId,
   );
@@ -154,7 +202,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
 
   useEffect(() => {
     let isActive = true;
-    Promise.all([fetchTrackingAccounts(), fetchExpenseCategories()])
+    Promise.all([fetchTrackingAccounts(), config.fetchCategories()])
       .then(([loadedAccounts, loadedCategories]) => {
         if (!isActive) {
           return;
@@ -177,9 +225,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
       })
       .catch(() => {
         if (isActive) {
-          setError(
-            "Expense form options could not be loaded. Try again in a moment.",
-          );
+          setError(config.optionsLoadError);
           setIsLoadingOptions(false);
         }
       });
@@ -187,7 +233,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     return () => {
       isActive = false;
     };
-  }, [isEditing]);
+  }, [config, isEditing]);
 
   useEffect(() => {
     if (!isEditing || !expenseId) {
@@ -195,27 +241,27 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     }
 
     let isActive = true;
-    fetchExpense(Number(expenseId))
-      .then((loadedExpense) => {
+    fetchTransaction(config.api, Number(expenseId))
+      .then((loadedTransaction) => {
         if (!isActive) {
           return;
         }
-        setTrackingAccountId(loadedExpense.trackingAccount.id);
-        setCategoryId(loadedExpense.category.id);
-        setDate(isoDateToCalendarDate(loadedExpense.date));
-        setLoadedExpense(loadedExpense);
+        setTrackingAccountId(loadedTransaction.trackingAccount.id);
+        setCategoryId(loadedTransaction.category.id);
+        setDate(isoDateToCalendarDate(loadedTransaction.date));
+        setLoadedTransaction(loadedTransaction);
         setAmount(
           formatMoneyInput(
-            loadedExpense.amountMinor,
-            loadedExpense.trackingAccount.currency,
+            loadedTransaction.amountMinor,
+            loadedTransaction.trackingAccount.currency,
           ),
         );
-        setNotes(loadedExpense.notes ?? "");
+        setNotes(loadedTransaction.notes ?? "");
         setIsLoadingExpense(false);
       })
       .catch(() => {
         if (isActive) {
-          setError("Expense could not be loaded. Try again in a moment.");
+          setError(config.loadError);
           setIsLoadingExpense(false);
         }
       });
@@ -223,7 +269,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     return () => {
       isActive = false;
     };
-  }, [expenseId, isEditing]);
+  }, [config, expenseId, isEditing]);
 
   function handleAccountChange(nextAccountId: number) {
     const previousCurrency = currency;
@@ -363,7 +409,9 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
   }
 
   function restoreLastRecurrenceConfiguration() {
-    const storedConfiguration = loadStoredRecurrenceConfiguration();
+    const storedConfiguration = loadStoredRecurrenceConfiguration(
+      config.storageKey,
+    );
     if (!storedConfiguration) {
       return;
     }
@@ -394,7 +442,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     const nextAccountError = trackingAccountId
       ? undefined
       : "Choose an account.";
-    const nextCategoryError = categoryId ? undefined : "Choose a category.";
+    const nextCategoryError = categoryId ? undefined : config.categoryError;
     const nextDateError = date ? undefined : "Choose a date.";
     const nextAmountError =
       amountMinor === undefined || amountMinor <= 0
@@ -405,7 +453,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
       date &&
       recurrenceEndDate &&
       recurrenceEndDate.compare(date) < 0
-        ? "Choose an end date on or after the expense date."
+        ? "Choose an end date on or after the transaction date."
         : undefined;
     setAccountError(nextAccountError);
     setCategoryError(nextCategoryError);
@@ -426,7 +474,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
       return;
     }
 
-    const payload: SaveExpense = {
+    const payload: SaveTransaction = {
       trackingAccountId,
       categoryId,
       date: calendarDateToIsoDate(date),
@@ -445,7 +493,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
           : null,
       };
     }
-    if (isEditingRecurringExpense) {
+    if (isEditingRecurringTransaction) {
       payload.recurringEditScope = recurringEditScope;
     }
     setIsSubmitting(true);
@@ -453,11 +501,11 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
 
     try {
       if (isEditing) {
-        await updateExpense(Number(expenseId), payload);
+        await updateTransaction(config.api, Number(expenseId), payload);
       } else {
-        await createExpense(payload);
+        await createTransaction(config.api, payload);
         if (isRecurring) {
-          storeRecurrenceConfiguration({
+          storeRecurrenceConfiguration(config.storageKey, {
             schedule: recurrenceSchedule,
             customFrequency: customRecurrenceFrequency,
             customInterval: customRecurrenceInterval,
@@ -465,9 +513,9 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
           });
         }
       }
-      navigate("/expenses", { replace: true });
+      navigate(config.routeBasePath, { replace: true });
     } catch {
-      setError("Expense could not be saved. Try again in a moment.");
+      setError(config.saveError);
     } finally {
       setIsSubmitting(false);
     }
@@ -475,8 +523,8 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
 
   return (
     <PageLayout
-      title={isEditing ? "Edit expense" : "Add expense"}
-      description="Record spending against an account and expense category."
+      title={config.title(isEditing)}
+      description={config.description}
     >
       <section className="standard-page-panel tracking-account-panel form-loading-container">
         <form className="tracking-account-form" onSubmit={handleSubmit}>
@@ -488,8 +536,8 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
             />
           )}
           <Select
-            label="Category"
-            placeholder="Choose category"
+            label={config.categoryLabel}
+            placeholder={config.categoryPlaceholder}
             size="md"
             isRequired
             selectedKey={categoryId ? String(categoryId) : null}
@@ -522,7 +570,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
             <Label isRequired>Date</Label>
             <DatePicker
               value={date}
-              isDisabled={isEditingRecurringExpense}
+              isDisabled={isEditingRecurringTransaction}
               onChange={(nextDate) => {
                 handleDateChange(
                   nextDate
@@ -570,8 +618,8 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
           {!isEditing && (
             <div className="expense-recurrence-section">
               <Checkbox
-                label="Recurring expense"
-                hint="Generate matching expense rows from this schedule."
+                label={config.recurringCheckboxLabel}
+                hint={config.recurringCheckboxHint}
                 size="md"
                 isSelected={isRecurring}
                 onChange={(selected) => {
@@ -676,18 +724,18 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
               )}
             </div>
           )}
-          {isEditingRecurringExpense && loadedExpense?.recurrence && (
+          {isEditingRecurringTransaction && loadedTransaction?.recurrence && (
             <div className="expense-recurrence-section">
               <div className="expense-recurrence-context">
                 <p className="expense-recurrence-context-label">
                   Recurring schedule
                 </p>
                 <p className="expense-recurrence-context-value">
-                  {loadedExpense.recurrence.description}
+                  {loadedTransaction.recurrence.description}
                 </p>
                 <p className="expense-recurrence-context-hint">
                   The first occurrence in this series is on{" "}
-                  {formatShortDate(loadedExpense.recurrence.startDate)}.
+                  {formatShortDate(loadedTransaction.recurrence.startDate)}.
                 </p>
                 <p className="expense-recurrence-context-hint">
                   Date and schedule cannot be edited. Delete and recreate the
@@ -708,14 +756,14 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
               </Select>
             </div>
           )}
-          {isEditing && !isEditingRecurringExpense && (
+          {isEditing && !isEditingRecurringTransaction && (
             <div aria-hidden="true" className="tracking-account-form-spacer" />
           )}
           <div className="tracking-account-actions">
             <Button
               color="tertiary"
               size="sm"
-              onPress={() => navigate("/expenses")}
+              onPress={() => navigate(config.routeBasePath)}
               isDisabled={isSubmitting}
             >
               Cancel
@@ -726,7 +774,7 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
               type="submit"
               isLoading={isSubmitting}
             >
-              {isEditing ? "Save expense" : "Create expense"}
+              {isEditing ? config.saveButtonLabel : config.createButtonLabel}
             </Button>
           </div>
         </form>
@@ -840,11 +888,9 @@ function addScheduleInterval(
   }
 }
 
-function loadStoredRecurrenceConfiguration() {
+function loadStoredRecurrenceConfiguration(storageKey: string) {
   try {
-    const storedValue = window.localStorage.getItem(
-      recurrenceConfigurationStorageKey,
-    );
+    const storedValue = window.localStorage.getItem(storageKey);
     if (!storedValue) {
       return undefined;
     }
@@ -862,13 +908,11 @@ function loadStoredRecurrenceConfiguration() {
 }
 
 function storeRecurrenceConfiguration(
+  storageKey: string,
   configuration: StoredRecurrenceConfiguration,
 ) {
   try {
-    window.localStorage.setItem(
-      recurrenceConfigurationStorageKey,
-      JSON.stringify(configuration),
-    );
+    window.localStorage.setItem(storageKey, JSON.stringify(configuration));
   } catch (error) {
     console.warn("Recurrence configuration could not be stored.", error);
   }

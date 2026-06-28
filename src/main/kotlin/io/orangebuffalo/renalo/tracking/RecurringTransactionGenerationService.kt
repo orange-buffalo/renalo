@@ -9,69 +9,69 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 @Singleton
-open class RecurringExpenseGenerationService(
-    private val recurringExpenseRuleRepository: RecurringExpenseRuleRepository,
-    private val recurringExpenseSkipRepository: RecurringExpenseSkipRepository,
-    private val expenseRepository: ExpenseRepository,
+open class RecurringTransactionGenerationService(
+    private val recurringTransactionRuleRepository: RecurringTransactionRuleRepository,
+    private val recurringTransactionSkipRepository: RecurringTransactionSkipRepository,
+    private val transactionRepository: TransactionRepository,
     private val timeProvider: TimeProvider,
 ) {
-    fun generateForActiveRules(): RecurringExpenseGenerationSummary {
-        val results = recurringExpenseRuleRepository.findByStatus(RecurringExpenseRuleStatus.ACTIVE)
+    fun generateForActiveRules(): RecurringTransactionGenerationSummary {
+        val results = recurringTransactionRuleRepository.findByStatus(RecurringTransactionRuleStatus.ACTIVE)
             .map { rule -> generateForRule(rule) }
-        return RecurringExpenseGenerationSummary(
+        return RecurringTransactionGenerationSummary(
             processedRules = results.size,
-            createdExpenses = results.sumOf { it.createdExpenses },
-            updatedExpenses = results.sumOf { it.updatedExpenses },
+            createdTransactions = results.sumOf { it.createdTransactions },
+            updatedTransactions = results.sumOf { it.updatedTransactions },
             skippedOccurrences = results.sumOf { it.skippedOccurrences },
         )
     }
 
     @Transactional
-    open fun generateForRule(rule: RecurringExpenseRule): RecurringExpenseGenerationResult {
+    open fun generateForRule(rule: RecurringTransactionRule): RecurringTransactionGenerationResult {
         val targetGenerationUntil = targetGenerationUntil(rule)
         if (!rule.generatedUntil.isBefore(targetGenerationUntil)) {
-            return RecurringExpenseGenerationResult(ruleId = rule.id, generatedUntil = rule.generatedUntil)
+            return RecurringTransactionGenerationResult(ruleId = rule.id, generatedUntil = rule.generatedUntil)
         }
 
-        var createdExpenses = 0
-        var updatedExpenses = 0
+        var createdTransactions = 0
+        var updatedTransactions = 0
         var skippedOccurrences = 0
         val schedule = RecurrenceSchedule(rule.recurrenceFrequency, rule.recurrenceInterval)
 
         RecurrenceCalculator.occurrencesBetween(schedule, rule.startDate, targetGenerationUntil)
             .forEach { instanceDate ->
-                if (recurringExpenseSkipRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, instanceDate) != null) {
+                if (recurringTransactionSkipRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, instanceDate) != null) {
                     skippedOccurrences++
                     return@forEach
                 }
 
-                val existingExpense = expenseRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, instanceDate)
-                if (existingExpense == null) {
-                    if (saveGeneratedExpense(rule, instanceDate)) {
-                        createdExpenses++
+                val existingTransaction = transactionRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, instanceDate)
+                if (existingTransaction == null) {
+                    if (saveGeneratedTransaction(rule, instanceDate)) {
+                        createdTransactions++
                     }
-                } else if (!existingExpense.recurringLocked && updateGeneratedExpenseIfNeeded(rule, existingExpense, instanceDate)) {
-                    updatedExpenses++
+                } else if (!existingTransaction.recurringLocked && updateGeneratedTransactionIfNeeded(rule, existingTransaction, instanceDate)) {
+                    updatedTransactions++
                 }
             }
 
-        recurringExpenseRuleRepository.update(
+        recurringTransactionRuleRepository.update(
             rule.copy(
                 generatedUntil = targetGenerationUntil,
                 lastGeneratedAt = timeProvider.now(),
             ),
         )
 
-        return RecurringExpenseGenerationResult(
+        return RecurringTransactionGenerationResult(
             ruleId = rule.id,
             generatedUntil = targetGenerationUntil,
-            createdExpenses = createdExpenses,
-            updatedExpenses = updatedExpenses,
+            createdTransactions = createdTransactions,
+            updatedTransactions = updatedTransactions,
             skippedOccurrences = skippedOccurrences,
         )
     }
 
-    private fun targetGenerationUntil(rule: RecurringExpenseRule): LocalDate {
+    private fun targetGenerationUntil(rule: RecurringTransactionRule): LocalDate {
         val windowEnd = RecurrenceCalculator.generationWindowEnd(LocalDate.ofInstant(timeProvider.now(), ZoneOffset.UTC))
         return if (rule.endDate == null || rule.endDate.isAfter(windowEnd)) {
             windowEnd
@@ -80,9 +80,10 @@ open class RecurringExpenseGenerationService(
         }
     }
 
-    private fun saveGeneratedExpense(rule: RecurringExpenseRule, instanceDate: LocalDate): Boolean =
-        expenseRepository.createGeneratedExpenseIfMissing(
+    private fun saveGeneratedTransaction(rule: RecurringTransactionRule, instanceDate: LocalDate): Boolean =
+        transactionRepository.createGeneratedTransactionIfMissing(
             userId = rule.userId,
+            type = rule.transactionType,
             trackingAccountId = rule.trackingAccountId,
             categoryId = rule.categoryId,
             date = instanceDate,
@@ -92,12 +93,13 @@ open class RecurringExpenseGenerationService(
             recurringInstanceDate = instanceDate,
         ) != null
 
-    private fun updateGeneratedExpenseIfNeeded(
-        rule: RecurringExpenseRule,
-        expense: Expense,
+    private fun updateGeneratedTransactionIfNeeded(
+        rule: RecurringTransactionRule,
+        transaction: Transaction,
         instanceDate: LocalDate,
     ): Boolean {
-        val updatedExpense = expense.copy(
+        val updatedTransaction = transaction.copy(
+            type = rule.transactionType,
             trackingAccountId = rule.trackingAccountId,
             categoryId = rule.categoryId,
             date = instanceDate,
@@ -107,26 +109,26 @@ open class RecurringExpenseGenerationService(
             recurringInstanceDate = instanceDate,
             recurringLocked = false,
         )
-        if (updatedExpense == expense) {
+        if (updatedTransaction == transaction) {
             return false
         }
 
-        expenseRepository.update(updatedExpense)
+        transactionRepository.update(updatedTransaction)
         return true
     }
 }
 
-data class RecurringExpenseGenerationResult(
+data class RecurringTransactionGenerationResult(
     val ruleId: Long?,
     val generatedUntil: LocalDate,
-    val createdExpenses: Int = 0,
-    val updatedExpenses: Int = 0,
+    val createdTransactions: Int = 0,
+    val updatedTransactions: Int = 0,
     val skippedOccurrences: Int = 0,
 )
 
-data class RecurringExpenseGenerationSummary(
+data class RecurringTransactionGenerationSummary(
     val processedRules: Int,
-    val createdExpenses: Int,
-    val updatedExpenses: Int,
+    val createdTransactions: Int,
+    val updatedTransactions: Int,
     val skippedOccurrences: Int,
 )

@@ -9,12 +9,13 @@ import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import java.time.Instant
 import java.time.LocalDate
 
-@MappedEntity("recurring_expense_rules")
-data class RecurringExpenseRule(
+@MappedEntity("recurring_transaction_rules")
+data class RecurringTransactionRule(
     @field:Id
     @field:GeneratedValue
     var id: Long? = null,
     val userId: Long,
+    val transactionType: TransactionType,
     val trackingAccountId: Long,
     val categoryId: Long,
     val startDate: LocalDate,
@@ -22,7 +23,7 @@ data class RecurringExpenseRule(
     val recurrenceFrequency: Int,
     val recurrenceInterval: RecurrenceInterval,
     val recurrenceRule: String? = null,
-    val status: RecurringExpenseRuleStatus = RecurringExpenseRuleStatus.ACTIVE,
+    val status: RecurringTransactionRuleStatus = RecurringTransactionRuleStatus.ACTIVE,
     val generatedUntil: LocalDate,
     val lastGeneratedAt: Instant? = null,
     val amountMinor: Long,

@@ -19,34 +19,36 @@ import java.time.LocalDate
 @Secured(UserRoles.USER)
 class ExpenseController(
     private val userRepository: UserRepository,
-    private val expenseService: ExpenseService,
+    private val transactionService: TransactionService,
 ) {
     @Get
     fun listExpenses(authentication: Authentication): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
 
-        return HttpResponse.ok(expenseService.listExpenses(user.id!!).map { it.toResponse() })
+        return HttpResponse.ok(
+            transactionService.listTransactions(user.id!!, TransactionType.EXPENSE).map { it.toResponse() },
+        )
     }
 
     @Get("/{expenseId}")
     fun getExpense(expenseId: Long, authentication: Authentication): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
-        val expense = expenseService.findExpense(user.id!!, expenseId)
+        val expense = transactionService.findTransaction(user.id!!, TransactionType.EXPENSE, expenseId)
             ?: return HttpResponse.notFound<Any>()
 
         return HttpResponse.ok(expense.toResponse())
     }
 
     @Post
-    fun createExpense(authentication: Authentication, @Body request: SaveExpenseRequest): HttpResponse<*> {
+    fun createExpense(authentication: Authentication, @Body request: SaveTransactionRequest): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
 
-        return when (val result = expenseService.createExpense(user.id!!, request)) {
-            is SaveExpenseResult.Saved -> HttpResponse.created(result.expense.toResponse())
-            SaveExpenseResult.BadRequest -> HttpResponse.badRequest<Any>()
+        return when (val result = transactionService.createTransaction(user.id!!, TransactionType.EXPENSE, request)) {
+            is SaveTransactionResult.Saved -> HttpResponse.created(result.transaction.toResponse())
+            SaveTransactionResult.BadRequest -> HttpResponse.badRequest<Any>()
         }
     }
 
@@ -54,15 +56,20 @@ class ExpenseController(
     fun updateExpense(
         expenseId: Long,
         authentication: Authentication,
-        @Body request: SaveExpenseRequest,
+        @Body request: SaveTransactionRequest,
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
-        val existingExpense = expenseService.findExpense(user.id!!, expenseId)
+        val existingExpense = transactionService.findTransaction(user.id!!, TransactionType.EXPENSE, expenseId)
             ?: return HttpResponse.notFound<Any>()
-        return when (val result = expenseService.updateExpense(user.id!!, existingExpense.expense.id!!, request)) {
-            is SaveExpenseResult.Saved -> HttpResponse.ok(result.expense.toResponse())
-            SaveExpenseResult.BadRequest -> HttpResponse.badRequest<Any>()
+        return when (val result = transactionService.updateTransaction(
+            user.id!!,
+            TransactionType.EXPENSE,
+            existingExpense.transaction.id!!,
+            request,
+        )) {
+            is SaveTransactionResult.Saved -> HttpResponse.ok(result.transaction.toResponse())
+            SaveTransactionResult.BadRequest -> HttpResponse.badRequest<Any>()
         }
     }
 
@@ -70,21 +77,21 @@ class ExpenseController(
     fun deleteExpense(
         expenseId: Long,
         authentication: Authentication,
-        @Body request: DeleteExpenseRequest?,
+        @Body request: DeleteTransactionRequest?,
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
 
-        return when (expenseService.deleteExpense(user.id!!, expenseId, request)) {
-            DeleteExpenseResult.Deleted -> HttpResponse.noContent<Any>()
-            DeleteExpenseResult.NotFound -> HttpResponse.notFound<Any>()
-            DeleteExpenseResult.BadRequest -> HttpResponse.badRequest<Any>()
+        return when (transactionService.deleteTransaction(user.id!!, TransactionType.EXPENSE, expenseId, request)) {
+            DeleteTransactionResult.Deleted -> HttpResponse.noContent<Any>()
+            DeleteTransactionResult.NotFound -> HttpResponse.notFound<Any>()
+            DeleteTransactionResult.BadRequest -> HttpResponse.badRequest<Any>()
         }
     }
 }
 
-private fun ExpenseDetails.toResponse() = ExpenseResponse(
-    id = expense.id ?: error("Expense must be persisted before it can be returned"),
+private fun TransactionDetails.toResponse() = ExpenseResponse(
+    id = transaction.id ?: error("Expense must be persisted before it can be returned"),
     trackingAccount = ExpenseTrackingAccountResponse(
         id = account.id ?: error("Tracking account must be persisted before it can be returned"),
         name = account.name,
@@ -94,15 +101,15 @@ private fun ExpenseDetails.toResponse() = ExpenseResponse(
         id = category.id ?: error("Expense category must be persisted before it can be returned"),
         name = category.name,
     ),
-    date = expense.date,
-    amountMinor = expense.amountMinor,
-    notes = expense.notes,
+    date = transaction.date,
+    amountMinor = transaction.amountMinor,
+    notes = transaction.notes,
     recurrence = recurrenceResponse(),
 )
 
-private fun ExpenseDetails.recurrenceResponse(): ExpenseRecurrenceResponse? {
+private fun TransactionDetails.recurrenceResponse(): ExpenseRecurrenceResponse? {
     val rule = recurringRule ?: return null
-    val instanceDate = expense.recurringInstanceDate ?: return null
+    val instanceDate = transaction.recurringInstanceDate ?: return null
     return ExpenseRecurrenceResponse(
         ruleId = rule.id ?: error("Recurring expense rule must be persisted before it can be returned"),
         startDate = rule.startDate,

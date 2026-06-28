@@ -2,11 +2,13 @@ import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  deleteExpense,
-  type Expense,
-  fetchExpenses,
-  type RecurringExpenseDeleteScope,
-} from "@/api/expenses";
+  deleteTransaction,
+  expenseTransactionApi,
+  fetchTransactions,
+  type RecurringTransactionDeleteScope,
+  type Transaction,
+  type TransactionApiConfig,
+} from "@/api/transactions";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
@@ -29,74 +31,117 @@ import {
 import { formatMoney } from "@/utils/money";
 
 export function ExpensesPage() {
+  return <TransactionsPage config={expenseTransactionsPageConfig} />;
+}
+
+type TransactionsPageConfig = {
+  api: TransactionApiConfig;
+  routeBasePath: string;
+  title: string;
+  description: string;
+  addLabel: string;
+  loadingLabel: string;
+  emptyTitle: string;
+  tableLabel: string;
+  itemLabel: string;
+  deleteTitle: (transaction: Transaction) => string;
+  deleteDescription: string;
+  deleteConfirmLabel: string;
+  deleteError: string;
+  loadError: string;
+};
+
+const expenseTransactionsPageConfig: TransactionsPageConfig = {
+  api: expenseTransactionApi,
+  routeBasePath: "/expenses",
+  title: "Expenses",
+  description:
+    "Review spending entries and keep your budget history up to date.",
+  addLabel: "Add expense",
+  loadingLabel: "Loading expenses",
+  emptyTitle: "No expenses found",
+  tableLabel: "Expenses",
+  itemLabel: "expense",
+  deleteTitle: (transaction) => `Delete ${transaction.category.name} expense?`,
+  deleteDescription:
+    "This expense will be removed from your budget history immediately.",
+  deleteConfirmLabel: "Delete expense",
+  deleteError: "Expense could not be deleted. Try again in a moment.",
+  loadError: "Expenses could not be loaded. Try again in a moment.",
+};
+
+function TransactionsPage({ config }: { config: TransactionsPageConfig }) {
   const navigate = useNavigate();
-  const [expenses, setExpenses] = useState<Expense[]>();
+  const [transactions, setTransactions] = useState<Transaction[]>();
   const [error, setError] = useState<string>();
-  const [confirmingExpense, setConfirmingExpense] = useState<Expense>();
+  const [confirmingTransaction, setConfirmingTransaction] =
+    useState<Transaction>();
   const [recurringDeleteScope, setRecurringDeleteScope] =
-    useState<RecurringExpenseDeleteScope>("THIS_OCCURRENCE_ONLY");
-  const [deletingExpenseId, setDeletingExpenseId] = useState<number>();
+    useState<RecurringTransactionDeleteScope>("THIS_OCCURRENCE_ONLY");
+  const [deletingTransactionId, setDeletingTransactionId] = useState<number>();
 
   useEffect(() => {
     let isActive = true;
-    fetchExpenses()
-      .then((loadedExpenses) => {
+    fetchTransactions(config.api)
+      .then((loadedTransactions) => {
         if (isActive) {
-          setExpenses(loadedExpenses);
+          setTransactions(loadedTransactions);
         }
       })
       .catch(() => {
         if (isActive) {
-          setError("Expenses could not be loaded. Try again in a moment.");
+          setError(config.loadError);
         }
       });
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [config]);
 
   async function handleDeleteConfirmed() {
-    if (!confirmingExpense) {
+    if (!confirmingTransaction) {
       return;
     }
 
-    setDeletingExpenseId(confirmingExpense.id);
+    setDeletingTransactionId(confirmingTransaction.id);
     setError(undefined);
     try {
-      await deleteExpense(
-        confirmingExpense.id,
-        confirmingExpense.recurrence ? recurringDeleteScope : undefined,
+      await deleteTransaction(
+        config.api,
+        confirmingTransaction.id,
+        confirmingTransaction.recurrence ? recurringDeleteScope : undefined,
       );
-      if (confirmingExpense.recurrence) {
-        setExpenses(await fetchExpenses());
+      if (confirmingTransaction.recurrence) {
+        setTransactions(await fetchTransactions(config.api));
       } else {
-        setExpenses((currentExpenses) =>
-          currentExpenses?.filter(
-            (currentExpense) => currentExpense.id !== confirmingExpense.id,
+        setTransactions((currentTransactions) =>
+          currentTransactions?.filter(
+            (currentTransaction) =>
+              currentTransaction.id !== confirmingTransaction.id,
           ),
         );
       }
-      setConfirmingExpense(undefined);
+      setConfirmingTransaction(undefined);
     } catch {
-      setError("Expense could not be deleted. Try again in a moment.");
+      setError(config.deleteError);
     } finally {
-      setDeletingExpenseId(undefined);
+      setDeletingTransactionId(undefined);
     }
   }
 
   return (
     <PageLayout
-      title="Expenses"
-      description="Review spending entries and keep your budget history up to date."
+      title={config.title}
+      description={config.description}
       actions={
         <Button
           color="tertiary"
           size="sm"
           iconLeading={Plus}
-          onPress={() => navigate("/expenses/create")}
+          onPress={() => navigate(`${config.routeBasePath}/create`)}
         >
-          Add expense
+          {config.addLabel}
         </Button>
       }
     >
@@ -110,12 +155,12 @@ export function ExpensesPage() {
               {error}
             </p>
           )}
-          {!expenses ? (
-            <TableLoadingState label="Loading expenses" />
-          ) : expenses.length === 0 ? (
-            <TableEmptyState title="No expenses found" />
+          {!transactions ? (
+            <TableLoadingState label={config.loadingLabel} />
+          ) : transactions.length === 0 ? (
+            <TableEmptyState title={config.emptyTitle} />
           ) : (
-            <Table aria-label="Expenses" size="sm">
+            <Table aria-label={config.tableLabel} size="sm">
               <Table.Header>
                 <Table.Head id="category" label="Category" isRowHeader />
                 <Table.Head id="amount" label="Amount" />
@@ -130,48 +175,53 @@ export function ExpensesPage() {
                 />
               </Table.Header>
               <Table.Body>
-                {expenses.map((expense) => (
+                {transactions.map((transaction) => (
                   <Table.Row
-                    id={expense.id}
-                    key={expense.id}
-                    data-testid={`expense-row-${expense.id}`}
+                    id={transaction.id}
+                    key={transaction.id}
+                    data-testid={`expense-row-${transaction.id}`}
                   >
-                    <Table.Cell>{expense.category.name}</Table.Cell>
+                    <Table.Cell>{transaction.category.name}</Table.Cell>
                     <Table.Cell>
                       {formatMoney(
-                        expense.amountMinor,
-                        expense.trackingAccount.currency,
+                        transaction.amountMinor,
+                        transaction.trackingAccount.currency,
                       )}
                     </Table.Cell>
                     <Table.Cell mobileLabel="Date" mobileRole="detail">
-                      <span>{formatExpenseDate(expense.date)}</span>
-                      {expense.recurrence && isActiveRecurrence(expense) && (
-                        <span className="expense-recurrence-description">
-                          {expense.recurrence.description}
-                        </span>
-                      )}
+                      <span>{formatTransactionDate(transaction.date)}</span>
+                      {transaction.recurrence &&
+                        isActiveRecurrence(transaction) && (
+                          <span className="expense-recurrence-description">
+                            {transaction.recurrence.description}
+                          </span>
+                        )}
                     </Table.Cell>
                     <Table.Cell mobileLabel="Account">
-                      {expense.trackingAccount.name}
+                      {transaction.trackingAccount.name}
                     </Table.Cell>
                     <Table.Cell mobileLabel="Notes">
-                      {expense.notes || "-"}
+                      {transaction.notes || "-"}
                     </Table.Cell>
                     <Table.Cell mobileRole="actions">
                       <TableRowActions>
                         <TableMobileDetailsAction
-                          label={`Show ${expense.category.name} details`}
+                          label={`Show ${transaction.category.name} details`}
                         />
                         <TableEditAction
-                          label={`Edit ${expense.category.name} expense`}
-                          onPress={() => navigate(`/expenses/${expense.id}`)}
+                          label={`Edit ${transaction.category.name} ${config.itemLabel}`}
+                          onPress={() =>
+                            navigate(
+                              `${config.routeBasePath}/${transaction.id}`,
+                            )
+                          }
                         />
                         <TableDeleteAction
-                          label={`Delete ${expense.category.name} expense`}
-                          isLoading={deletingExpenseId === expense.id}
+                          label={`Delete ${transaction.category.name} ${config.itemLabel}`}
+                          isLoading={deletingTransactionId === transaction.id}
                           onPress={() => {
                             setRecurringDeleteScope("THIS_OCCURRENCE_ONLY");
-                            setConfirmingExpense(expense);
+                            setConfirmingTransaction(transaction);
                           }}
                         />
                       </TableRowActions>
@@ -183,45 +233,45 @@ export function ExpensesPage() {
           )}
         </TableCard.Root>
 
-        {confirmingExpense && (
+        {confirmingTransaction && (
           <ConfirmationDialog
             dataTestId="delete-expense-overlay"
-            isOpen={Boolean(confirmingExpense)}
-            title={`Delete ${confirmingExpense.category.name} expense?`}
-            description="This expense will be removed from your budget history immediately."
-            confirmLabel="Delete expense"
-            isConfirming={deletingExpenseId === confirmingExpense.id}
-            onCancel={() => setConfirmingExpense(undefined)}
+            isOpen={Boolean(confirmingTransaction)}
+            title={config.deleteTitle(confirmingTransaction)}
+            description={config.deleteDescription}
+            confirmLabel={config.deleteConfirmLabel}
+            isConfirming={deletingTransactionId === confirmingTransaction.id}
+            onCancel={() => setConfirmingTransaction(undefined)}
             onConfirm={handleDeleteConfirmed}
           >
-            {confirmingExpense.recurrence && (
+            {confirmingTransaction.recurrence && (
               <>
                 <p className="expense-recurrence-delete-context">
-                  {formatRecurringDeleteContext(confirmingExpense)}
+                  {formatRecurringDeleteContext(confirmingTransaction)}
                 </p>
                 <RadioGroup
                   aria-label="Delete scope"
                   value={recurringDeleteScope}
                   onChange={(scope) =>
                     setRecurringDeleteScope(
-                      scope as RecurringExpenseDeleteScope,
+                      scope as RecurringTransactionDeleteScope,
                     )
                   }
                 >
                   <RadioButton
                     value="THIS_OCCURRENCE_ONLY"
                     label="This occurrence only"
-                    hint="Delete only this generated expense."
+                    hint={`Delete only this generated ${config.itemLabel}.`}
                   />
                   <RadioButton
                     value="THIS_AND_ALL_FOLLOWING_OCCURRENCES"
                     label="This and all following occurrences"
-                    hint="Delete this expense and every later expense in the series."
+                    hint={`Delete this ${config.itemLabel} and every later ${config.itemLabel} in the series.`}
                   />
                   <RadioButton
                     value="ALL_OCCURRENCES"
                     label="All occurrences"
-                    hint="Delete the entire recurring expense series."
+                    hint={`Delete the entire recurring ${config.itemLabel} series.`}
                   />
                 </RadioGroup>
               </>
@@ -233,13 +283,13 @@ export function ExpensesPage() {
   );
 }
 
-function formatExpenseDate(isoDate: string) {
+function formatTransactionDate(isoDate: string) {
   const [year, month, day] = isoDate.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   const today = startOfLocalDay(new Date());
-  const expenseDay = startOfLocalDay(date);
+  const transactionDay = startOfLocalDay(date);
   const dayDifference = Math.round(
-    (today.getTime() - expenseDay.getTime()) / 86_400_000,
+    (today.getTime() - transactionDay.getTime()) / 86_400_000,
   );
   if (dayDifference === 0) {
     return "Today";
@@ -258,8 +308,8 @@ function startOfLocalDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function isActiveRecurrence(expense: Expense) {
-  const endDate = expense.recurrence?.endDate;
+function isActiveRecurrence(transaction: Transaction) {
+  const endDate = transaction.recurrence?.endDate;
   if (!endDate) {
     return true;
   }
@@ -272,8 +322,8 @@ function parseIsoDate(isoDate: string) {
   return new Date(year, month - 1, day);
 }
 
-function formatRecurringDeleteContext(expense: Expense) {
-  const recurrence = expense.recurrence;
+function formatRecurringDeleteContext(transaction: Transaction) {
+  const recurrence = transaction.recurrence;
   if (!recurrence) {
     return "";
   }

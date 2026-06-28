@@ -6,11 +6,11 @@ import io.micronaut.data.repository.CrudRepository
 import java.time.LocalDate
 
 @JdbcRepository(dialect = Dialect.POSTGRES)
-interface RecurringExpenseSkipRepository : CrudRepository<RecurringExpenseSkip, Long> {
+interface RecurringTransactionSkipRepository : CrudRepository<RecurringTransactionSkip, Long> {
     fun findByRecurringRuleIdAndRecurringInstanceDate(
         recurringRuleId: Long,
         recurringInstanceDate: LocalDate,
-    ): RecurringExpenseSkip?
+    ): RecurringTransactionSkip?
 
-    fun findByRecurringRuleId(recurringRuleId: Long): List<RecurringExpenseSkip>
+    fun findByRecurringRuleId(recurringRuleId: Long): List<RecurringTransactionSkip>
 }

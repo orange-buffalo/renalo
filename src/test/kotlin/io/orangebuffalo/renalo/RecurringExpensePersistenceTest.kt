@@ -8,15 +8,16 @@ import io.micronaut.data.exceptions.DataAccessException
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
-import io.orangebuffalo.renalo.tracking.Expense
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
-import io.orangebuffalo.renalo.tracking.ExpenseRepository
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRule
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleRepository
-import io.orangebuffalo.renalo.tracking.RecurringExpenseRuleStatus
-import io.orangebuffalo.renalo.tracking.RecurringExpenseSkip
-import io.orangebuffalo.renalo.tracking.RecurringExpenseSkipRepository
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRule
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRuleRepository
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRuleStatus
+import io.orangebuffalo.renalo.tracking.RecurringTransactionSkip
+import io.orangebuffalo.renalo.tracking.RecurringTransactionSkipRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -40,13 +41,13 @@ class RecurringExpensePersistenceTest : IntegrationTestSupport() {
     lateinit var expenseCategoryRepository: ExpenseCategoryRepository
 
     @Inject
-    lateinit var expenseRepository: ExpenseRepository
+    lateinit var expenseRepository: TransactionRepository
 
     @Inject
-    lateinit var recurringExpenseRuleRepository: RecurringExpenseRuleRepository
+    lateinit var recurringExpenseRuleRepository: RecurringTransactionRuleRepository
 
     @Inject
-    lateinit var recurringExpenseSkipRepository: RecurringExpenseSkipRepository
+    lateinit var recurringExpenseSkipRepository: RecurringTransactionSkipRepository
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -58,8 +59,9 @@ class RecurringExpensePersistenceTest : IntegrationTestSupport() {
         val category = saveCategory(alice)
 
         val expense = expenseRepository.save(
-            Expense(
+            Transaction(
                 userId = alice.id!!,
+                type = TransactionType.EXPENSE,
                 trackingAccountId = account.id!!,
                 categoryId = category.id!!,
                 date = LocalDate.parse("2026-06-15"),
@@ -81,9 +83,10 @@ class RecurringExpensePersistenceTest : IntegrationTestSupport() {
         val aliceRule = saveRecurringRule(alice)
         saveRecurringRule(bob)
 
-        val activeRules = recurringExpenseRuleRepository.findByUserIdAndStatus(
+        val activeRules = recurringExpenseRuleRepository.findByUserIdAndTransactionTypeAndStatus(
             alice.id!!,
-            RecurringExpenseRuleStatus.ACTIVE,
+            TransactionType.EXPENSE,
+            RecurringTransactionRuleStatus.ACTIVE,
         )
 
         activeRules.map { it.id }.shouldContainExactly(aliceRule.id)
@@ -99,8 +102,9 @@ class RecurringExpensePersistenceTest : IntegrationTestSupport() {
         val rule = saveRecurringRule(alice, account, category)
         val instanceDate = LocalDate.parse("2026-06-22")
         val expense = expenseRepository.save(
-            Expense(
+            Transaction(
                 userId = alice.id!!,
+                type = TransactionType.EXPENSE,
                 trackingAccountId = account.id!!,
                 categoryId = category.id!!,
                 date = instanceDate,
@@ -110,7 +114,7 @@ class RecurringExpensePersistenceTest : IntegrationTestSupport() {
             ),
         )
         val skip = recurringExpenseSkipRepository.save(
-            RecurringExpenseSkip(
+            RecurringTransactionSkip(
                 recurringRuleId = rule.id!!,
                 recurringInstanceDate = LocalDate.parse("2026-07-06"),
             ),
@@ -132,8 +136,9 @@ class RecurringExpensePersistenceTest : IntegrationTestSupport() {
         val category = saveCategory(alice)
         val rule = saveRecurringRule(alice, account, category)
         val instanceDate = LocalDate.parse("2026-06-22")
-        val recurringExpense = Expense(
+        val recurringExpense = Transaction(
             userId = alice.id!!,
+                type = TransactionType.EXPENSE,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
             date = instanceDate,
@@ -156,12 +161,12 @@ class RecurringExpensePersistenceTest : IntegrationTestSupport() {
         val instanceDate = LocalDate.parse("2026-06-22")
 
         recurringExpenseSkipRepository.save(
-            RecurringExpenseSkip(recurringRuleId = rule.id!!, recurringInstanceDate = instanceDate),
+            RecurringTransactionSkip(recurringRuleId = rule.id!!, recurringInstanceDate = instanceDate),
         )
 
         shouldThrow<DataAccessException> {
             recurringExpenseSkipRepository.save(
-                RecurringExpenseSkip(recurringRuleId = rule.id!!, recurringInstanceDate = instanceDate),
+                RecurringTransactionSkip(recurringRuleId = rule.id!!, recurringInstanceDate = instanceDate),
             )
         }
     }
@@ -188,9 +193,10 @@ class RecurringExpensePersistenceTest : IntegrationTestSupport() {
         user: User,
         account: TrackingAccount = saveAccount(user),
         category: ExpenseCategory = saveCategory(user),
-    ): RecurringExpenseRule = recurringExpenseRuleRepository.save(
-        RecurringExpenseRule(
+    ): RecurringTransactionRule = recurringExpenseRuleRepository.save(
+        RecurringTransactionRule(
             userId = user.id!!,
+                transactionType = TransactionType.EXPENSE,
             trackingAccountId = account.id!!,
             categoryId = category.id!!,
             startDate = LocalDate.parse("2026-06-08"),
