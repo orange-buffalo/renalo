@@ -58,6 +58,11 @@ export const expenseTransactionApi: TransactionApiConfig = {
   basePath: "/api/tracking/transactions/EXPENSE",
 };
 
+export const incomeTransactionApi: TransactionApiConfig = {
+  type: "INCOME",
+  basePath: "/api/tracking/transactions/INCOME",
+};
+
 export function fetchTransactions(config: TransactionApiConfig) {
   return apiRequest<Transaction[]>(config.basePath);
 }

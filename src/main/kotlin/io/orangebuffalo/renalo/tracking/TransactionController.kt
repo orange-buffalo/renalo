@@ -104,7 +104,7 @@ private fun TransactionDetails.toResponse() = TransactionResponse(
         currency = account.currency,
     ),
     category = TransactionCategorySummaryResponse(
-        id = category.id ?: error("Transaction category must be persisted before it can be returned"),
+        id = category.id,
         name = category.name,
     ),
     date = transaction.date,

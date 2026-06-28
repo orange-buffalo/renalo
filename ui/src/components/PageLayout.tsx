@@ -208,6 +208,11 @@ function getNavigationItems(userType?: UserType): NavItemType[] {
       icon: CreditCard02,
     },
     {
+      label: "Incomes",
+      href: "/incomes",
+      icon: CreditCard02,
+    },
+    {
       label: "Settings",
       href: "/settings",
       icon: Settings01,

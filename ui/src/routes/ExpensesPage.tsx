@@ -14,6 +14,7 @@ const expenseTransactionsPageConfig: TransactionsPageConfig = {
   loadingLabel: "Loading expenses",
   emptyTitle: "No expenses found",
   tableLabel: "Expenses",
+  categoryColumnLabel: "Category",
   itemLabel: "expense",
   deleteTitle: (transaction) => `Delete ${transaction.category.name} expense?`,
   deleteDescription:

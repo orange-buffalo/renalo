@@ -4,7 +4,7 @@
 
 Recurring expenses are implemented as a generator of normal expense transactions.
 
-The backend stores expenses and incomes in a shared type-discriminated `Transaction` model. Current recurring expense behavior operates on `TransactionType.EXPENSE` rows through the transaction API and expense-configured UI routes.
+The backend stores expenses and incomes in a shared type-discriminated `Transaction` model. Recurring expense behavior operates on `TransactionType.EXPENSE` rows through the transaction API and expense-configured UI routes; recurring income behavior uses the same transaction infrastructure with `TransactionType.INCOME` and income-configured UI routes.
 
 The application does not distinguish between manual, imported, API-created, past, present, or future expenses for reporting purposes. If an expense transaction exists, it is considered a real expense and is shown/reported normally.
 
@@ -355,7 +355,7 @@ Shared behavior should include:
 - lock/skip safety semantics where the owning domain model supports them
 - human-readable recurrence description formatting
 
-Expense-specific behavior should be limited to expense UI route configuration, expense labels, expense category validation, and `TransactionType.EXPENSE` filtering.
+Expense- and income-specific behavior should be limited to route configuration, labels, category validation, and `TransactionType` filtering.
 
 Expense UI pages should be rendered by transaction-aware components configured with expense labels and routes. Income UI can reuse the same components later with income labels and transaction filtering.
 

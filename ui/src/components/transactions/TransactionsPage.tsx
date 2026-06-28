@@ -38,6 +38,7 @@ export type TransactionsPageConfig = {
   loadingLabel: string;
   emptyTitle: string;
   tableLabel: string;
+  categoryColumnLabel: string;
   itemLabel: string;
   deleteTitle: (transaction: Transaction) => string;
   deleteDescription: string;
@@ -144,7 +145,11 @@ export function TransactionsPage({
           ) : (
             <Table aria-label={config.tableLabel} size="sm">
               <Table.Header>
-                <Table.Head id="category" label="Category" isRowHeader />
+                <Table.Head
+                  id="category"
+                  label={config.categoryColumnLabel}
+                  isRowHeader
+                />
                 <Table.Head id="amount" label="Amount" />
                 <Table.Head id="date" label="Date" />
                 <Table.Head id="account" label="Account" />

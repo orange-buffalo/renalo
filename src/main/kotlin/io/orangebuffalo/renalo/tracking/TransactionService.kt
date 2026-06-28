@@ -10,6 +10,7 @@ open class TransactionService(
     private val transactionRepository: TransactionRepository,
     private val trackingAccountRepository: TrackingAccountRepository,
     private val expenseCategoryRepository: ExpenseCategoryRepository,
+    private val incomeCategoryRepository: IncomeCategoryRepository,
     private val recurringTransactionRuleRepository: RecurringTransactionRuleRepository,
     private val recurringTransactionSkipRepository: RecurringTransactionSkipRepository,
     private val recurringTransactionGenerationService: RecurringTransactionGenerationService,
@@ -130,7 +131,7 @@ open class TransactionService(
             userId = userId,
             type = type,
             trackingAccountId = account.id!!,
-            categoryId = category.id!!,
+            categoryId = category.id,
             date = request.date,
             amountMinor = request.amountMinor,
             notes = notes,
@@ -163,7 +164,7 @@ open class TransactionService(
                 userId = userId,
                 transactionType = type,
                 trackingAccountId = account.id!!,
-                categoryId = category.id!!,
+                categoryId = category.id,
                 startDate = request.date,
                 endDate = recurrence.endDate,
                 recurrenceFrequency = recurrence.frequency,
@@ -208,7 +209,7 @@ open class TransactionService(
                 val savedTransaction = transactionRepository.update(
                     existingTransaction.copy(
                         trackingAccountId = account.id!!,
-                        categoryId = category.id!!,
+                        categoryId = category.id,
                         date = request.date,
                         amountMinor = request.amountMinor,
                         notes = notes,
@@ -223,7 +224,7 @@ open class TransactionService(
                     rule.copy(
                         id = null,
                         trackingAccountId = account.id!!,
-                        categoryId = category.id!!,
+                        categoryId = category.id,
                         startDate = instanceDate,
                         generatedUntil = instanceDate.minusDays(1),
                         lastGeneratedAt = null,
@@ -242,7 +243,7 @@ open class TransactionService(
                 val updatedRule = recurringTransactionRuleRepository.update(
                     rule.copy(
                         trackingAccountId = account.id!!,
-                        categoryId = category.id!!,
+                        categoryId = category.id,
                         amountMinor = request.amountMinor,
                         notes = notes,
                     ),
@@ -253,7 +254,7 @@ open class TransactionService(
                         transactionRepository.update(
                             it.copy(
                                 trackingAccountId = account.id!!,
-                                categoryId = category.id!!,
+                                categoryId = category.id,
                                 amountMinor = request.amountMinor,
                                 notes = notes,
                             ),
@@ -300,17 +301,24 @@ open class TransactionService(
         return TransactionDetails(this, account, category, recurringRule)
     }
 
-    private fun findCategory(userId: Long, type: TransactionType, categoryId: Long): ExpenseCategory? =
+    private fun findCategory(userId: Long, type: TransactionType, categoryId: Long): TransactionCategoryDetails? =
         when (type) {
             TransactionType.EXPENSE -> expenseCategoryRepository.findByIdAndUserId(categoryId, userId)
-            TransactionType.INCOME -> null
+                ?.let { TransactionCategoryDetails(it.id!!, it.name) }
+            TransactionType.INCOME -> incomeCategoryRepository.findByIdAndUserId(categoryId, userId)
+                ?.let { TransactionCategoryDetails(it.id!!, it.name) }
         }
 }
+
+data class TransactionCategoryDetails(
+    val id: Long,
+    val name: String,
+)
 
 data class TransactionDetails(
     val transaction: Transaction,
     val account: TrackingAccount,
-    val category: ExpenseCategory,
+    val category: TransactionCategoryDetails,
     val recurringRule: RecurringTransactionRule? = null,
 )
 

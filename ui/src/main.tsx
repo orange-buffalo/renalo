@@ -22,6 +22,8 @@ import {
   CreateIncomeCategoryPage,
   EditIncomeCategoryPage,
 } from "./routes/IncomeCategoryFormPage.tsx";
+import { CreateIncomePage, EditIncomePage } from "./routes/IncomeFormPage.tsx";
+import { IncomesPage } from "./routes/IncomesPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
 import { ProfilePage } from "./routes/ProfilePage.tsx";
 import { SettingsPage } from "./routes/SettingsPage.tsx";
@@ -70,6 +72,30 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <EditExpensePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/incomes",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <IncomesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/incomes/create",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <CreateIncomePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/incomes/:transactionId",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <EditIncomePage />
       </ProtectedRoute>
     ),
   },
