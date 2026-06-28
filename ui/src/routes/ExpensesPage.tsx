@@ -195,29 +195,36 @@ export function ExpensesPage() {
             onConfirm={handleDeleteConfirmed}
           >
             {confirmingExpense.recurrence && (
-              <RadioGroup
-                aria-label="Delete scope"
-                value={recurringDeleteScope}
-                onChange={(scope) =>
-                  setRecurringDeleteScope(scope as RecurringExpenseDeleteScope)
-                }
-              >
-                <RadioButton
-                  value="THIS_OCCURRENCE_ONLY"
-                  label="This occurrence only"
-                  hint="Delete only this generated expense."
-                />
-                <RadioButton
-                  value="THIS_AND_ALL_FOLLOWING_OCCURRENCES"
-                  label="This and all following occurrences"
-                  hint="Delete this expense and every later expense in the series."
-                />
-                <RadioButton
-                  value="ALL_OCCURRENCES"
-                  label="All occurrences"
-                  hint="Delete the entire recurring expense series."
-                />
-              </RadioGroup>
+              <>
+                <p className="expense-recurrence-delete-context">
+                  {formatRecurringDeleteContext(confirmingExpense)}
+                </p>
+                <RadioGroup
+                  aria-label="Delete scope"
+                  value={recurringDeleteScope}
+                  onChange={(scope) =>
+                    setRecurringDeleteScope(
+                      scope as RecurringExpenseDeleteScope,
+                    )
+                  }
+                >
+                  <RadioButton
+                    value="THIS_OCCURRENCE_ONLY"
+                    label="This occurrence only"
+                    hint="Delete only this generated expense."
+                  />
+                  <RadioButton
+                    value="THIS_AND_ALL_FOLLOWING_OCCURRENCES"
+                    label="This and all following occurrences"
+                    hint="Delete this expense and every later expense in the series."
+                  />
+                  <RadioButton
+                    value="ALL_OCCURRENCES"
+                    label="All occurrences"
+                    hint="Delete the entire recurring expense series."
+                  />
+                </RadioGroup>
+              </>
             )}
           </ConfirmationDialog>
         )}
@@ -263,4 +270,26 @@ function isActiveRecurrence(expense: Expense) {
 function parseIsoDate(isoDate: string) {
   const [year, month, day] = isoDate.split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function formatRecurringDeleteContext(expense: Expense) {
+  const recurrence = expense.recurrence;
+  if (!recurrence) {
+    return "";
+  }
+
+  const startDate = formatShortDate(recurrence.startDate);
+  if (!recurrence.endDate) {
+    return `This expense is part of the repeated series starting ${startDate} with no end date.`;
+  }
+
+  return `This expense is part of the repeated series starting ${startDate} and ending ${formatShortDate(recurrence.endDate)}.`;
+}
+
+function formatShortDate(isoDate: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(parseIsoDate(isoDate));
 }

@@ -137,6 +137,13 @@ input {
   line-height: 1.35;
 }
 
+.expense-recurrence-delete-context {
+  margin: 0 0 16px;
+  color: #475467;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 @media (max-width: 767px) {
   .table-card-root:has(.responsive-table) {
     overflow: visible;

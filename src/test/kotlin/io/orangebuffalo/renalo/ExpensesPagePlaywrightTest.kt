@@ -356,6 +356,11 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             .click()
 
         assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Delete Rent expense?"))).isVisible()
+        assertThat(
+            page.getByText(
+                "This expense is part of the repeated series starting 14 Jun 2099 and ending 21 Jun 2099.",
+            ),
+        ).isVisible()
         assertThat(page.getByLabel("Delete scope")).isVisible()
         assertThat(page.getByText("This occurrence only")).isVisible()
         assertThat(page.getByText("This and all following occurrences")).isVisible()

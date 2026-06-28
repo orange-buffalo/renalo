@@ -468,6 +468,8 @@ Deletion supports the same scopes:
 
 Deletion is an explicit user action and may delete locked expenses within the selected scope.
 
+When deleting an expense from a recurring series, the confirmation dialog must show the series boundaries for context, using text such as `This expense is part of the repeated series starting 5 Jun 2022 and ending 5 Jun 2023.` If the rule has no end date, the dialog should state that there is no end date.
+
 ## Delete: This Occurrence Only
 
 Behavior:
