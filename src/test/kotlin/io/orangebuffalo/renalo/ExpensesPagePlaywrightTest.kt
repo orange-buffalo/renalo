@@ -187,6 +187,32 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun groupsFutureExpensesUntilViewed(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val groceries = saveCategory(alice, "Groceries")
+        val rent = saveCategory(alice, "Rent")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1234, "Milk")
+        saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE.plusDays(2), 5500, "Planned rent")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE.plusDays(1), 2100, "Planned groceries")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses")
+
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Planned expenses", "A$76.00", "", "", "", "view"),
+            ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("View all planned expenses")).click()
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Rent", "A$55.00", "Jun 16", "Main", "Planned rent", "edit delete"),
+            ExpenseRow("Groceries", "A$21.00", "Jun 15", "Main", "Planned groceries", "edit delete"),
+            ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
+        )
+    }
+
+    @Test
     fun createsRecurringExpensesForEveryScheduleOptionFromExpenseForm(page: Page) {
         val alice = saveUser("alice")
         saveAccount(alice, "Main", "AUD", isDefault = true)
@@ -420,12 +446,12 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow(
-                "Rent",
+                "Planned expenses",
                 "A$25.00",
-                "Jun 21 Repeats weekly until 21 Jun 2099",
-                "Main",
-                "Occurrence only following",
-                "edit delete",
+                "",
+                "",
+                "",
+                "view",
             ),
         )
         expenseRepository.findById(occurrenceOnlySelected.id!!).isPresent.shouldBe(false)
@@ -461,6 +487,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         )
 
         page.navigate(server.url.toString() + "/expenses")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("View all planned expenses")).click()
         page.locator("[data-testid='expense-row-${followingSelected.id}']")
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Delete Rent expense"))
             .click()
@@ -510,12 +537,12 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
                 "edit delete",
             ),
             ExpenseRow(
-                "Rent",
+                "Planned expenses",
                 "A$25.00",
-                "Jun 21 Repeats weekly until 21 Jun 2099",
-                "Main",
-                "Occurrence only following",
-                "edit delete",
+                "",
+                "",
+                "",
+                "view",
             ),
         )
         expenseRepository.findById(allFirst.id!!).isPresent.shouldBe(false)

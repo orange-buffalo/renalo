@@ -1,4 +1,4 @@
-import { Edit02, Trash01 } from "@untitledui/icons";
+import { Edit02, Eye, Trash01 } from "@untitledui/icons";
 import type { ComponentProps, ReactNode } from "react";
 import { Table } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -24,6 +24,11 @@ type TableMobileDetailsActionProps = {
   label: string;
 };
 
+type TableViewActionProps = {
+  label: string;
+  onPress: () => void;
+};
+
 export function TableRowActions({ children }: TableRowActionsProps) {
   return <div className="table-row-actions">{children}</div>;
 }
@@ -41,6 +46,18 @@ export function TableEditAction({ label, onPress }: TableEditActionProps) {
       color="tertiary"
       size="sm"
       iconLeading={EditActionIcon}
+      onPress={onPress}
+    />
+  );
+}
+
+export function TableViewAction({ label, onPress }: TableViewActionProps) {
+  return (
+    <Button
+      aria-label={label}
+      color="tertiary"
+      size="sm"
+      iconLeading={ViewActionIcon}
       onPress={onPress}
     />
   );
@@ -74,4 +91,8 @@ export function TableDeleteAction({
 
 function EditActionIcon(props: ComponentProps<typeof Edit02>) {
   return <Edit02 {...props} data-action-icon="edit" aria-hidden="true" />;
+}
+
+function ViewActionIcon(props: ComponentProps<typeof Eye>) {
+  return <Eye {...props} data-action-icon="view" aria-hidden="true" />;
 }

@@ -17,6 +17,7 @@ import {
   TableEditAction,
   TableMobileDetailsAction,
   TableRowActions,
+  TableViewAction,
 } from "@/components/TableRowActions";
 import {
   Table,
@@ -45,6 +46,7 @@ export type TransactionsPageConfig = {
   deleteConfirmLabel: string;
   deleteError: string;
   loadError: string;
+  plannedGroupLabel: string;
   rowTestIdPrefix: string;
   deleteDialogDataTestId: string;
 };
@@ -62,6 +64,11 @@ export function TransactionsPage({
   const [recurringDeleteScope, setRecurringDeleteScope] =
     useState<RecurringTransactionDeleteScope>("THIS_OCCURRENCE_ONLY");
   const [deletingTransactionId, setDeletingTransactionId] = useState<number>();
+  const [showPlannedTransactions, setShowPlannedTransactions] = useState(false);
+
+  const transactionRows = transactions
+    ? groupPlannedTransactions(transactions, showPlannedTransactions)
+    : undefined;
 
   useEffect(() => {
     let isActive = true;
@@ -162,59 +169,93 @@ export function TransactionsPage({
                 />
               </Table.Header>
               <Table.Body>
-                {transactions.map((transaction) => (
-                  <Table.Row
-                    id={transaction.id}
-                    key={transaction.id}
-                    data-testid={`${config.rowTestIdPrefix}-${transaction.id}`}
-                  >
-                    <Table.Cell>{transaction.category.name}</Table.Cell>
-                    <Table.Cell>
-                      {formatMoney(
-                        transaction.amountMinor,
-                        transaction.trackingAccount.currency,
-                      )}
-                    </Table.Cell>
-                    <Table.Cell mobileLabel="Date" mobileRole="detail">
-                      <span>{formatTransactionDate(transaction.date)}</span>
-                      {transaction.recurrence &&
-                        isActiveRecurrence(transaction) && (
-                          <span className="transaction-recurrence-description">
-                            {transaction.recurrence.description}
-                          </span>
+                {transactionRows?.map((row) =>
+                  row.kind === "planned" ? (
+                    <Table.Row
+                      id="planned-transactions"
+                      key="planned-transactions"
+                      data-testid={`${config.rowTestIdPrefix}-planned`}
+                    >
+                      <Table.Cell>{config.plannedGroupLabel}</Table.Cell>
+                      <Table.Cell>
+                        <div className="transaction-planned-amounts">
+                          {row.amounts.map((amount) => (
+                            <span key={amount.currency}>
+                              {formatMoney(amount.amountMinor, amount.currency)}
+                            </span>
+                          ))}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell mobileLabel="Date" mobileRole="detail" />
+                      <Table.Cell mobileLabel="Account" />
+                      <Table.Cell mobileLabel="Notes" />
+                      <Table.Cell mobileRole="actions">
+                        <TableRowActions>
+                          <TableViewAction
+                            label={`View all ${config.plannedGroupLabel.toLowerCase()}`}
+                            onPress={() => setShowPlannedTransactions(true)}
+                          />
+                        </TableRowActions>
+                      </Table.Cell>
+                    </Table.Row>
+                  ) : (
+                    <Table.Row
+                      id={row.transaction.id}
+                      key={row.transaction.id}
+                      data-testid={`${config.rowTestIdPrefix}-${row.transaction.id}`}
+                    >
+                      <Table.Cell>{row.transaction.category.name}</Table.Cell>
+                      <Table.Cell>
+                        {formatMoney(
+                          row.transaction.amountMinor,
+                          row.transaction.trackingAccount.currency,
                         )}
-                    </Table.Cell>
-                    <Table.Cell mobileLabel="Account">
-                      {transaction.trackingAccount.name}
-                    </Table.Cell>
-                    <Table.Cell mobileLabel="Notes">
-                      {transaction.notes || "-"}
-                    </Table.Cell>
-                    <Table.Cell mobileRole="actions">
-                      <TableRowActions>
-                        <TableMobileDetailsAction
-                          label={`Show ${transaction.category.name} details`}
-                        />
-                        <TableEditAction
-                          label={`Edit ${transaction.category.name} ${config.itemLabel}`}
-                          onPress={() =>
-                            navigate(
-                              `${config.routeBasePath}/${transaction.id}`,
-                            )
-                          }
-                        />
-                        <TableDeleteAction
-                          label={`Delete ${transaction.category.name} ${config.itemLabel}`}
-                          isLoading={deletingTransactionId === transaction.id}
-                          onPress={() => {
-                            setRecurringDeleteScope("THIS_OCCURRENCE_ONLY");
-                            setConfirmingTransaction(transaction);
-                          }}
-                        />
-                      </TableRowActions>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
+                      </Table.Cell>
+                      <Table.Cell mobileLabel="Date" mobileRole="detail">
+                        <span>
+                          {formatTransactionDate(row.transaction.date)}
+                        </span>
+                        {row.transaction.recurrence &&
+                          isActiveRecurrence(row.transaction) && (
+                            <span className="transaction-recurrence-description">
+                              {row.transaction.recurrence.description}
+                            </span>
+                          )}
+                      </Table.Cell>
+                      <Table.Cell mobileLabel="Account">
+                        {row.transaction.trackingAccount.name}
+                      </Table.Cell>
+                      <Table.Cell mobileLabel="Notes">
+                        {row.transaction.notes || "-"}
+                      </Table.Cell>
+                      <Table.Cell mobileRole="actions">
+                        <TableRowActions>
+                          <TableMobileDetailsAction
+                            label={`Show ${row.transaction.category.name} details`}
+                          />
+                          <TableEditAction
+                            label={`Edit ${row.transaction.category.name} ${config.itemLabel}`}
+                            onPress={() =>
+                              navigate(
+                                `${config.routeBasePath}/${row.transaction.id}`,
+                              )
+                            }
+                          />
+                          <TableDeleteAction
+                            label={`Delete ${row.transaction.category.name} ${config.itemLabel}`}
+                            isLoading={
+                              deletingTransactionId === row.transaction.id
+                            }
+                            onPress={() => {
+                              setRecurringDeleteScope("THIS_OCCURRENCE_ONLY");
+                              setConfirmingTransaction(row.transaction);
+                            }}
+                          />
+                        </TableRowActions>
+                      </Table.Cell>
+                    </Table.Row>
+                  ),
+                )}
               </Table.Body>
             </Table>
           )}
@@ -271,6 +312,61 @@ export function TransactionsPage({
       </section>
     </PageLayout>
   );
+}
+
+type TransactionRow =
+  | { kind: "transaction"; transaction: Transaction }
+  | { kind: "planned"; amounts: PlannedAmount[] };
+
+type PlannedAmount = {
+  currency: string;
+  amountMinor: number;
+};
+
+function groupPlannedTransactions(
+  transactions: Transaction[],
+  showPlannedTransactions: boolean,
+): TransactionRow[] {
+  if (showPlannedTransactions) {
+    return transactions.map((transaction) => ({
+      kind: "transaction",
+      transaction,
+    }));
+  }
+
+  const today = startOfLocalDay(new Date());
+  const plannedTransactions = transactions.filter(
+    (transaction) => startOfLocalDay(parseIsoDate(transaction.date)) > today,
+  );
+
+  if (plannedTransactions.length === 0) {
+    return transactions.map((transaction) => ({
+      kind: "transaction",
+      transaction,
+    }));
+  }
+
+  const amountsByCurrency = new Map<string, number>();
+  for (const transaction of plannedTransactions) {
+    const currency = transaction.trackingAccount.currency;
+    amountsByCurrency.set(
+      currency,
+      (amountsByCurrency.get(currency) ?? 0) + transaction.amountMinor,
+    );
+  }
+
+  return [
+    {
+      kind: "planned",
+      amounts: Array.from(amountsByCurrency, ([currency, amountMinor]) => ({
+        currency,
+        amountMinor,
+      })),
+    },
+    ...transactions
+      .filter((transaction) => !plannedTransactions.includes(transaction))
+      .map((transaction) => ({ kind: "transaction", transaction }) as const),
+  ];
 }
 
 function formatTransactionDate(isoDate: string) {

@@ -22,6 +22,7 @@ const incomeTransactionsPageConfig: TransactionsPageConfig = {
   deleteConfirmLabel: "Delete income",
   deleteError: "Income could not be deleted. Try again in a moment.",
   loadError: "Incomes could not be loaded. Try again in a moment.",
+  plannedGroupLabel: "Planned incomes",
   rowTestIdPrefix: "income-row",
   deleteDialogDataTestId: "delete-income-overlay",
 };

@@ -144,6 +144,11 @@ input {
   line-height: 1.5;
 }
 
+.transaction-planned-amounts {
+  display: grid;
+  gap: 2px;
+}
+
 @media (max-width: 767px) {
   .table-card-root:has(.responsive-table) {
     overflow: visible;

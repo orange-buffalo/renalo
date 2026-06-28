@@ -22,6 +22,7 @@ const expenseTransactionsPageConfig: TransactionsPageConfig = {
   deleteConfirmLabel: "Delete expense",
   deleteError: "Expense could not be deleted. Try again in a moment.",
   loadError: "Expenses could not be loaded. Try again in a moment.",
+  plannedGroupLabel: "Planned expenses",
   rowTestIdPrefix: "expense-row",
   deleteDialogDataTestId: "delete-expense-overlay",
 };

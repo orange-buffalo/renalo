@@ -156,8 +156,41 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             )
         page.shouldEventuallyContainIncomeRows(
             IncomeRow("Salary", "A$1,234.00", "Today Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
+            IncomeRow("Planned incomes", "A$2,468.00", "", "", "", "view"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("View all planned incomes")).click()
+        page.shouldEventuallyContainIncomeRows(
+            IncomeRow("Salary", "A$1,234.00", "Today Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
             IncomeRow("Salary", "A$1,234.00", "Jul 14 Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
             IncomeRow("Salary", "A$1,234.00", "Aug 14 Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
+        )
+    }
+
+    @Test
+    fun groupsFutureIncomesByCurrencyUntilViewed(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "EUR", isDefault = false)
+        val salary = saveCategory(alice, "Salary")
+        val bonus = saveCategory(alice, "Bonus")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 123400, "Pay")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE.plusDays(2), 10000, "Planned pay")
+        saveIncome(alice, savings, bonus, TestTimeProvider.DEFAULT_DATE.plusDays(1), 20000, "Planned bonus")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes")
+
+        page.shouldEventuallyContainIncomeRows(
+            IncomeRow("Planned incomes", "A$100.00 €200.00", "", "", "", "view"),
+            IncomeRow("Salary", "A$1,234.00", "Today", "Main", "Pay", "edit delete"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("View all planned incomes")).click()
+        page.shouldEventuallyContainIncomeRows(
+            IncomeRow("Salary", "A$100.00", "Jun 16", "Main", "Planned pay", "edit delete"),
+            IncomeRow("Bonus", "€200.00", "Jun 15", "Savings", "Planned bonus", "edit delete"),
+            IncomeRow("Salary", "A$1,234.00", "Today", "Main", "Pay", "edit delete"),
         )
     }
 
