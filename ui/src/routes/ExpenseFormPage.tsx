@@ -39,6 +39,16 @@ type RecurrenceIntervalOption = NonNullable<
 type RecurrenceRepetitionOption = "ENDLESS" | `${number}`;
 type RecurringEditScope = NonNullable<SaveExpense["recurringEditScope"]>;
 
+type StoredRecurrenceConfiguration = {
+  schedule: RecurrenceScheduleOption;
+  customFrequency: number;
+  customInterval: RecurrenceIntervalOption;
+  repetitions: RecurrenceRepetitionOption;
+};
+
+const recurrenceConfigurationStorageKey =
+  "renalo.expenses.lastRecurrenceConfiguration";
+
 const recurrenceScheduleOptions: Array<{
   id: RecurrenceScheduleOption;
   label: string;
@@ -352,6 +362,32 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
     setRecurrenceEndDateError(undefined);
   }
 
+  function restoreLastRecurrenceConfiguration() {
+    const storedConfiguration = loadStoredRecurrenceConfiguration();
+    if (!storedConfiguration) {
+      return;
+    }
+
+    setRecurrenceSchedule(storedConfiguration.schedule);
+    setCustomRecurrenceFrequency(storedConfiguration.customFrequency);
+    setCustomRecurrenceInterval(storedConfiguration.customInterval);
+    setRecurrenceRepetitions(storedConfiguration.repetitions);
+    setRecurrenceEndDate(
+      storedConfiguration.repetitions === "ENDLESS" || !date
+        ? null
+        : calculateEndDateForRepetitions(
+            date,
+            recurrencePayloadFor(
+              storedConfiguration.schedule,
+              storedConfiguration.customFrequency,
+              storedConfiguration.customInterval,
+            ),
+            Number(storedConfiguration.repetitions),
+          ),
+    );
+    setRecurrenceEndDateError(undefined);
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const amountMinor = parseMoneyInput(amount, currency);
@@ -420,6 +456,14 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
         await updateExpense(Number(expenseId), payload);
       } else {
         await createExpense(payload);
+        if (isRecurring) {
+          storeRecurrenceConfiguration({
+            schedule: recurrenceSchedule,
+            customFrequency: customRecurrenceFrequency,
+            customInterval: customRecurrenceInterval,
+            repetitions: recurrenceRepetitions,
+          });
+        }
       }
       navigate("/expenses", { replace: true });
     } catch {
@@ -532,6 +576,9 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                 isSelected={isRecurring}
                 onChange={(selected) => {
                   setIsRecurring(selected);
+                  if (selected) {
+                    restoreLastRecurrenceConfiguration();
+                  }
                   if (!selected) {
                     setRecurrenceEndDate(null);
                     setRecurrenceRepetitions("ENDLESS");
@@ -791,4 +838,74 @@ function addScheduleInterval(
     case "MONTH":
       return date.add({ months: amount });
   }
+}
+
+function loadStoredRecurrenceConfiguration() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      recurrenceConfigurationStorageKey,
+    );
+    if (!storedValue) {
+      return undefined;
+    }
+
+    const parsedValue = JSON.parse(storedValue) as unknown;
+    if (!isStoredRecurrenceConfiguration(parsedValue)) {
+      return undefined;
+    }
+
+    return parsedValue;
+  } catch (error) {
+    console.warn("Stored recurrence configuration could not be loaded.", error);
+    return undefined;
+  }
+}
+
+function storeRecurrenceConfiguration(
+  configuration: StoredRecurrenceConfiguration,
+) {
+  try {
+    window.localStorage.setItem(
+      recurrenceConfigurationStorageKey,
+      JSON.stringify(configuration),
+    );
+  } catch (error) {
+    console.warn("Recurrence configuration could not be stored.", error);
+  }
+}
+
+function isStoredRecurrenceConfiguration(
+  value: unknown,
+): value is StoredRecurrenceConfiguration {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const configuration = value as Partial<StoredRecurrenceConfiguration>;
+  return (
+    isRecurrenceScheduleOption(configuration.schedule) &&
+    typeof configuration.customFrequency === "number" &&
+    Number.isInteger(configuration.customFrequency) &&
+    configuration.customFrequency >= 1 &&
+    configuration.customFrequency <= 100 &&
+    isRecurrenceIntervalOption(configuration.customInterval) &&
+    isRecurrenceRepetitionOption(configuration.repetitions)
+  );
+}
+
+function isRecurrenceScheduleOption(
+  value: unknown,
+): value is RecurrenceScheduleOption {
+  return recurrenceScheduleOptions.some((option) => option.id === value);
+}
+
+function isRecurrenceIntervalOption(
+  value: unknown,
+): value is RecurrenceIntervalOption {
+  return customIntervalOptions.some((option) => option.id === value);
+}
+
+function isRecurrenceRepetitionOption(
+  value: unknown,
+): value is RecurrenceRepetitionOption {
+  return recurrenceRepetitionOptions.some((option) => option.id === value);
 }

@@ -245,6 +245,12 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.waitForURL("**/expenses")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        val storedRecurrenceConfiguration = page.evaluate(
+            "window.localStorage.getItem('renalo.expenses.lastRecurrenceConfiguration')",
+        ) as String
+        storedRecurrenceConfiguration.shouldBe(
+            """{"schedule":"CUSTOM","customFrequency":3,"customInterval":"WEEK","repetitions":"3"}""",
+        )
         val customRule = recurringExpenseRuleRepository.findAll().single { it.notes == "Custom membership" }
         customRule.recurrenceFrequency.shouldBe(3)
         customRule.recurrenceInterval.shouldBe(RecurrenceInterval.WEEK)
@@ -255,6 +261,17 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             TestTimeProvider.DEFAULT_DATE.plusWeeks(3),
         )
         customGeneratedExpenses.first().notes.shouldBe("Custom membership")
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        page.getByLabel("Recurring expense").isChecked().shouldBe(false)
+        page.getByLabel("Recurring expense").press("Space")
+
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Custom Repeat"))).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("3 Repeat every"))).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Weeks Cadence"))).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("3 End after repetitions"))).isVisible()
+        assertThat(page.getByText("Jul 26, 2099", Page.GetByTextOptions().setExact(true))).isVisible()
     }
 
     @Test

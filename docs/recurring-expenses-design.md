@@ -401,6 +401,8 @@ Initial schedule controls should map to the extensible frequency/interval model.
 
 Create screens should also provide an `End after repetitions` helper in the same row as `End date`. The helper is UI-only and must not change the API contract: selecting `Endless` submits no end date, while selecting a value from `2` through `100` calculates the inclusive recurrence end date and submits that date. For example, selecting `2` means the initial expense plus one additional generated occurrence. Changing the schedule, custom cadence, start date, end date, or repetition count should keep the end date and repetition helper synchronized where the chosen end date maps to a value from `2` through `100`.
 
+After a recurring expense is created, the create form should remember the last recurring schedule UI configuration in browser local storage, excluding the `Recurring expense` checkbox and excluding the literal end date. When a user enables `Recurring expense` on a later new expense, the saved schedule, custom frequency/cadence, and repetition helper are restored. If the saved repetition helper is a finite value, a new end date is calculated from the current expense date; otherwise the end date remains empty.
+
 On existing recurring expenses, schedule/date fields remain immutable. Edit screens display the current schedule and the first occurrence date for context, using text such as `The first occurrence in this series is on 5 Jun 2022.` Users cannot change the recurrence date, start date, frequency, interval, or recurrence pattern on the existing recurring rule. To change the schedule, they must delete the relevant scope and create a new expense or recurring expense.
 
 ## Editing Recurring Expenses
