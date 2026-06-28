@@ -359,7 +359,7 @@ The implementation should make it difficult for future recurring incomes to dive
 
 In the expenses overview, recurring expenses are displayed as normal expense rows.
 
-For rows linked to a recurring rule, the Date column displays a second line below the normal expense date:
+For rows linked to an active recurring rule, the Date column displays a second line below the normal expense date:
 
 - font size: 90% of the main date text
 - content: a human-readable recurrence description
@@ -372,6 +372,10 @@ Examples:
 - `Repeats monthly until 12 Jun 2020`
 
 The recurrence description must be generated from the stored recurrence schedule and optional end date. The same description logic should be reusable later for incomes.
+
+A recurrence is active for overview highlighting only when its end date is absent or after today. If the recurrence end date has passed or is today, existing expenses remain normal historical facts and the overview must not show the recurrence description line for those rows.
+
+Expense list/detail API responses for generated recurring expenses must include the rule start date and end date alongside the recurrence description, so the UI can make active/inactive display decisions without parsing human-readable text.
 
 The UI must not use the term future occurrences. It must use `This and all following occurrences` for scoped edit/delete flows.
 
@@ -393,7 +397,7 @@ When checked:
 
 Initial schedule controls should map to the extensible frequency/interval model. For example, a `Biweekly` choice in the UI should submit/store every `2` `weeks`, not a separate `biweekly` schedule type.
 
-On existing recurring expenses, schedule/date fields remain immutable. Edit screens may display the current schedule for context, but users cannot change the recurrence date, start date, frequency, interval, or recurrence pattern on the existing recurring rule. To change the schedule, they must delete the relevant scope and create a new expense or recurring expense.
+On existing recurring expenses, schedule/date fields remain immutable. Edit screens display the current schedule and the first occurrence date for context, using text such as `The first occurrence in this series is on 5 Jun 2022.` Users cannot change the recurrence date, start date, frequency, interval, or recurrence pattern on the existing recurring rule. To change the schedule, they must delete the relevant scope and create a new expense or recurring expense.
 
 ## Editing Recurring Expenses
 

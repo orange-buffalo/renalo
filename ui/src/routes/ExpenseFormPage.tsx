@@ -421,6 +421,10 @@ function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
                   {loadedExpense.recurrence.description}
                 </p>
                 <p className="expense-recurrence-context-hint">
+                  The first occurrence in this series is on{" "}
+                  {formatShortDate(loadedExpense.recurrence.startDate)}.
+                </p>
+                <p className="expense-recurrence-context-hint">
                   Date and schedule cannot be edited. Delete and recreate the
                   relevant scope to change when this repeats.
                 </p>
@@ -482,6 +486,15 @@ function isoDateToCalendarDate(date: string) {
 
 function calendarDateToIsoDate(date: CalendarDate) {
   return date.toString();
+}
+
+function formatShortDate(isoDate: string) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
 }
 
 function recurrencePayloadFor(schedule: RecurrenceScheduleOption) {

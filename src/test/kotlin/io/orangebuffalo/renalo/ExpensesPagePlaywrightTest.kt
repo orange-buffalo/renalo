@@ -73,6 +73,23 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             "Subscription",
             recurringRule = recurringRule,
         )
+        val endedRecurringRule = saveRecurringRule(
+            alice,
+            main,
+            rent,
+            notes = "Ended subscription",
+            startDate = TestTimeProvider.DEFAULT_DATE.minusWeeks(1),
+            endDate = TestTimeProvider.DEFAULT_DATE,
+        )
+        saveExpense(
+            alice,
+            main,
+            rent,
+            TestTimeProvider.DEFAULT_DATE.minusWeeks(1),
+            1800,
+            "Ended subscription",
+            recurringRule = endedRecurringRule,
+        )
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/expenses")
@@ -82,6 +99,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
             ExpenseRow("Rent", "A$25.00", "Today Repeats weekly until 21 Jun 2099", "Main", "Subscription", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
+            ExpenseRow("Rent", "A$18.00", "Jun 7", "Main", "Ended subscription", "edit delete"),
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add expense")).click()
@@ -99,6 +117,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Rent", "A$25.00", "Today Repeats weekly until 21 Jun 2099", "Main", "Subscription", "edit delete"),
             ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
+            ExpenseRow("Rent", "A$18.00", "Jun 7", "Main", "Ended subscription", "edit delete"),
         )
 
         page.locator("[data-testid='expense-row-${todayExpense.id}']")
@@ -117,6 +136,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Rent", "A$25.00", "Today Repeats weekly until 21 Jun 2099", "Main", "Subscription", "edit delete"),
             ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
+            ExpenseRow("Rent", "A$18.00", "Jun 7", "Main", "Ended subscription", "edit delete"),
         )
 
         page.locator("[data-testid='expense-row-${todayExpense.id}']")
@@ -129,6 +149,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Rent", "A$25.00", "Today Repeats weekly until 21 Jun 2099", "Main", "Subscription", "edit delete"),
             ExpenseRow("Rent", "A$42.00", "Today", "Main", "Weekly rent", "edit delete"),
             ExpenseRow("Groceries", "A$55.00", "Yesterday", "Main", "-", "edit delete"),
+            ExpenseRow("Rent", "A$18.00", "Jun 7", "Main", "Ended subscription", "edit delete"),
         )
         expenseRepository.findById(todayExpense.id!!).isPresent.shouldBe(false)
     }
@@ -235,6 +256,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit expense"))).isVisible()
         assertThat(page.getByText("Repeats weekly until 21 Jun 2099")).isVisible()
+        assertThat(page.getByText("The first occurrence in this series is on 14 Jun 2099.")).isVisible()
         assertThat(page.getByText("Date and schedule cannot be edited.")).isVisible()
         assertThat(page.locator(".expense-date-field").getByRole(AriaRole.BUTTON)).isDisabled()
         assertThat(page.getByLabel("Recurring expense")).not().isVisible()
@@ -509,17 +531,19 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         account: TrackingAccount,
         category: ExpenseCategory,
         notes: String = "Subscription",
+        startDate: LocalDate = TestTimeProvider.DEFAULT_DATE,
+        endDate: LocalDate = TestTimeProvider.DEFAULT_DATE.plusWeeks(1),
     ): RecurringExpenseRule =
         recurringExpenseRuleRepository.save(
             RecurringExpenseRule(
                 userId = user.id!!,
                 trackingAccountId = account.id!!,
                 categoryId = category.id!!,
-                startDate = TestTimeProvider.DEFAULT_DATE,
-                endDate = TestTimeProvider.DEFAULT_DATE.plusWeeks(1),
+                startDate = startDate,
+                endDate = endDate,
                 recurrenceFrequency = 1,
                 recurrenceInterval = RecurrenceInterval.WEEK,
-                generatedUntil = TestTimeProvider.DEFAULT_DATE,
+                generatedUntil = startDate,
                 amountMinor = 2500,
                 notes = notes,
             ),

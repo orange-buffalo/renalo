@@ -115,6 +115,8 @@ class ExpenseApiTest : IntegrationTestSupport() {
                     "notes": "Rent",
                     "recurrence": {
                       "ruleId": ${recurringRule.id},
+                      "startDate": "2026-06-16",
+                      "endDate": "2026-07-01",
                       "instanceDate": "2026-06-16",
                       "description": "Repeats weekly until 1 Jul 2026"
                     }
@@ -264,6 +266,8 @@ class ExpenseApiTest : IntegrationTestSupport() {
                   "notes": "Rent",
                   "recurrence": {
                     "ruleId": ${rule.id},
+                    "startDate": "2099-06-01",
+                    "endDate": "2099-06-29",
                     "instanceDate": "2099-06-01",
                     "description": "Repeats every 2 weeks until 29 Jun 2099"
                   }
@@ -456,6 +460,8 @@ class ExpenseApiTest : IntegrationTestSupport() {
                   "notes": "Updated",
                   "recurrence": {
                     "ruleId": ${rule.id},
+                    "startDate": "2099-06-01",
+                    "endDate": "2099-06-15",
                     "instanceDate": "2099-06-08",
                     "description": "Repeats weekly until 15 Jun 2099"
                   }

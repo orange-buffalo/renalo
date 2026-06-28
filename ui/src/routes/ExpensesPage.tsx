@@ -145,7 +145,7 @@ export function ExpensesPage() {
                     </Table.Cell>
                     <Table.Cell mobileLabel="Date" mobileRole="detail">
                       <span>{formatExpenseDate(expense.date)}</span>
-                      {expense.recurrence && (
+                      {expense.recurrence && isActiveRecurrence(expense) && (
                         <span className="expense-recurrence-description">
                           {expense.recurrence.description}
                         </span>
@@ -249,4 +249,18 @@ function formatExpenseDate(isoDate: string) {
 
 function startOfLocalDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function isActiveRecurrence(expense: Expense) {
+  const endDate = expense.recurrence?.endDate;
+  if (!endDate) {
+    return true;
+  }
+
+  return startOfLocalDay(parseIsoDate(endDate)) > startOfLocalDay(new Date());
+}
+
+function parseIsoDate(isoDate: string) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }

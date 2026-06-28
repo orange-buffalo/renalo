@@ -16,6 +16,8 @@ export type Expense = {
   notes?: string | null;
   recurrence?: {
     ruleId: number;
+    startDate: string;
+    endDate?: string | null;
     instanceDate: string;
     description: string;
   } | null;

@@ -105,6 +105,8 @@ private fun ExpenseDetails.recurrenceResponse(): ExpenseRecurrenceResponse? {
     val instanceDate = expense.recurringInstanceDate ?: return null
     return ExpenseRecurrenceResponse(
         ruleId = rule.id ?: error("Recurring expense rule must be persisted before it can be returned"),
+        startDate = rule.startDate,
+        endDate = rule.endDate,
         instanceDate = instanceDate,
         description = RecurrenceDescriptionFormatter.describe(
             RecurrenceSchedule(rule.recurrenceFrequency, rule.recurrenceInterval),
@@ -125,6 +127,8 @@ data class ExpenseResponse(
 
 data class ExpenseRecurrenceResponse(
     val ruleId: Long,
+    val startDate: LocalDate,
+    val endDate: LocalDate?,
     val instanceDate: LocalDate,
     val description: String,
 )
