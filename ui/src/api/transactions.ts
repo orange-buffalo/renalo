@@ -55,7 +55,7 @@ export type TransactionApiConfig = {
 
 export const expenseTransactionApi: TransactionApiConfig = {
   type: "EXPENSE",
-  basePath: "/api/tracking/expenses",
+  basePath: "/api/tracking/transactions/EXPENSE",
 };
 
 export function fetchTransactions(config: TransactionApiConfig) {

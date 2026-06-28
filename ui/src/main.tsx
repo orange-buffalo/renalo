@@ -66,7 +66,7 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: "/expenses/:expenseId",
+    path: "/expenses/:transactionId",
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <EditExpensePage />

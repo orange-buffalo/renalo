@@ -66,11 +66,11 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val adminToken = api().login("admin", "password")
         val body = expenseJson(account, category, "2026-06-15", 1234, "Milk")
 
-        api().get("/api/tracking/expenses", null).statusCode().shouldBe(401)
-        api().get("/api/tracking/expenses", adminToken).statusCode().shouldBe(403)
-        api().postJson("/api/tracking/expenses", body, null).statusCode().shouldBe(401)
-        api().postJson("/api/tracking/expenses", body, adminToken).statusCode().shouldBe(403)
-        api().get("/api/tracking/expenses", userToken).statusCode().shouldBe(200)
+        api().get("/api/tracking/transactions/EXPENSE", null).statusCode().shouldBe(401)
+        api().get("/api/tracking/transactions/EXPENSE", adminToken).statusCode().shouldBe(403)
+        api().postJson("/api/tracking/transactions/EXPENSE", body, null).statusCode().shouldBe(401)
+        api().postJson("/api/tracking/transactions/EXPENSE", body, adminToken).statusCode().shouldBe(403)
+        api().get("/api/tracking/transactions/EXPENSE", userToken).statusCode().shouldBe(200)
     }
 
     @Test
@@ -94,7 +94,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         )
         saveExpense(bob, saveAccount(bob, "Bob account", "USD"), saveCategory(bob, "Bob category"), "2026-06-16", 999, "Hidden")
 
-        val response = api().get("/api/tracking/expenses", api().login("alice", "password"))
+        val response = api().get("/api/tracking/transactions/EXPENSE", api().login("alice", "password"))
 
         response.statusCode().shouldBe(200)
         response.body().shouldEqualJson(
@@ -166,7 +166,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         val createResponse = api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             expenseJson(account, groceries, "2026-06-15", 1234, " Milk "),
             token,
         )
@@ -194,7 +194,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         )
 
         val updateResponse = api().patchJson(
-            "/api/tracking/expenses/${expense.id}",
+            "/api/tracking/transactions/EXPENSE/${expense.id}",
             expenseJson(savings, rent, "2026-06-16", 2000, null),
             token,
         )
@@ -220,7 +220,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         )
         expenseRepository.findById(expense.id!!).get().trackingAccountId.shouldBe(savings.id)
 
-        api().delete("/api/tracking/expenses/${expense.id}", token).statusCode().shouldBe(204)
+        api().delete("/api/tracking/transactions/EXPENSE/${expense.id}", token).statusCode().shouldBe(204)
         expenseRepository.findById(expense.id!!).isPresent.shouldBe(false)
     }
 
@@ -232,7 +232,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         val createResponse = api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(
                 account = account,
                 category = category,
@@ -300,22 +300,22 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(account, category, "2099-06-01", 100, null, 1, "DAY", "2099-06-03"),
             token,
         ).statusCode().shouldBe(201)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(account, category, "2099-06-04", 100, null, 1, "WEEK", "2099-06-18"),
             token,
         ).statusCode().shouldBe(201)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(account, category, "2099-06-05", 100, null, 2, "WEEK", "2099-07-03"),
             token,
         ).statusCode().shouldBe(201)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(account, category, "2099-06-30", 100, null, 1, "MONTH", "2099-08-31"),
             token,
         ).statusCode().shouldBe(201)
@@ -371,7 +371,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
                 val existingRuleIds = recurringExpenseRuleRepository.findAll().mapNotNull { it.id }.toSet()
 
                 api().postJson(
-                    "/api/tracking/expenses",
+                    "/api/tracking/transactions/EXPENSE",
                     recurringExpenseJson(
                         account = account,
                         category = category,
@@ -417,8 +417,8 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val existing = saveExpense(alice, account, category, "2099-06-01", 5600, "Rent", rule.id, "2099-06-01")
         val token = api().login("alice", "password")
 
-        api().get("/api/tracking/expenses", token).statusCode().shouldBe(200)
-        api().get("/api/tracking/expenses/${existing.id}", token).statusCode().shouldBe(200)
+        api().get("/api/tracking/transactions/EXPENSE", token).statusCode().shouldBe(200)
+        api().get("/api/tracking/transactions/EXPENSE/${existing.id}", token).statusCode().shouldBe(200)
 
         expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
             .map { it.recurringInstanceDate }
@@ -437,7 +437,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         val response = api().patchJson(
-            "/api/tracking/expenses/${selected.id}",
+            "/api/tracking/transactions/EXPENSE/${selected.id}",
             recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
             token,
         )
@@ -487,7 +487,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().patchJson(
-            "/api/tracking/expenses/${selected.id}",
+            "/api/tracking/transactions/EXPENSE/${selected.id}",
             recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "THIS_AND_ALL_FOLLOWING_OCCURRENCES"),
             token,
         ).statusCode().shouldBe(200)
@@ -526,7 +526,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().patchJson(
-            "/api/tracking/expenses/${selectedLocked.id}",
+            "/api/tracking/transactions/EXPENSE/${selectedLocked.id}",
             recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "THIS_AND_ALL_FOLLOWING_OCCURRENCES"),
             token,
         ).statusCode().shouldBe(200)
@@ -558,7 +558,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().patchJson(
-            "/api/tracking/expenses/${selected.id}",
+            "/api/tracking/transactions/EXPENSE/${selected.id}",
             recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "ALL_OCCURRENCES"),
             token,
         ).statusCode().shouldBe(200)
@@ -582,7 +582,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().patchJson(
-            "/api/tracking/expenses/${selectedLocked.id}",
+            "/api/tracking/transactions/EXPENSE/${selectedLocked.id}",
             recurringExpenseEditJson(account, category, "2099-06-08", 6200, "Updated", "ALL_OCCURRENCES"),
             token,
         ).statusCode().shouldBe(200)
@@ -609,7 +609,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().deleteJson(
-            "/api/tracking/expenses/${selected.id}",
+            "/api/tracking/transactions/EXPENSE/${selected.id}",
             recurringExpenseDeleteJson("THIS_OCCURRENCE_ONLY"),
             token,
         ).statusCode().shouldBe(204)
@@ -643,7 +643,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().deleteJson(
-            "/api/tracking/expenses/${selected.id}",
+            "/api/tracking/transactions/EXPENSE/${selected.id}",
             recurringExpenseDeleteJson("THIS_AND_ALL_FOLLOWING_OCCURRENCES"),
             token,
         ).statusCode().shouldBe(204)
@@ -670,7 +670,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().deleteJson(
-            "/api/tracking/expenses/${first.id}",
+            "/api/tracking/transactions/EXPENSE/${first.id}",
             recurringExpenseDeleteJson("ALL_OCCURRENCES"),
             token,
         ).statusCode().shouldBe(204)
@@ -698,7 +698,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
             recurringExpenseEditWithRecurrenceJson(account, category, "2099-06-08", 6200, "Updated", 1, "WEEK", "2099-06-29"),
         ).forEach { requestBody ->
             api().patchJson(
-                "/api/tracking/expenses/${expense.id}",
+                "/api/tracking/transactions/EXPENSE/${expense.id}",
                 requestBody,
                 token,
             ).statusCode().shouldBe(400)
@@ -725,7 +725,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().patchJson(
-            "/api/tracking/expenses/${expense.id}",
+            "/api/tracking/transactions/EXPENSE/${expense.id}",
             expenseJson(account, category, "2099-06-08", 6200, "Updated"),
             token,
         ).statusCode().shouldBe(400)
@@ -745,7 +745,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val expense = saveExpense(alice, account, category, "2099-06-08", 5600, "Rent", rule.id, "2099-06-08")
         val token = api().login("alice", "password")
 
-        api().delete("/api/tracking/expenses/${expense.id}", token).statusCode().shouldBe(400)
+        api().delete("/api/tracking/transactions/EXPENSE/${expense.id}", token).statusCode().shouldBe(400)
 
         expenseRepository.findById(expense.id!!).isPresent.shouldBe(true)
         recurringExpenseSkipRepository.findByRecurringRuleId(rule.id!!).shouldBe(emptyList())
@@ -768,7 +768,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
             recurringExpenseEditJson(account, bobCategory, "2099-06-08", 6200, "Updated", "THIS_OCCURRENCE_ONLY"),
         ).forEach { requestBody ->
             api().patchJson(
-                "/api/tracking/expenses/${expense.id}",
+                "/api/tracking/transactions/EXPENSE/${expense.id}",
                 requestBody,
                 token,
             ).statusCode().shouldBe(400)
@@ -798,49 +798,49 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             expenseJson(aliceAccount, aliceCategory, "2026-06-15", 0, null),
             token,
         ).statusCode().shouldBe(400)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             expenseJson(bobAccount, aliceCategory, "2026-06-15", 1000, null),
             token,
         ).statusCode().shouldBe(400)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             expenseJson(aliceAccount, bobCategory, "2026-06-15", 1000, null),
             token,
         ).statusCode().shouldBe(400)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(aliceAccount, aliceCategory, "2026-06-15", 1000, null, 0, "WEEK", "2026-06-22"),
             token,
         ).statusCode().shouldBe(400)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(aliceAccount, aliceCategory, "2026-06-15", 1000, null, 1, "WEEK", "2026-06-14"),
             token,
         ).statusCode().shouldBe(400)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(bobAccount, aliceCategory, "2026-06-15", 1000, null, 1, "WEEK", "2026-06-22"),
             token,
         ).statusCode().shouldBe(400)
         api().postJson(
-            "/api/tracking/expenses",
+            "/api/tracking/transactions/EXPENSE",
             recurringExpenseJson(aliceAccount, bobCategory, "2026-06-15", 1000, null, 1, "WEEK", "2026-06-22"),
             token,
         ).statusCode().shouldBe(400)
-        api().get("/api/tracking/expenses/${bobExpense.id}", token).statusCode().shouldBe(404)
+        api().get("/api/tracking/transactions/EXPENSE/${bobExpense.id}", token).statusCode().shouldBe(404)
         api().patchJson(
-            "/api/tracking/expenses/${bobExpense.id}",
+            "/api/tracking/transactions/EXPENSE/${bobExpense.id}",
             expenseJson(aliceAccount, aliceCategory, "2026-06-15", 1000, null),
             token,
         ).statusCode().shouldBe(404)
-        api().delete("/api/tracking/expenses/${bobExpense.id}", token).statusCode().shouldBe(404)
+        api().delete("/api/tracking/transactions/EXPENSE/${bobExpense.id}", token).statusCode().shouldBe(404)
         api().deleteJson(
-            "/api/tracking/expenses/${bobRecurringExpense.id}",
+            "/api/tracking/transactions/EXPENSE/${bobRecurringExpense.id}",
             recurringExpenseDeleteJson("ALL_OCCURRENCES"),
             token,
         ).statusCode().shouldBe(404)

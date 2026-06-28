@@ -309,7 +309,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByText("Repeats weekly until 21 Jun 2099")).isVisible()
         assertThat(page.getByText("The first occurrence in this series is on 14 Jun 2099.")).isVisible()
         assertThat(page.getByText("Date and schedule cannot be edited.")).isVisible()
-        assertThat(page.locator(".expense-date-field").getByRole(AriaRole.BUTTON)).isDisabled()
+        assertThat(page.locator(".transaction-date-field").getByRole(AriaRole.BUTTON)).isDisabled()
         assertThat(page.getByLabel("Recurring expense")).not().isVisible()
         assertThat(page.getByLabel("Repeat")).not().isVisible()
         selectOption(page, "Category", "Bills")

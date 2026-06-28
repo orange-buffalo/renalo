@@ -116,7 +116,7 @@ Tests:
 Review notes:
 
 - Do not expose recurrence through APIs yet unless needed for internal tests.
-- Existing expense API and UI tests should remain unchanged except for harmless extra persisted columns.
+- Existing expense UI tests should remain unchanged except for harmless extra persisted columns; API tests should target transaction endpoints with `TransactionType.EXPENSE`.
 
 ## Step 3: Recurring Expense Generation Service
 
