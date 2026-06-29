@@ -94,6 +94,7 @@ export function TransactionMoreFilters({
                 placeholder="Search notes"
                 value={value.notes}
                 onChange={(notes) => update({ notes })}
+                className="transaction-filter-input"
               />
             </div>
           </AriaDialog>

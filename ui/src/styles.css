@@ -197,7 +197,7 @@ input {
 }
 
 .transaction-more-filters-dialog {
-  width: min(430px, calc(100vw - 32px));
+  width: min(387px, calc(100vw - 32px));
   padding: 16px;
   outline: none;
 }
@@ -225,6 +225,7 @@ input {
 .transaction-filter-field {
   display: grid;
   gap: 8px;
+  width: 100%;
 }
 
 .transaction-filter-field-label {
@@ -234,7 +235,7 @@ input {
 }
 
 .transaction-filter-select-trigger {
-  width: max-content;
+  width: 100%;
 }
 
 .transaction-filter-select-dialog {
@@ -244,8 +245,14 @@ input {
 }
 
 .transaction-filter-search {
+  width: 100%;
   max-width: none;
   margin-bottom: 10px;
+}
+
+.transaction-filter-input {
+  width: 100%;
+  max-width: none;
 }
 
 .transaction-filter-options {
