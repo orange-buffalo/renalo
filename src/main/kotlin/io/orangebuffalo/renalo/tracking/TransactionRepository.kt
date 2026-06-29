@@ -10,6 +10,13 @@ import java.time.LocalDate
 interface TransactionRepository : CrudRepository<Transaction, Long> {
     fun findByUserIdAndTypeOrderByDateDesc(userId: Long, type: TransactionType): List<Transaction>
 
+    fun findByUserIdAndTypeAndDateBetweenOrderByDateDesc(
+        userId: Long,
+        type: TransactionType,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<Transaction>
+
     fun findByIdAndUserIdAndType(id: Long, userId: Long, type: TransactionType): Transaction?
 
     fun findByRecurringRuleIdAndRecurringInstanceDate(

@@ -161,6 +161,74 @@ class IncomeApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun filtersIncomesByInclusiveDateRange() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val salary = saveIncomeCategory(alice, "Salary")
+        saveIncome(alice, account, salary, "2026-05-31", 1100, "Previous")
+        val first = saveIncome(alice, account, salary, "2026-06-01", 1200, "First")
+        val middle = saveIncome(alice, account, salary, "2026-06-15", 3400, "Middle")
+        val last = saveIncome(alice, account, salary, "2026-06-30", 5600, "Last")
+        saveIncome(alice, account, salary, "2026-07-01", 7800, "Next")
+        val token = api().login("alice", "password")
+
+        val response = api().get("/api/tracking/transactions/INCOME?from=2026-06-01&to=2026-06-30", token)
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${last.id},
+                    "trackingAccount": {
+                      "id": ${account.id},
+                      "name": "Main",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${salary.id},
+                      "name": "Salary"
+                    },
+                    "date": "2026-06-30",
+                    "amountMinor": 5600,
+                    "notes": "Last"
+                  },
+                  {
+                    "id": ${middle.id},
+                    "trackingAccount": {
+                      "id": ${account.id},
+                      "name": "Main",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${salary.id},
+                      "name": "Salary"
+                    },
+                    "date": "2026-06-15",
+                    "amountMinor": 3400,
+                    "notes": "Middle"
+                  },
+                  {
+                    "id": ${first.id},
+                    "trackingAccount": {
+                      "id": ${account.id},
+                      "name": "Main",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${salary.id},
+                      "name": "Salary"
+                    },
+                    "date": "2026-06-01",
+                    "amountMinor": 1200,
+                    "notes": "First"
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
     fun rejectsIncomeReferencesOutsideIncomeCategoryScope() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)

@@ -1,6 +1,7 @@
 import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { useAppState } from "@/AppState";
 import {
   deleteTransaction,
   fetchTransactions,
@@ -9,6 +10,7 @@ import {
   type TransactionApiConfig,
 } from "@/api/transactions";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
 import { TableLoadingState } from "@/components/TableLoadingState";
@@ -57,6 +59,7 @@ export function TransactionsPage({
   config: TransactionsPageConfig;
 }) {
   const navigate = useNavigate();
+  const { transactionDateFilter, setTransactionDateFilter } = useAppState();
   const [transactions, setTransactions] = useState<Transaction[]>();
   const [error, setError] = useState<string>();
   const [confirmingTransaction, setConfirmingTransaction] =
@@ -72,7 +75,7 @@ export function TransactionsPage({
 
   useEffect(() => {
     let isActive = true;
-    fetchTransactions(config.api)
+    fetchTransactions(config.api, transactionDateFilter)
       .then((loadedTransactions) => {
         if (isActive) {
           setTransactions(loadedTransactions);
@@ -87,7 +90,7 @@ export function TransactionsPage({
     return () => {
       isActive = false;
     };
-  }, [config]);
+  }, [config, transactionDateFilter]);
 
   async function handleDeleteConfirmed() {
     if (!confirmingTransaction) {
@@ -103,7 +106,9 @@ export function TransactionsPage({
         confirmingTransaction.recurrence ? recurringDeleteScope : undefined,
       );
       if (confirmingTransaction.recurrence) {
-        setTransactions(await fetchTransactions(config.api));
+        setTransactions(
+          await fetchTransactions(config.api, transactionDateFilter),
+        );
       } else {
         setTransactions((currentTransactions) =>
           currentTransactions?.filter(
@@ -135,6 +140,10 @@ export function TransactionsPage({
         </Button>
       }
     >
+      <DateRangeFilter
+        value={transactionDateFilter}
+        onChange={setTransactionDateFilter}
+      />
       <section className="standard-page-panel user-management-panel">
         <TableCard.Root size="sm">
           {error && (

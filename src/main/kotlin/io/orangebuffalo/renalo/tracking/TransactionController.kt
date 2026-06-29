@@ -7,6 +7,7 @@ import io.micronaut.http.annotation.Delete
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
@@ -22,12 +23,20 @@ class TransactionController(
     private val transactionService: TransactionService,
 ) {
     @Get("/{type}")
-    fun listTransactions(type: TransactionType, authentication: Authentication): HttpResponse<*> {
+    fun listTransactions(
+        type: TransactionType,
+        authentication: Authentication,
+        @QueryValue from: LocalDate?,
+        @QueryValue to: LocalDate?,
+    ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
+        if ((from == null) != (to == null) || (from != null && to != null && from.isAfter(to))) {
+            return HttpResponse.badRequest<Any>()
+        }
 
         return HttpResponse.ok(
-            transactionService.listTransactions(user.id!!, type).map { it.toResponse() },
+            transactionService.listTransactions(user.id!!, type, TransactionDateFilter(from, to)).map { it.toResponse() },
         )
     }
 

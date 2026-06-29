@@ -15,8 +15,18 @@ open class TransactionService(
     private val recurringTransactionSkipRepository: RecurringTransactionSkipRepository,
     private val recurringTransactionGenerationService: RecurringTransactionGenerationService,
 ) {
-    fun listTransactions(userId: Long, type: TransactionType): List<TransactionDetails> =
-        transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, type).mapNotNull { it.toDetails(userId, type) }
+    fun listTransactions(
+        userId: Long,
+        type: TransactionType,
+        filter: TransactionDateFilter = TransactionDateFilter(),
+    ): List<TransactionDetails> {
+        val transactions = if (filter.from != null && filter.to != null) {
+            transactionRepository.findByUserIdAndTypeAndDateBetweenOrderByDateDesc(userId, type, filter.from, filter.to)
+        } else {
+            transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, type)
+        }
+        return transactions.mapNotNull { it.toDetails(userId, type) }
+    }
 
     fun findTransaction(userId: Long, type: TransactionType, transactionId: Long): TransactionDetails? =
         transactionRepository.findByIdAndUserIdAndType(transactionId, userId, type)?.toDetails(userId, type)
@@ -320,6 +330,11 @@ data class TransactionDetails(
     val account: TrackingAccount,
     val category: TransactionCategoryDetails,
     val recurringRule: RecurringTransactionRule? = null,
+)
+
+data class TransactionDateFilter(
+    val from: LocalDate? = null,
+    val to: LocalDate? = null,
 )
 
 sealed interface SaveTransactionResult {

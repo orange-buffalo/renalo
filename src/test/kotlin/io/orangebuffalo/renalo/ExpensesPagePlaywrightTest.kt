@@ -30,6 +30,7 @@ import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
+import java.util.regex.Pattern
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -210,6 +211,103 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Groceries", "A$21.00", "Jun 15", "Main", "Planned groceries", "edit delete"),
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
         )
+    }
+
+    @Test
+    fun filtersExpensesBySharedDateRange(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val groceries = saveCategory(alice, "Groceries")
+        val rent = saveCategory(alice, "Rent")
+        saveExpense(alice, main, rent, LocalDate.parse("2098-12-31"), 3100, "Previous year")
+        saveExpense(alice, main, groceries, LocalDate.parse("2099-05-15"), 1500, "Previous month")
+        saveExpense(alice, main, groceries, LocalDate.parse("2099-06-03"), 300, "Early month")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1400, "Today")
+        saveExpense(alice, main, rent, LocalDate.parse("2099-07-10"), 7000, "Next month")
+        saveExpense(alice, main, groceries, LocalDate.parse("2099-04-30"), 4300, "April end")
+        saveExpense(alice, main, groceries, LocalDate.parse("2099-04-19"), 1900, "April partial")
+        saveExpense(alice, main, rent, LocalDate.parse("2099-03-03"), 3030, "March partial")
+        saveExpense(alice, main, rent, LocalDate.parse("2099-03-01"), 3010, "March start")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses")
+
+        assertDateFilterLabel(page, "This month")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
+            ExpenseRow("Groceries", "A$3.00", "Jun 3", "Main", "Early month", "edit delete"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Previous date range")).click()
+        assertDateFilterLabel(page, "May 2099")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Groceries", "A$15.00", "May 15", "Main", "Previous month", "edit delete"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range")).click()
+        assertDateFilterLabel(page, "June 2099")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
+            ExpenseRow("Groceries", "A$3.00", "Jun 3", "Main", "Early month", "edit delete"),
+        )
+
+        applyDateFilterPreset(page, "June 2099", "Previous month")
+        assertDateFilterLabel(page, "Previous month")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Groceries", "A$15.00", "May 15", "Main", "Previous month", "edit delete"),
+        )
+
+        applyDateFilterPreset(page, "Previous month", "Next month")
+        assertDateFilterLabel(page, "Next month")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
+        )
+
+        applyDateFilterPreset(page, "Next month", "This year")
+        assertDateFilterLabel(page, "This year")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
+            ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
+            ExpenseRow("Groceries", "A$3.00", "Jun 3", "Main", "Early month", "edit delete"),
+            ExpenseRow("Groceries", "A$15.00", "May 15", "Main", "Previous month", "edit delete"),
+            ExpenseRow("Groceries", "A$43.00", "Apr 30", "Main", "April end", "edit delete"),
+            ExpenseRow("Groceries", "A$19.00", "Apr 19", "Main", "April partial", "edit delete"),
+            ExpenseRow("Rent", "A$30.30", "Mar 3", "Main", "March partial", "edit delete"),
+            ExpenseRow("Rent", "A$30.10", "Mar 1", "Main", "March start", "edit delete"),
+        )
+
+        applyDateFilterPreset(page, "This year", "All time")
+        assertDateFilterLabel(page, "All time")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
+            ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
+            ExpenseRow("Groceries", "A$3.00", "Jun 3", "Main", "Early month", "edit delete"),
+            ExpenseRow("Groceries", "A$15.00", "May 15", "Main", "Previous month", "edit delete"),
+            ExpenseRow("Groceries", "A$43.00", "Apr 30", "Main", "April end", "edit delete"),
+            ExpenseRow("Groceries", "A$19.00", "Apr 19", "Main", "April partial", "edit delete"),
+            ExpenseRow("Rent", "A$30.30", "Mar 3", "Main", "March partial", "edit delete"),
+            ExpenseRow("Rent", "A$30.10", "Mar 1", "Main", "March start", "edit delete"),
+            ExpenseRow("Rent", "A$31.00", "Dec 31", "Main", "Previous year", "edit delete"),
+        )
+
+        applyCustomVisibleDateRange(page, "All time", startDay = "1", startIndex = 0, endDay = "31", endIndex = 0)
+        assertDateFilterLabel(page, "June 2099 - July 2099")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
+            ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
+            ExpenseRow("Groceries", "A$3.00", "Jun 3", "Main", "Early month", "edit delete"),
+        )
+
+        applyCustomVisibleDateRange(page, "June 2099 - July 2099", startDay = "3", startIndex = 0, endDay = "19", endIndex = 1)
+        assertDateFilterLabel(page, "3 Jun 2099 - 19 Jul 2099")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
+            ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
+            ExpenseRow("Groceries", "A$3.00", "Jun 3", "Main", "Early month", "edit delete"),
+        )
+
+        page.reload()
+        assertDateFilterLabel(page, "This month")
     }
 
     @Test
@@ -638,6 +736,37 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel(label).click()
         page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
     }
+
+    private fun assertDateFilterLabel(page: Page, label: String) {
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(label).setExact(true))).isVisible()
+    }
+
+    private fun applyDateFilterPreset(page: Page, currentLabel: String, preset: String) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(currentLabel).setExact(true)).click()
+        val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        assertThat(dialog).isVisible()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(preset).setExact(true)).click()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply")).click()
+    }
+
+    private fun applyCustomVisibleDateRange(
+        page: Page,
+        currentLabel: String,
+        startDay: String,
+        startIndex: Int,
+        endDay: String,
+        endIndex: Int,
+    ) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(currentLabel).setExact(true)).click()
+        val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        assertThat(dialog).isVisible()
+        calendarDay(dialog, startDay).nth(startIndex).click()
+        calendarDay(dialog, endDay).nth(endIndex).click()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply")).click()
+    }
+
+private fun calendarDay(dialog: Locator, day: String): Locator = dialog.locator("[role='gridcell']:not([aria-disabled='true'])")
+    .filter(Locator.FilterOptions().setHasText(Pattern.compile("^$day$")))
 
     private fun extractExpenseRows(page: Page): List<ExpenseRow> {
         @Suppress("UNCHECKED_CAST")

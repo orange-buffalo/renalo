@@ -154,7 +154,120 @@ input {
   font-style: italic;
 }
 
+.date-filter-panel {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 16px;
+}
+
+.date-filter-control {
+  display: grid;
+  grid-template-columns: auto minmax(180px, auto) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.date-filter-label-button {
+  min-width: 180px;
+  color: #344054;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.date-filter-popover {
+  z-index: 50;
+}
+
+.date-filter-dialog {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d0d5dd;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow:
+    0 20px 24px -4px rgb(16 24 40 / 0.08),
+    0 8px 8px -4px rgb(16 24 40 / 0.03);
+  outline: none;
+}
+
+.date-filter-presets {
+  display: flex;
+  width: 180px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  border-right: 1px solid #eaecf0;
+}
+
+.date-filter-preset {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #344054;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.date-filter-preset:hover,
+.date-filter-preset-selected {
+  background: #f9fafb;
+  color: #182230;
+}
+
+.date-filter-calendar-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-filter-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px;
+  border-top: 1px solid #eaecf0;
+}
+
+.date-filter-selected-range {
+  color: #475467;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.date-filter-dialog-actions {
+  display: flex;
+  gap: 12px;
+}
+
 @media (max-width: 767px) {
+  .date-filter-control {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .date-filter-label-button {
+    min-width: 0;
+  }
+
+  .date-filter-dialog {
+    max-width: calc(100vw - 24px);
+    flex-direction: column;
+  }
+
+  .date-filter-presets {
+    width: 100%;
+    border-right: 0;
+    border-bottom: 1px solid #eaecf0;
+  }
+
+  .date-filter-dialog-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .table-card-root:has(.responsive-table) {
     overflow: visible;
     border-radius: 0;

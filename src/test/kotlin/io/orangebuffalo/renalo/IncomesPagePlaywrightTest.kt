@@ -14,6 +14,8 @@ import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestAuthTokens
 import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.test.shouldEventually
+import io.orangebuffalo.renalo.tracking.ExpenseCategory
+import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.IncomeCategory
 import io.orangebuffalo.renalo.tracking.IncomeCategoryRepository
 import io.orangebuffalo.renalo.tracking.RecurringTransactionRuleRepository
@@ -41,6 +43,9 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var incomeCategoryRepository: IncomeCategoryRepository
+
+    @Inject
+    lateinit var expenseCategoryRepository: ExpenseCategoryRepository
 
     @Inject
     lateinit var transactionRepository: TransactionRepository
@@ -156,14 +161,58 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             )
         page.shouldEventuallyContainIncomeRows(
             IncomeRow("Salary", "A$1,234.00", "Today Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
-            IncomeRow("Planned incomes", "A$2,468.00", "", "", "", "view"),
         )
 
+        applyDateFilterPreset(page, "This month", "All time")
+        page.shouldEventuallyContainIncomeRows(
+            IncomeRow("Salary", "A$1,234.00", "Today Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
+            IncomeRow("Planned incomes", "A$2,468.00", "", "", "", "view"),
+        )
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("View all planned incomes")).click()
         page.shouldEventuallyContainIncomeRows(
             IncomeRow("Salary", "A$1,234.00", "Today Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
             IncomeRow("Salary", "A$1,234.00", "Jul 14 Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
             IncomeRow("Salary", "A$1,234.00", "Aug 14 Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
+        )
+    }
+
+    @Test
+    fun sharesDateFilterBetweenIncomeAndExpensePages(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val salary = saveCategory(alice, "Salary")
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 123400, "This month income")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE.plusMonths(1), 200000, "Next month income")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1200, "This month expense")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE.plusMonths(1), 3400, "Next month expense")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes")
+
+        assertDateFilterLabel(page, "This month")
+        page.shouldEventuallyContainIncomeRows(
+            IncomeRow("Salary", "A$1,234.00", "Today", "Main", "This month income", "edit delete"),
+        )
+
+        applyDateFilterPreset(page, "This month", "Next month")
+        assertDateFilterLabel(page, "Next month")
+        page.shouldEventuallyContainIncomeRows(
+            IncomeRow("Planned incomes", "A$2,000.00", "", "", "", "view"),
+        )
+
+        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Expenses")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        assertDateFilterLabel(page, "Next month")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Planned expenses", "A$34.00", "", "", "", "view"),
+        )
+
+        page.reload()
+        assertDateFilterLabel(page, "This month")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Groceries", "A$12.00", "Today", "Main", "This month expense", "edit delete"),
         )
     }
 
@@ -220,6 +269,13 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         ),
     )
 
+    private fun saveExpenseCategory(user: User, name: String): ExpenseCategory = expenseCategoryRepository.save(
+        ExpenseCategory(
+            userId = user.id!!,
+            name = name,
+        ),
+    )
+
     private fun saveIncome(
         user: User,
         account: TrackingAccount,
@@ -238,6 +294,36 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             notes = notes,
         ),
     )
+
+    private fun saveExpense(
+        user: User,
+        account: TrackingAccount,
+        category: ExpenseCategory,
+        date: LocalDate,
+        amountMinor: Long,
+        notes: String?,
+    ): Transaction = transactionRepository.save(
+        Transaction(
+            userId = user.id!!,
+            type = TransactionType.EXPENSE,
+            trackingAccountId = account.id!!,
+            categoryId = category.id!!,
+            date = date,
+            amountMinor = amountMinor,
+            notes = notes,
+        ),
+    )
+
+    private fun assertDateFilterLabel(page: Page, label: String) {
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(label).setExact(true))).isVisible()
+    }
+
+    private fun applyDateFilterPreset(page: Page, currentLabel: String, preset: String) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(currentLabel).setExact(true)).click()
+        val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(preset).setExact(true)).click()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply")).click()
+    }
 
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
@@ -275,7 +361,47 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         }
     }
 
+    private fun Page.shouldEventuallyContainExpenseRows(vararg expectedRows: ExpenseRow) {
+        shouldEventually {
+            extractExpenseRows(this).shouldContainExactlyInAnyOrder(*expectedRows)
+        }
+    }
+
+    private fun extractExpenseRows(page: Page): List<ExpenseRow> {
+        @Suppress("UNCHECKED_CAST")
+        val rows = page.locator("[data-testid^='expense-row-']").evaluateAll(
+            """
+                rows => rows.map(row => Array.from(row.querySelectorAll('[role="rowheader"], [role="gridcell"]'))
+                    .map(cell => {
+                        const actions = Array.from(cell.querySelectorAll('[data-action-icon]'))
+                            .map(icon => icon.dataset.actionIcon);
+                        return actions.length ? actions.join(' ') : cell.innerText.trim().replace(/\n+/g, ' ');
+                    }))
+            """.trimIndent(),
+        ) as List<List<String>>
+
+        return rows.map { cells ->
+            ExpenseRow(
+                category = cells.getOrElse(0) { "" },
+                amount = cells.getOrElse(1) { "" },
+                date = cells.getOrElse(2) { "" },
+                account = cells.getOrElse(3) { "" },
+                notes = cells.getOrElse(4) { "" },
+                action = cells.getOrElse(5) { "" },
+            )
+        }
+    }
+
     private data class IncomeRow(
+        val category: String,
+        val amount: String,
+        val date: String,
+        val account: String,
+        val notes: String,
+        val action: String,
+    )
+
+    private data class ExpenseRow(
         val category: String,
         val amount: String,
         val date: String,

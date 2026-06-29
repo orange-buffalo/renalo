@@ -157,6 +157,84 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun filtersExpensesByInclusiveDateRange() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Everyday", "AUD")
+        val category = saveCategory(alice, "Groceries")
+        saveExpense(alice, account, category, "2026-05-31", 1100, "Previous")
+        val first = saveExpense(alice, account, category, "2026-06-01", 1200, "First")
+        val middle = saveExpense(alice, account, category, "2026-06-15", 3400, "Middle")
+        val last = saveExpense(alice, account, category, "2026-06-30", 5600, "Last")
+        saveExpense(alice, account, category, "2026-07-01", 7800, "Next")
+        val token = api().login("alice", "password")
+
+        val response = api().get("/api/tracking/transactions/EXPENSE?from=2026-06-01&to=2026-06-30", token)
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${last.id},
+                    "trackingAccount": {
+                      "id": ${account.id},
+                      "name": "Everyday",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${category.id},
+                      "name": "Groceries"
+                    },
+                    "date": "2026-06-30",
+                    "amountMinor": 5600,
+                    "notes": "Last"
+                  },
+                  {
+                    "id": ${middle.id},
+                    "trackingAccount": {
+                      "id": ${account.id},
+                      "name": "Everyday",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${category.id},
+                      "name": "Groceries"
+                    },
+                    "date": "2026-06-15",
+                    "amountMinor": 3400,
+                    "notes": "Middle"
+                  },
+                  {
+                    "id": ${first.id},
+                    "trackingAccount": {
+                      "id": ${account.id},
+                      "name": "Everyday",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${category.id},
+                      "name": "Groceries"
+                    },
+                    "date": "2026-06-01",
+                    "amountMinor": 1200,
+                    "notes": "First"
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun rejectsInvalidExpenseDateFilters() {
+        val alice = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        api().get("/api/tracking/transactions/EXPENSE?from=2026-06-01", token).statusCode().shouldBe(400)
+        api().get("/api/tracking/transactions/EXPENSE?to=2026-06-30", token).statusCode().shouldBe(400)
+        api().get("/api/tracking/transactions/EXPENSE?from=2026-07-01&to=2026-06-30", token).statusCode().shouldBe(400)
+    }
+
+    @Test
     fun createsUpdatesAndDeletesExpenseForCurrentUser() {
         val alice = saveUser("alice", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD")

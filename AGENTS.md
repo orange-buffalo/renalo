@@ -20,6 +20,7 @@
 - Do not silently swallow exceptions. Broad catches are only acceptable at explicit process boundaries where the design requires continuing, and they must log/report the failure and preserve visibility. Prefer precise database operations, validation, or propagated failures over catch-based workarounds.
 - Budget-tracking data is always regular-user-bound. `TrackingAccount` owns the account currency and initial balance used by later incomes, expenses, transfers, and analytics settings.
 - Income and expense rows share the type-discriminated `Transaction` backend model and transaction-oriented API; expense and income pages use shared transaction UI components configured with type-specific labels, routes, category loaders, and `TransactionType` filters.
+- Transaction overview date filtering is app-global in-memory UI state and must be applied through transaction API/database query parameters, not by client-side filtering of already-loaded rows.
 - Expense dates are date-only values (`LocalDate` / ISO `YYYY-MM-DD`), not timestamps.
 - Recurrence schedule calculation and display formatting must stay in shared code under `io.orangebuffalo.renalo.recurrence`, not in expense- or income-specific services.
 - Generated recurring expenses are regular `Transaction` rows with type `EXPENSE`, linked to a recurring rule by `recurringRuleId` and `recurringInstanceDate`; there is no separate occurrence model.
