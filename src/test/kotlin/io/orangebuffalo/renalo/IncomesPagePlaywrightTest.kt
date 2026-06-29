@@ -163,7 +163,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             IncomeRow("Salary", "A$1,234.00", "Today Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
         )
 
-        applyDateFilterPreset(page, "This month", "All time")
+        applyDateFilterPreset(page, "June 2099", "All time")
         page.shouldEventuallyContainIncomeRows(
             IncomeRow("Salary", "A$1,234.00", "Today Repeats monthly until 14 Aug 2099", "Main", "Monthly salary", "edit delete"),
             IncomeRow("Planned incomes", "A$2,468.00", "", "", "", "view"),
@@ -190,13 +190,13 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/incomes")
 
-        assertDateFilterLabel(page, "This month")
+        assertDateFilterLabel(page, "June 2099")
         page.shouldEventuallyContainIncomeRows(
             IncomeRow("Salary", "A$1,234.00", "Today", "Main", "This month income", "edit delete"),
         )
 
-        applyDateFilterPreset(page, "This month", "Next month")
-        assertDateFilterLabel(page, "Next month")
+        applyDateFilterPreset(page, "June 2099", "Next month")
+        assertDateFilterLabel(page, "July 2099")
         page.shouldEventuallyContainIncomeRows(
             IncomeRow("Planned incomes", "A$2,000.00", "", "", "", "view"),
         )
@@ -204,13 +204,13 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Expenses")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
-        assertDateFilterLabel(page, "Next month")
+        assertDateFilterLabel(page, "July 2099")
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Planned expenses", "A$34.00", "", "", "", "view"),
         )
 
         page.reload()
-        assertDateFilterLabel(page, "This month")
+        assertDateFilterLabel(page, "June 2099")
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$12.00", "Today", "Main", "This month expense", "edit delete"),
         )

@@ -157,21 +157,21 @@ input {
 .date-filter-panel {
   display: flex;
   justify-content: flex-start;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .date-filter-control {
   display: grid;
-  grid-template-columns: auto minmax(180px, auto) auto;
+  grid-template-columns: auto minmax(150px, auto) auto;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .date-filter-label-button {
-  min-width: 180px;
+  min-width: 150px;
   color: #344054;
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 400;
 }
 
 .date-filter-popover {
@@ -192,10 +192,10 @@ input {
 
 .date-filter-presets {
   display: flex;
-  width: 180px;
+  width: 164px;
   flex-direction: column;
   gap: 4px;
-  padding: 18px;
+  padding: 12px;
   border-right: 1px solid #eaecf0;
 }
 
@@ -207,7 +207,7 @@ input {
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 600;
-  padding: 10px 12px;
+  padding: 8px 10px;
   text-align: left;
 }
 
@@ -226,8 +226,8 @@ input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 16px;
+  gap: 16px;
+  padding: 12px;
   border-top: 1px solid #eaecf0;
 }
 
@@ -239,7 +239,7 @@ input {
 
 .date-filter-dialog-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 @media (max-width: 767px) {

@@ -61,6 +61,7 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
   const [focusedValue, setFocusedValue] = useState<CalendarDate | null>(
     draftRange.start,
   );
+  const canNavigateByMonth = isSingleFullMonthFilter(value);
 
   function openChanged(open: boolean) {
     setIsOpen(open);
@@ -106,12 +107,13 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
           color="tertiary"
           size="sm"
           iconLeading={ChevronLeft}
+          isDisabled={!canNavigateByMonth}
           onPress={() => onChange(previousMonthFilter(value))}
         />
         <AriaDialogTrigger isOpen={isOpen} onOpenChange={openChanged}>
           <Button
             color="tertiary"
-            size="md"
+            size="sm"
             className="date-filter-label-button"
           >
             {value.label}
@@ -184,6 +186,7 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
           color="tertiary"
           size="sm"
           iconLeading={ChevronRight}
+          isDisabled={!canNavigateByMonth}
           onPress={() => onChange(nextMonthFilter(value))}
         />
       </div>
@@ -207,7 +210,10 @@ export function filterForPreset(
   return {
     from: calendarDateToIsoDate(range.start),
     to: calendarDateToIsoDate(range.end),
-    label: presetLabels[preset],
+    label:
+      preset === "THIS_YEAR"
+        ? presetLabels[preset]
+        : smartRangeLabel(range.start, range.end),
     preset,
   };
 }
@@ -279,6 +285,21 @@ function monthNavigationBase(value: TransactionDateFilterValue) {
   return value.from
     ? isoDateToCalendarDate(value.from)
     : dateToCalendarDate(new Date());
+}
+
+function isSingleFullMonthFilter(value: TransactionDateFilterValue) {
+  if (!value.from || !value.to) {
+    return false;
+  }
+
+  const start = isoDateToCalendarDate(value.from);
+  const end = isoDateToCalendarDate(value.to);
+  return (
+    start.year === end.year &&
+    start.month === end.month &&
+    start.day === 1 &&
+    end.day === endOfMonth(end).day
+  );
 }
 
 function smartRangeLabel(start: CalendarDate, end: CalendarDate) {

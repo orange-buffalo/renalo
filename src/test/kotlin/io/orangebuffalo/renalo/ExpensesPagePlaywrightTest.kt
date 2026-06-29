@@ -232,7 +232,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/expenses")
 
-        assertDateFilterLabel(page, "This month")
+        assertDateFilterLabel(page, "June 2099")
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
             ExpenseRow("Groceries", "A$3.00", "Jun 3", "Main", "Early month", "edit delete"),
@@ -252,19 +252,20 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         )
 
         applyDateFilterPreset(page, "June 2099", "Previous month")
-        assertDateFilterLabel(page, "Previous month")
+        assertDateFilterLabel(page, "May 2099")
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$15.00", "May 15", "Main", "Previous month", "edit delete"),
         )
 
-        applyDateFilterPreset(page, "Previous month", "Next month")
-        assertDateFilterLabel(page, "Next month")
+        applyDateFilterPreset(page, "May 2099", "Next month")
+        assertDateFilterLabel(page, "July 2099")
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
         )
 
-        applyDateFilterPreset(page, "Next month", "This year")
+        applyDateFilterPreset(page, "July 2099", "This year")
         assertDateFilterLabel(page, "This year")
+        assertDateRangeArrowsDisabled(page)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
             ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
@@ -278,6 +279,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         applyDateFilterPreset(page, "This year", "All time")
         assertDateFilterLabel(page, "All time")
+        assertDateRangeArrowsDisabled(page)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
             ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
@@ -300,6 +302,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         applyCustomVisibleDateRange(page, "June 2099 - July 2099", startDay = "3", startIndex = 0, endDay = "19", endIndex = 1)
         assertDateFilterLabel(page, "3 Jun 2099 - 19 Jul 2099")
+        assertDateRangeArrowsDisabled(page)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
             ExpenseRow("Groceries", "A$14.00", "Today", "Main", "Today", "edit delete"),
@@ -307,7 +310,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         )
 
         page.reload()
-        assertDateFilterLabel(page, "This month")
+        assertDateFilterLabel(page, "June 2099")
     }
 
     @Test
@@ -739,6 +742,11 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun assertDateFilterLabel(page: Page, label: String) {
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(label).setExact(true))).isVisible()
+    }
+
+    private fun assertDateRangeArrowsDisabled(page: Page) {
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Previous date range"))).isDisabled()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range"))).isDisabled()
     }
 
     private fun applyDateFilterPreset(page: Page, currentLabel: String, preset: String) {
