@@ -28,15 +28,33 @@ class TransactionController(
         authentication: Authentication,
         @QueryValue from: LocalDate?,
         @QueryValue to: LocalDate?,
+        @QueryValue categoryIds: String?,
+        @QueryValue accountIds: String?,
+        @QueryValue notes: String?,
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
         if ((from == null) != (to == null) || (from != null && to != null && from.isAfter(to))) {
             return HttpResponse.badRequest<Any>()
         }
+        val categoryIdFilter = parseIdFilter(categoryIds) ?: return HttpResponse.badRequest<Any>()
+        val accountIdFilter = parseIdFilter(accountIds) ?: return HttpResponse.badRequest<Any>()
 
         return HttpResponse.ok(
-            transactionService.listTransactions(user.id!!, type, TransactionDateFilter(from, to)).map { it.toResponse() },
+            transactionService.listTransactions(
+                user.id!!,
+                type,
+                TransactionDateFilter(
+                    from = from,
+                    to = to,
+                    categoryIds = categoryIdFilter,
+                    accountIds = accountIdFilter,
+                    notesTokens = notes?.split(Regex("\\s+"))
+                        ?.map { it.trim() }
+                        ?.filter { it.isNotEmpty() }
+                        ?: emptyList(),
+                ),
+            ).map { it.toResponse() },
         )
     }
 
@@ -103,6 +121,16 @@ class TransactionController(
             DeleteTransactionResult.BadRequest -> HttpResponse.badRequest<Any>()
         }
     }
+}
+
+private fun parseIdFilter(rawValue: String?): List<Long>? {
+    if (rawValue.isNullOrBlank()) {
+        return emptyList()
+    }
+    return rawValue.split(',')
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { it.toLongOrNull()?.takeIf { id -> id > 0 } ?: return null }
 }
 
 private fun TransactionDetails.toResponse() = TransactionResponse(

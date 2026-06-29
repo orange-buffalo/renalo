@@ -2,6 +2,7 @@ import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
+import { fetchTrackingAccounts } from "@/api/trackingAccounts";
 import {
   deleteTransaction,
   fetchTransactions,
@@ -21,6 +22,12 @@ import {
   TableRowActions,
   TableViewAction,
 } from "@/components/TableRowActions";
+import {
+  emptyTransactionSecondaryFilters,
+  type TransactionFilterOption,
+  TransactionMoreFilters,
+  type TransactionSecondaryFilters,
+} from "@/components/TransactionMoreFilters";
 import {
   Table,
   TableCard,
@@ -42,6 +49,7 @@ export type TransactionsPageConfig = {
   emptyTitle: string;
   tableLabel: string;
   categoryColumnLabel: string;
+  fetchCategories: () => Promise<TransactionFilterOption[]>;
   itemLabel: string;
   deleteTitle: (transaction: Transaction) => string;
   deleteDescription: string;
@@ -62,6 +70,10 @@ export function TransactionsPage({
   const { transactionDateFilter, setTransactionDateFilter } = useAppState();
   const [transactions, setTransactions] = useState<Transaction[]>();
   const [error, setError] = useState<string>();
+  const [categories, setCategories] = useState<TransactionFilterOption[]>([]);
+  const [accounts, setAccounts] = useState<TransactionFilterOption[]>([]);
+  const [secondaryFilters, setSecondaryFilters] =
+    useState<TransactionSecondaryFilters>(emptyTransactionSecondaryFilters);
   const [confirmingTransaction, setConfirmingTransaction] =
     useState<Transaction>();
   const [recurringDeleteScope, setRecurringDeleteScope] =
@@ -75,7 +87,8 @@ export function TransactionsPage({
 
   useEffect(() => {
     let isActive = true;
-    fetchTransactions(config.api, transactionDateFilter)
+    setShowPlannedTransactions(false);
+    fetchTransactions(config.api, transactionDateFilter, secondaryFilters)
       .then((loadedTransactions) => {
         if (isActive) {
           setTransactions(loadedTransactions);
@@ -90,7 +103,33 @@ export function TransactionsPage({
     return () => {
       isActive = false;
     };
-  }, [config, transactionDateFilter]);
+  }, [config, transactionDateFilter, secondaryFilters]);
+
+  useEffect(() => {
+    let isActive = true;
+    Promise.all([config.fetchCategories(), fetchTrackingAccounts()])
+      .then(([loadedCategories, loadedAccounts]) => {
+        if (!isActive) {
+          return;
+        }
+        setCategories(loadedCategories);
+        setAccounts(
+          loadedAccounts.map((account) => ({
+            id: account.id,
+            name: account.name,
+          })),
+        );
+      })
+      .catch(() => {
+        if (isActive) {
+          setError(config.loadError);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [config]);
 
   async function handleDeleteConfirmed() {
     if (!confirmingTransaction) {
@@ -107,7 +146,11 @@ export function TransactionsPage({
       );
       if (confirmingTransaction.recurrence) {
         setTransactions(
-          await fetchTransactions(config.api, transactionDateFilter),
+          await fetchTransactions(
+            config.api,
+            transactionDateFilter,
+            secondaryFilters,
+          ),
         );
       } else {
         setTransactions((currentTransactions) =>
@@ -140,10 +183,19 @@ export function TransactionsPage({
         </Button>
       }
     >
-      <DateRangeFilter
-        value={transactionDateFilter}
-        onChange={setTransactionDateFilter}
-      />
+      <div className="transaction-filter-row">
+        <DateRangeFilter
+          value={transactionDateFilter}
+          onChange={setTransactionDateFilter}
+        />
+        <TransactionMoreFilters
+          value={secondaryFilters}
+          categories={categories}
+          accounts={accounts}
+          categoryLabel={config.categoryColumnLabel}
+          onChange={setSecondaryFilters}
+        />
+      </div>
       <section className="standard-page-panel user-management-panel">
         <TableCard.Root size="sm">
           {error && (

@@ -58,6 +58,12 @@ export type TransactionDateFilterParams = {
   to: string | null;
 };
 
+export type TransactionSecondaryFilterParams = {
+  categoryIds: number[];
+  accountIds: number[];
+  notes: string;
+};
+
 export const expenseTransactionApi: TransactionApiConfig = {
   type: "EXPENSE",
   basePath: "/api/tracking/transactions/EXPENSE",
@@ -71,11 +77,22 @@ export const incomeTransactionApi: TransactionApiConfig = {
 export function fetchTransactions(
   config: TransactionApiConfig,
   dateFilter?: TransactionDateFilterParams,
+  secondaryFilters?: TransactionSecondaryFilterParams,
 ) {
   const params = new URLSearchParams();
   if (dateFilter?.from && dateFilter.to) {
     params.set("from", dateFilter.from);
     params.set("to", dateFilter.to);
+  }
+  if (secondaryFilters?.categoryIds.length) {
+    params.set("categoryIds", secondaryFilters.categoryIds.join(","));
+  }
+  if (secondaryFilters?.accountIds.length) {
+    params.set("accountIds", secondaryFilters.accountIds.join(","));
+  }
+  const notes = secondaryFilters?.notes.trim();
+  if (notes) {
+    params.set("notes", notes);
   }
   const query = params.size ? `?${params.toString()}` : "";
   return apiRequest<Transaction[]>(`${config.basePath}${query}`);

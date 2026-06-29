@@ -217,6 +217,45 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun keepsSecondaryFiltersLocalToIncomePage(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", isDefault = false)
+        val salary = saveCategory(alice, "Salary")
+        val bonus = saveCategory(alice, "Bonus")
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 123400, "Monthly consulting pay")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 200000, "Monthly payroll")
+        saveIncome(alice, savings, salary, TestTimeProvider.DEFAULT_DATE, 300000, "Monthly consulting savings")
+        saveIncome(alice, main, bonus, TestTimeProvider.DEFAULT_DATE, 400000, "Monthly consulting bonus")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1200, "Monthly consulting supplies")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes")
+
+        openMoreFilters(page)
+        selectMoreFilterOption(page, "Income category", "Salary")
+        selectMoreFilterOption(page, "Account", "Main")
+        page.getByLabel("Notes").fill("monthly consulting")
+
+        assertThat(page.locator(".transaction-filter-count-badge")).hasText("3")
+        assertThat(page.getByLabel("Selected income category").getByText("Salary")).isVisible()
+        assertThat(page.getByLabel("Selected account").getByText("Main")).isVisible()
+        page.shouldEventuallyContainIncomeRows(
+            IncomeRow("Salary", "A$1,234.00", "Today", "Main", "Monthly consulting pay", "edit delete"),
+        )
+
+        page.keyboard().press("Escape")
+        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Expenses")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        assertThat(page.locator(".transaction-filter-count-badge")).not().isVisible()
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Groceries", "A$12.00", "Today", "Main", "Monthly consulting supplies", "edit delete"),
+        )
+    }
+
+    @Test
     fun groupsFutureIncomesByCurrencyUntilViewed(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
@@ -323,6 +362,19 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(preset).setExact(true)).click()
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply")).click()
+    }
+
+    private fun openMoreFilters(page: Page) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("More filters")).click()
+        assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))).isVisible()
+    }
+
+    private fun selectMoreFilterOption(page: Page, label: String, option: String) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Choose ${label.lowercase()}")).click()
+        page.locator(".transaction-filter-option")
+            .filter(Locator.FilterOptions().setHasText(option))
+            .click()
+        page.keyboard().press("Escape")
     }
 
     private fun selectOption(page: Page, label: String, option: String) {

@@ -160,6 +160,122 @@ input {
   margin-bottom: 10px;
 }
 
+.transaction-filter-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.transaction-more-filters {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.transaction-filter-count-badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #7f56d9;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.transaction-more-filters-popover,
+.transaction-filter-select-popover {
+  z-index: 50;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgb(16 24 40 / 14%);
+}
+
+.transaction-more-filters-dialog {
+  width: min(430px, calc(100vw - 32px));
+  padding: 16px;
+  outline: none;
+}
+
+.transaction-more-filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.transaction-more-filters-header h2 {
+  margin: 0;
+  color: #101828;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.transaction-more-filters-form {
+  display: grid;
+  gap: 18px;
+}
+
+.transaction-filter-field {
+  display: grid;
+  gap: 8px;
+}
+
+.transaction-filter-field-label {
+  color: #344054;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.transaction-filter-select-trigger {
+  width: max-content;
+}
+
+.transaction-filter-select-dialog {
+  width: min(330px, calc(100vw - 40px));
+  padding: 12px;
+  outline: none;
+}
+
+.transaction-filter-search {
+  max-width: none;
+  margin-bottom: 10px;
+}
+
+.transaction-filter-options {
+  display: grid;
+  max-height: 260px;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.transaction-filter-option {
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.transaction-filter-option:hover {
+  background: #f9fafb;
+}
+
+.transaction-filter-empty-option {
+  margin: 8px 4px;
+  color: #667085;
+  font-size: 0.875rem;
+}
+
+.transaction-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .date-filter-control {
   display: grid;
   grid-template-columns: auto minmax(150px, auto) auto;
@@ -243,6 +359,15 @@ input {
 }
 
 @media (max-width: 767px) {
+  .transaction-filter-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .transaction-more-filters {
+    justify-content: flex-start;
+  }
+
   .date-filter-control {
     width: 100%;
     grid-template-columns: auto minmax(0, 1fr) auto;

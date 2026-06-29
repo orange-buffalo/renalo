@@ -314,6 +314,50 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun filtersExpensesByCategoryAccountAndNotes(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val travel = saveAccount(alice, "Travel", "AUD", isDefault = false)
+        val groceries = saveCategory(alice, "Groceries")
+        val rent = saveCategory(alice, "Rent")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1200, "Coffee beans wholesale")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1300, "Coffee filters")
+        saveExpense(alice, travel, groceries, TestTimeProvider.DEFAULT_DATE, 1400, "Coffee beans travel")
+        saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE, 1500, "Coffee beans rent")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses")
+
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Rent", "A$15.00", "Today", "Main", "Coffee beans rent", "edit delete"),
+            ExpenseRow("Groceries", "A$14.00", "Today", "Travel", "Coffee beans travel", "edit delete"),
+            ExpenseRow("Groceries", "A$13.00", "Today", "Main", "Coffee filters", "edit delete"),
+            ExpenseRow("Groceries", "A$12.00", "Today", "Main", "Coffee beans wholesale", "edit delete"),
+        )
+
+        openMoreFilters(page)
+        selectMoreFilterOption(page, "Category", "Groceries")
+        selectMoreFilterOption(page, "Account", "Main")
+        page.getByLabel("Notes").fill("coffee beans")
+
+        assertThat(page.getByLabel("Selected category").getByText("Groceries")).isVisible()
+        assertThat(page.getByLabel("Selected account").getByText("Main")).isVisible()
+        assertThat(page.locator(".transaction-filter-count-badge")).hasText("3")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Groceries", "A$12.00", "Today", "Main", "Coffee beans wholesale", "edit delete"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Clear all")).click()
+        assertThat(page.locator(".transaction-filter-count-badge")).not().isVisible()
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Rent", "A$15.00", "Today", "Main", "Coffee beans rent", "edit delete"),
+            ExpenseRow("Groceries", "A$14.00", "Today", "Travel", "Coffee beans travel", "edit delete"),
+            ExpenseRow("Groceries", "A$13.00", "Today", "Main", "Coffee filters", "edit delete"),
+            ExpenseRow("Groceries", "A$12.00", "Today", "Main", "Coffee beans wholesale", "edit delete"),
+        )
+    }
+
+    @Test
     fun createsRecurringExpensesForEveryScheduleOptionFromExpenseForm(page: Page) {
         val alice = saveUser("alice")
         saveAccount(alice, "Main", "AUD", isDefault = true)
@@ -773,8 +817,21 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply")).click()
     }
 
-private fun calendarDay(dialog: Locator, day: String): Locator = dialog.locator("[role='gridcell']:not([aria-disabled='true'])")
-    .filter(Locator.FilterOptions().setHasText(Pattern.compile("^$day$")))
+    private fun openMoreFilters(page: Page) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("More filters")).click()
+        assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))).isVisible()
+    }
+
+    private fun selectMoreFilterOption(page: Page, label: String, option: String) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Choose ${label.lowercase()}")).click()
+        page.locator(".transaction-filter-option")
+            .filter(Locator.FilterOptions().setHasText(option))
+            .click()
+        page.keyboard().press("Escape")
+    }
+
+    private fun calendarDay(dialog: Locator, day: String): Locator = dialog.locator("[role='gridcell']:not([aria-disabled='true'])")
+        .filter(Locator.FilterOptions().setHasText(Pattern.compile("^$day$")))
 
     private fun extractExpenseRows(page: Page): List<ExpenseRow> {
         @Suppress("UNCHECKED_CAST")

@@ -229,6 +229,48 @@ class IncomeApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun filtersIncomesByCategoryAccountAndNotesTokens() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD")
+        val savings = saveAccount(alice, "Savings", "AUD")
+        val salary = saveIncomeCategory(alice, "Salary")
+        val bonus = saveIncomeCategory(alice, "Bonus")
+        val matching = saveIncome(alice, main, salary, "2026-06-15", 1200, "Monthly consulting")
+        saveIncome(alice, savings, salary, "2026-06-16", 3400, "Monthly consulting")
+        saveIncome(alice, main, bonus, "2026-06-17", 5600, "Monthly consulting")
+        saveIncome(alice, main, salary, "2026-06-18", 7800, "Monthly retainer")
+        val token = api().login("alice", "password")
+
+        val response = api().get(
+            "/api/tracking/transactions/INCOME?categoryIds=${salary.id}&accountIds=${main.id}&notes=monthly%20consulting",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${matching.id},
+                    "trackingAccount": {
+                      "id": ${main.id},
+                      "name": "Main",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${salary.id},
+                      "name": "Salary"
+                    },
+                    "date": "2026-06-15",
+                    "amountMinor": 1200,
+                    "notes": "Monthly consulting"
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
     fun rejectsIncomeReferencesOutsideIncomeCategoryScope() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)

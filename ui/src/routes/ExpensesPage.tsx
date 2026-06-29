@@ -1,3 +1,4 @@
+import { fetchExpenseCategories } from "@/api/expenseCategories";
 import { expenseTransactionApi } from "@/api/transactions";
 import {
   TransactionsPage,
@@ -15,6 +16,7 @@ const expenseTransactionsPageConfig: TransactionsPageConfig = {
   emptyTitle: "No expenses found",
   tableLabel: "Expenses",
   categoryColumnLabel: "Category",
+  fetchCategories: fetchExpenseCategories,
   itemLabel: "expense",
   deleteTitle: (transaction) => `Delete ${transaction.category.name} expense?`,
   deleteDescription:

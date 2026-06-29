@@ -235,6 +235,57 @@ class ExpenseApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun filtersExpensesByCategoryAccountAndNotesTokens() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD")
+        val savings = saveAccount(alice, "Savings", "AUD")
+        val groceries = saveCategory(alice, "Groceries")
+        val rent = saveCategory(alice, "Rent")
+        val matching = saveExpense(alice, main, groceries, "2026-06-15", 1200, "Coffee beans weekly")
+        saveExpense(alice, savings, groceries, "2026-06-16", 3400, "Coffee beans weekly")
+        saveExpense(alice, main, rent, "2026-06-17", 5600, "Coffee beans weekly")
+        saveExpense(alice, main, groceries, "2026-06-18", 7800, "Coffee only")
+        val token = api().login("alice", "password")
+
+        val response = api().get(
+            "/api/tracking/transactions/EXPENSE?categoryIds=${groceries.id}&accountIds=${main.id}&notes=coffee%20beans",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${matching.id},
+                    "trackingAccount": {
+                      "id": ${main.id},
+                      "name": "Main",
+                      "currency": "AUD"
+                    },
+                    "category": {
+                      "id": ${groceries.id},
+                      "name": "Groceries"
+                    },
+                    "date": "2026-06-15",
+                    "amountMinor": 1200,
+                    "notes": "Coffee beans weekly"
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun rejectsInvalidSecondaryExpenseFilters() {
+        val alice = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        api().get("/api/tracking/transactions/EXPENSE?categoryIds=abc", token).statusCode().shouldBe(400)
+        api().get("/api/tracking/transactions/EXPENSE?accountIds=-1", token).statusCode().shouldBe(400)
+    }
+
+    @Test
     fun createsUpdatesAndDeletesExpenseForCurrentUser() {
         val alice = saveUser("alice", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD")

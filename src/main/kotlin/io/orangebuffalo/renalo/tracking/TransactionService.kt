@@ -3,10 +3,13 @@ package io.orangebuffalo.renalo.tracking
 import io.micronaut.transaction.annotation.Transactional
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import jakarta.inject.Singleton
+import java.sql.ResultSet
 import java.time.LocalDate
+import javax.sql.DataSource
 
 @Singleton
 open class TransactionService(
+    private val dataSource: DataSource,
     private val transactionRepository: TransactionRepository,
     private val trackingAccountRepository: TrackingAccountRepository,
     private val expenseCategoryRepository: ExpenseCategoryRepository,
@@ -15,17 +18,67 @@ open class TransactionService(
     private val recurringTransactionSkipRepository: RecurringTransactionSkipRepository,
     private val recurringTransactionGenerationService: RecurringTransactionGenerationService,
 ) {
-    fun listTransactions(
+    @Transactional(readOnly = true)
+    open fun listTransactions(
         userId: Long,
         type: TransactionType,
         filter: TransactionDateFilter = TransactionDateFilter(),
     ): List<TransactionDetails> {
-        val transactions = if (filter.from != null && filter.to != null) {
-            transactionRepository.findByUserIdAndTypeAndDateBetweenOrderByDateDesc(userId, type, filter.from, filter.to)
-        } else {
-            transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, type)
-        }
+        val transactions = findTransactions(userId, type, filter)
         return transactions.mapNotNull { it.toDetails(userId, type) }
+    }
+
+    private fun findTransactions(userId: Long, type: TransactionType, filter: TransactionDateFilter): List<Transaction> {
+        val whereClauses = mutableListOf("user_id = ?", "type = ?")
+        val parameters = mutableListOf<Any>(userId, type.name)
+
+        if (filter.from != null && filter.to != null) {
+            whereClauses += "date BETWEEN ? AND ?"
+            parameters += filter.from
+            parameters += filter.to
+        }
+        if (filter.categoryIds.isNotEmpty()) {
+            whereClauses += "category_id IN (${filter.categoryIds.joinToString(",") { "?" }})"
+            parameters.addAll(filter.categoryIds)
+        }
+        if (filter.accountIds.isNotEmpty()) {
+            whereClauses += "tracking_account_id IN (${filter.accountIds.joinToString(",") { "?" }})"
+            parameters.addAll(filter.accountIds)
+        }
+        for (token in filter.notesTokens) {
+            whereClauses += "LOWER(COALESCE(notes, '')) LIKE ?"
+            parameters += "%${token.lowercase()}%"
+        }
+
+        val sql = """
+            SELECT id,
+                   user_id,
+                   type,
+                   tracking_account_id,
+                   category_id,
+                   date,
+                   amount_minor,
+                   notes,
+                   recurring_rule_id,
+                   recurring_instance_date,
+                   recurring_locked
+            FROM transactions
+            WHERE ${whereClauses.joinToString(" AND ")}
+            ORDER BY date DESC
+        """.trimIndent()
+
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                statement.executeQuery().use { resultSet ->
+                    val transactions = mutableListOf<Transaction>()
+                    while (resultSet.next()) {
+                        transactions += resultSet.toTransaction()
+                    }
+                    return transactions
+                }
+            }
+        }
     }
 
     fun findTransaction(userId: Long, type: TransactionType, transactionId: Long): TransactionDetails? =
@@ -335,7 +388,29 @@ data class TransactionDetails(
 data class TransactionDateFilter(
     val from: LocalDate? = null,
     val to: LocalDate? = null,
+    val categoryIds: List<Long> = emptyList(),
+    val accountIds: List<Long> = emptyList(),
+    val notesTokens: List<String> = emptyList(),
 )
+
+private fun ResultSet.toTransaction() = Transaction(
+    id = getLong("id"),
+    userId = getLong("user_id"),
+    type = TransactionType.valueOf(getString("type")),
+    trackingAccountId = getLong("tracking_account_id"),
+    categoryId = getLong("category_id"),
+    date = getDate("date").toLocalDate(),
+    amountMinor = getLong("amount_minor"),
+    notes = getString("notes"),
+    recurringRuleId = getNullableLong("recurring_rule_id"),
+    recurringInstanceDate = getDate("recurring_instance_date")?.toLocalDate(),
+    recurringLocked = getBoolean("recurring_locked"),
+)
+
+private fun ResultSet.getNullableLong(column: String): Long? {
+    val value = getLong(column)
+    return if (wasNull()) null else value
+}
 
 sealed interface SaveTransactionResult {
     data class Saved(val transaction: TransactionDetails) : SaveTransactionResult
