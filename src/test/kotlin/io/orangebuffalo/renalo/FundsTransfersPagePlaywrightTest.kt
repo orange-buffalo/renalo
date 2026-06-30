@@ -121,6 +121,11 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
             TransferRow("Main -> Travel", "A$50.00 → €31.00", "Today", "edit delete"),
         )
         fundsTransferRepository.findById(existingTransfer.id!!).isPresent.shouldBe(false)
+
+        page.setViewportSize(390, 844)
+        val transferRow = page.locator("[data-testid='funds-transfer-row-${sameCurrencyTransfer.id}']")
+        assertThat(transferRow.getByText("Main -> Travel")).isVisible()
+        assertThat(transferRow.getByText("Today")).isVisible()
     }
 
     private fun saveUser(username: String, type: UserType = UserType.USER): User = userRepository.save(

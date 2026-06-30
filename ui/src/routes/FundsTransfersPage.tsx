@@ -127,7 +127,7 @@ export function FundsTransfersPage() {
                     <Table.Cell mobileLabel="Amount">
                       <TransferAmount transfer={transfer} />
                     </Table.Cell>
-                    <Table.Cell mobileLabel="Date">
+                    <Table.Cell mobileLabel="Date" mobileRole="detail">
                       {formatTransferDate(transfer.date)}
                     </Table.Cell>
                     <Table.Cell mobileRole="actions">
