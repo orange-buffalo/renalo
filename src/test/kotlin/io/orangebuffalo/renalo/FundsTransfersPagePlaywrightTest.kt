@@ -62,7 +62,7 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Transfers"))).isVisible()
         page.shouldEventuallyContainTransferRows(
-            TransferRow("Main", "Travel", "A$150.00 → €92.00", "Yesterday", "edit delete"),
+            TransferRow("Main -> Travel", "A$150.00 → €92.00", "Yesterday", "edit delete"),
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add transfer")).click()
@@ -81,8 +81,8 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         sameCurrencyTransfer.sourceAmountMinor.shouldBe(4200)
         sameCurrencyTransfer.targetAmountMinor.shouldBe(4200)
         page.shouldEventuallyContainTransferRows(
-            TransferRow("Main", "Savings", "A$42.00", "Today", "edit delete"),
-            TransferRow("Main", "Travel", "A$150.00 → €92.00", "Yesterday", "edit delete"),
+            TransferRow("Main -> Savings", "A$42.00", "Today", "edit delete"),
+            TransferRow("Main -> Travel", "A$150.00 → €92.00", "Yesterday", "edit delete"),
         )
 
         page.locator("[data-testid='funds-transfer-row-${sameCurrencyTransfer.id}']")
@@ -102,8 +102,8 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         updatedTransfer.sourceAmountMinor.shouldBe(5000)
         updatedTransfer.targetAmountMinor.shouldBe(3100)
         page.shouldEventuallyContainTransferRows(
-            TransferRow("Main", "Travel", "A$50.00 → €31.00", "Today", "edit delete"),
-            TransferRow("Main", "Travel", "A$150.00 → €92.00", "Yesterday", "edit delete"),
+            TransferRow("Main -> Travel", "A$50.00 → €31.00", "Today", "edit delete"),
+            TransferRow("Main -> Travel", "A$150.00 → €92.00", "Yesterday", "edit delete"),
         )
 
         page.locator("[data-testid='funds-transfer-row-${existingTransfer.id}']")
@@ -118,7 +118,7 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Delete transfer")).click()
 
         page.shouldEventuallyContainTransferRows(
-            TransferRow("Main", "Travel", "A$50.00 → €31.00", "Today", "edit delete"),
+            TransferRow("Main -> Travel", "A$50.00 → €31.00", "Today", "edit delete"),
         )
         fundsTransferRepository.findById(existingTransfer.id!!).isPresent.shouldBe(false)
     }
@@ -185,11 +185,10 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
 
         return rows.map { cells ->
             TransferRow(
-                sourceAccount = cells.getOrElse(0) { "" },
-                targetAccount = cells.getOrElse(1) { "" },
-                amount = cells.getOrElse(2) { "" },
-                date = cells.getOrElse(3) { "" },
-                action = cells.getOrElse(4) { "" },
+                accounts = cells.getOrElse(0) { "" },
+                amount = cells.getOrElse(1) { "" },
+                date = cells.getOrElse(2) { "" },
+                action = cells.getOrElse(3) { "" },
             )
         }
     }
@@ -201,8 +200,7 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     private data class TransferRow(
-        val sourceAccount: String,
-        val targetAccount: String,
+        val accounts: String,
         val amount: String,
         val date: String,
         val action: String,

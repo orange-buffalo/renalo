@@ -13,7 +13,6 @@ import { TableLoadingState } from "@/components/TableLoadingState";
 import {
   TableDeleteAction,
   TableEditAction,
-  TableMobileDetailsAction,
   TableRowActions,
 } from "@/components/TableRowActions";
 import {
@@ -103,8 +102,7 @@ export function FundsTransfersPage() {
           ) : (
             <Table aria-label="Transfers" size="sm">
               <Table.Header>
-                <Table.Head id="source" label="Source account" isRowHeader />
-                <Table.Head id="target" label="Target account" />
+                <Table.Head id="accounts" label="Accounts" isRowHeader />
                 <Table.Head id="amount" label="Amount" />
                 <Table.Head id="date" label="Date" />
                 <Table.Head
@@ -123,23 +121,17 @@ export function FundsTransfersPage() {
                   >
                     <Table.Cell>
                       <div className="table-row-title">
-                        {transfer.sourceAccount.name}
+                        {formatTransferAccounts(transfer)}
                       </div>
-                    </Table.Cell>
-                    <Table.Cell mobileLabel="Target account">
-                      {transfer.targetAccount.name}
                     </Table.Cell>
                     <Table.Cell mobileLabel="Amount">
                       <TransferAmount transfer={transfer} />
                     </Table.Cell>
-                    <Table.Cell mobileLabel="Date" mobileRole="detail">
+                    <Table.Cell mobileLabel="Date">
                       {formatTransferDate(transfer.date)}
                     </Table.Cell>
                     <Table.Cell mobileRole="actions">
                       <TableRowActions>
-                        <TableMobileDetailsAction
-                          label={`Show ${transfer.sourceAccount.name} transfer details`}
-                        />
                         <TableEditAction
                           label={`Edit ${transfer.sourceAccount.name} to ${transfer.targetAccount.name} transfer`}
                           onPress={() => navigate(`/transfers/${transfer.id}`)}
@@ -174,6 +166,10 @@ export function FundsTransfersPage() {
       />
     </PageLayout>
   );
+}
+
+function formatTransferAccounts(transfer: FundsTransfer) {
+  return `${transfer.sourceAccount.name} -> ${transfer.targetAccount.name}`;
 }
 
 function TransferAmount({ transfer }: { transfer: FundsTransfer }) {
