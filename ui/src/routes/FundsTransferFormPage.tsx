@@ -17,9 +17,14 @@ import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { DatePicker } from "@/components/untitled/application/date-picker/date-picker";
 import { Button } from "@/components/untitled/base/buttons/button";
+import { Input } from "@/components/untitled/base/input/input";
 import { Label } from "@/components/untitled/base/input/label";
 import { Select } from "@/components/untitled/base/select/select";
-import { formatMoneyInput, parseMoneyInput } from "@/utils/money";
+import {
+  currencyFractionDigits,
+  formatMoneyInput,
+  parseMoneyInput,
+} from "@/utils/money";
 
 export function CreateFundsTransferPage() {
   return <FundsTransferFormPage mode="create" />;
@@ -40,12 +45,14 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
   );
   const [sourceAmount, setSourceAmount] = useState(formatMoneyInput(0, "AUD"));
   const [targetAmount, setTargetAmount] = useState(formatMoneyInput(0, "AUD"));
+  const [exchangeRate, setExchangeRate] = useState("");
   const [error, setError] = useState<string>();
   const [sourceAccountError, setSourceAccountError] = useState<string>();
   const [targetAccountError, setTargetAccountError] = useState<string>();
   const [dateError, setDateError] = useState<string>();
   const [sourceAmountError, setSourceAmountError] = useState<string>();
   const [targetAmountError, setTargetAmountError] = useState<string>();
+  const [exchangeRateError, setExchangeRateError] = useState<string>();
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [isLoadingTransfer, setIsLoadingTransfer] = useState(mode === "edit");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,6 +141,19 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
             loadedTransfer.targetAccount.currency,
           ),
         );
+        if (
+          loadedTransfer.sourceAccount.currency !==
+          loadedTransfer.targetAccount.currency
+        ) {
+          setExchangeRate(
+            formatExchangeRate(
+              loadedTransfer.sourceAmountMinor,
+              loadedTransfer.sourceAccount.currency,
+              loadedTransfer.targetAmountMinor,
+              loadedTransfer.targetAccount.currency,
+            ),
+          );
+        }
         setDate(isoDateToCalendarDate(loadedTransfer.date));
         setIsLoadingTransfer(false);
       })
@@ -154,9 +174,16 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
       (account) => account.id === nextAccountId,
     );
     const parsedAmount = parseMoneyInput(sourceAmount, sourceCurrency) ?? 0;
+    const nextSourceCurrency = nextAccount?.currency ?? sourceCurrency;
+    const nextSourceAmount = formatMoneyInput(parsedAmount, nextSourceCurrency);
     setSourceAccountId(nextAccountId);
-    setSourceAmount(
-      formatMoneyInput(parsedAmount, nextAccount?.currency ?? sourceCurrency),
+    setSourceAmount(nextSourceAmount);
+    syncExchangeRateFromAmounts(
+      nextSourceAmount,
+      nextSourceCurrency,
+      targetAmount,
+      targetCurrency,
+      Boolean(targetAccount && nextSourceCurrency !== targetCurrency),
     );
     setSourceAccountError(undefined);
     if (nextAccountId !== targetAccountId) {
@@ -169,14 +196,110 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
       (account) => account.id === nextAccountId,
     );
     const parsedAmount = parseMoneyInput(targetAmount, targetCurrency) ?? 0;
+    const nextTargetCurrency = nextAccount?.currency ?? targetCurrency;
+    const nextTargetAmount = formatMoneyInput(parsedAmount, nextTargetCurrency);
     setTargetAccountId(nextAccountId);
-    setTargetAmount(
-      formatMoneyInput(parsedAmount, nextAccount?.currency ?? targetCurrency),
+    setTargetAmount(nextTargetAmount);
+    syncExchangeRateFromAmounts(
+      sourceAmount,
+      sourceCurrency,
+      nextTargetAmount,
+      nextTargetCurrency,
+      Boolean(sourceAccount && sourceCurrency !== nextTargetCurrency),
     );
     setTargetAccountError(undefined);
     if (nextAccountId !== sourceAccountId) {
       setSourceAccountError(undefined);
     }
+  }
+
+  function handleSourceAmountChange(nextAmount: string) {
+    setSourceAmount(nextAmount);
+    setSourceAmountError(undefined);
+    syncExchangeRateFromAmounts(
+      nextAmount,
+      sourceCurrency,
+      targetAmount,
+      targetCurrency,
+      isCrossCurrency,
+    );
+  }
+
+  function handleTargetAmountChange(nextAmount: string) {
+    setTargetAmount(nextAmount);
+    setTargetAmountError(undefined);
+    syncExchangeRateFromAmounts(
+      sourceAmount,
+      sourceCurrency,
+      nextAmount,
+      targetCurrency,
+      isCrossCurrency,
+    );
+  }
+
+  function handleExchangeRateChange(nextRate: string) {
+    setExchangeRate(nextRate);
+    setExchangeRateError(undefined);
+    const parsedRate = parseExchangeRate(nextRate);
+    const sourceAmountMinor = parseMoneyInput(sourceAmount, sourceCurrency);
+    if (
+      parsedRate === undefined ||
+      sourceAmountMinor === undefined ||
+      sourceAmountMinor <= 0
+    ) {
+      return;
+    }
+    setTargetAmount(
+      formatMoneyInput(
+        calculateTargetAmountMinor(
+          sourceAmountMinor,
+          sourceCurrency,
+          targetCurrency,
+          parsedRate,
+        ),
+        targetCurrency,
+      ),
+    );
+    setTargetAmountError(undefined);
+  }
+
+  function syncExchangeRateFromAmounts(
+    nextSourceAmount: string,
+    nextSourceCurrency: string,
+    nextTargetAmount: string,
+    nextTargetCurrency: string,
+    shouldShowExchangeRate: boolean,
+  ) {
+    if (!shouldShowExchangeRate) {
+      setExchangeRate("");
+      setExchangeRateError(undefined);
+      return;
+    }
+    const sourceAmountMinor = parseMoneyInput(
+      nextSourceAmount,
+      nextSourceCurrency,
+    );
+    const targetAmountMinor = parseMoneyInput(
+      nextTargetAmount,
+      nextTargetCurrency,
+    );
+    if (
+      sourceAmountMinor === undefined ||
+      sourceAmountMinor <= 0 ||
+      targetAmountMinor === undefined ||
+      targetAmountMinor <= 0
+    ) {
+      return;
+    }
+    setExchangeRate(
+      formatExchangeRate(
+        sourceAmountMinor,
+        nextSourceCurrency,
+        targetAmountMinor,
+        nextTargetCurrency,
+      ),
+    );
+    setExchangeRateError(undefined);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -203,18 +326,24 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
       (targetAmountMinor === undefined || targetAmountMinor <= 0)
         ? "Enter a valid target amount greater than zero."
         : undefined;
+    const nextExchangeRateError =
+      isCrossCurrency && parseExchangeRate(exchangeRate) === undefined
+        ? "Enter a valid exchange rate greater than zero."
+        : undefined;
 
     setSourceAccountError(nextSourceAccountError);
     setTargetAccountError(nextTargetAccountError);
     setDateError(nextDateError);
     setSourceAmountError(nextSourceAmountError);
     setTargetAmountError(nextTargetAmountError);
+    setExchangeRateError(nextExchangeRateError);
     if (
       nextSourceAccountError ||
       nextTargetAccountError ||
       nextDateError ||
       nextSourceAmountError ||
       nextTargetAmountError ||
+      nextExchangeRateError ||
       !sourceAccountId ||
       !targetAccountId ||
       !date ||
@@ -296,10 +425,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
             currency={sourceCurrency}
             isInvalid={Boolean(sourceAmountError)}
             hint={sourceAmountError}
-            onChange={(nextAmount) => {
-              setSourceAmount(nextAmount);
-              setSourceAmountError(undefined);
-            }}
+            onChange={handleSourceAmountChange}
           />
           {isCrossCurrency ? (
             <MoneyInput
@@ -309,10 +435,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
               currency={targetCurrency}
               isInvalid={Boolean(targetAmountError)}
               hint={targetAmountError}
-              onChange={(nextAmount) => {
-                setTargetAmount(nextAmount);
-                setTargetAmountError(undefined);
-              }}
+              onChange={handleTargetAmountChange}
             />
           ) : (
             <span className="tracking-account-form-spacer" aria-hidden="true" />
@@ -340,7 +463,22 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
               <p className="transaction-field-error">{dateError}</p>
             )}
           </div>
-          <span className="tracking-account-form-spacer" aria-hidden="true" />
+          {isCrossCurrency ? (
+            <Input
+              label="Exchange rate"
+              name="exchangeRate"
+              size="md"
+              value={exchangeRate}
+              inputMode="decimal"
+              inputClassName="text-right"
+              isInvalid={Boolean(exchangeRateError)}
+              hint={exchangeRateError}
+              className="funds-transfer-rate-input"
+              onChange={handleExchangeRateChange}
+            />
+          ) : (
+            <span className="tracking-account-form-spacer" aria-hidden="true" />
+          )}
           <div className="tracking-account-actions">
             <Button
               color="tertiary"
@@ -391,4 +529,46 @@ function calendarDateToIsoDate(date: CalendarDate) {
   const month = String(date.month).padStart(2, "0");
   const day = String(date.day).padStart(2, "0");
   return `${date.year}-${month}-${day}`;
+}
+
+function parseExchangeRate(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  if (normalized === "") {
+    return undefined;
+  }
+  const parsedRate = Number(normalized);
+  return Number.isFinite(parsedRate) && parsedRate > 0 ? parsedRate : undefined;
+}
+
+function formatExchangeRate(
+  sourceAmountMinor: number,
+  sourceCurrency: string,
+  targetAmountMinor: number,
+  targetCurrency: string,
+) {
+  const sourceAmount = minorUnitsToMajor(sourceAmountMinor, sourceCurrency);
+  const targetAmount = minorUnitsToMajor(targetAmountMinor, targetCurrency);
+  if (sourceAmount <= 0 || targetAmount <= 0) {
+    return "";
+  }
+  return formatRate(targetAmount / sourceAmount);
+}
+
+function calculateTargetAmountMinor(
+  sourceAmountMinor: number,
+  sourceCurrency: string,
+  targetCurrency: string,
+  exchangeRate: number,
+) {
+  const sourceAmount = minorUnitsToMajor(sourceAmountMinor, sourceCurrency);
+  const targetFractionDigits = currencyFractionDigits(targetCurrency);
+  return Math.round(sourceAmount * exchangeRate * 10 ** targetFractionDigits);
+}
+
+function minorUnitsToMajor(minorUnits: number, currency: string) {
+  return minorUnits / 10 ** currencyFractionDigits(currency);
+}
+
+function formatRate(rate: number) {
+  return rate.toFixed(8).replace(/\.?0+$/, "");
 }

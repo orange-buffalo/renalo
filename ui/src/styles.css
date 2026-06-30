@@ -161,6 +161,10 @@ input {
   gap: 4px;
 }
 
+.funds-transfer-rate-input {
+  max-width: 200px;
+}
+
 .date-filter-panel {
   display: flex;
   justify-content: flex-start;

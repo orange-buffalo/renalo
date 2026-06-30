@@ -92,17 +92,23 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         selectOption(page, "Target account", "Travel")
         assertThat(page.getByLabel("Source amount")).isVisible()
         assertThat(page.getByLabel("Target amount")).isVisible()
+        assertThat(page.getByLabel("Exchange rate")).isVisible()
         page.locator("input[name='sourceAmount']").fill("50")
         page.locator("input[name='targetAmount']").fill("31")
+        assertThat(page.locator("input[name='exchangeRate']")).hasValue("0.62")
+        page.locator("input[name='sourceAmount']").fill("100")
+        assertThat(page.locator("input[name='exchangeRate']")).hasValue("0.31")
+        page.locator("input[name='exchangeRate']").fill("0.5")
+        assertThat(page.locator("input[name='targetAmount']")).hasValue("50.00")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save transfer")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Transfers"))).isVisible()
         val updatedTransfer = fundsTransferRepository.findById(sameCurrencyTransfer.id!!).get()
         updatedTransfer.targetAccountId.shouldBe(travel.id)
-        updatedTransfer.sourceAmountMinor.shouldBe(5000)
-        updatedTransfer.targetAmountMinor.shouldBe(3100)
+        updatedTransfer.sourceAmountMinor.shouldBe(10000)
+        updatedTransfer.targetAmountMinor.shouldBe(5000)
         page.shouldEventuallyContainTransferRows(
-            TransferRow("Main -> Travel", "A$50.00 → €31.00", "Today", "edit delete"),
+            TransferRow("Main -> Travel", "A$100.00 → €50.00", "Today", "edit delete"),
             TransferRow("Main -> Travel", "A$150.00 → €92.00", "Yesterday", "edit delete"),
         )
 
@@ -118,7 +124,7 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Delete transfer")).click()
 
         page.shouldEventuallyContainTransferRows(
-            TransferRow("Main -> Travel", "A$50.00 → €31.00", "Today", "edit delete"),
+            TransferRow("Main -> Travel", "A$100.00 → €50.00", "Today", "edit delete"),
         )
         fundsTransferRepository.findById(existingTransfer.id!!).isPresent.shouldBe(false)
 
