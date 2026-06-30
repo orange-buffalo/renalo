@@ -9,8 +9,8 @@ open class FundsTransferService(
     private val fundsTransferRepository: FundsTransferRepository,
     private val trackingAccountRepository: TrackingAccountRepository,
 ) {
-    fun listTransfers(userId: Long): List<FundsTransferDetails> =
-        fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
+    fun listTransfers(userId: Long, filter: FundsTransferDateFilter = FundsTransferDateFilter()): List<FundsTransferDetails> =
+        findTransfers(userId, filter)
             .mapNotNull { it.toDetails(userId) }
 
     fun findTransfer(userId: Long, transferId: Long): FundsTransferDetails? =
@@ -63,12 +63,24 @@ open class FundsTransferService(
         )
     }
 
+    private fun findTransfers(userId: Long, filter: FundsTransferDateFilter): List<FundsTransfer> =
+        if (filter.from != null && filter.to != null) {
+            fundsTransferRepository.findByUserIdAndDateBetweenOrderByDateDesc(userId, filter.from, filter.to)
+        } else {
+            fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
+        }
+
     private fun FundsTransfer.toDetails(userId: Long): FundsTransferDetails? {
         val sourceAccount = trackingAccountRepository.findByIdAndUserId(sourceAccountId, userId) ?: return null
         val targetAccount = trackingAccountRepository.findByIdAndUserId(targetAccountId, userId) ?: return null
         return FundsTransferDetails(this, sourceAccount, targetAccount)
     }
 }
+
+data class FundsTransferDateFilter(
+    val from: LocalDate? = null,
+    val to: LocalDate? = null,
+)
 
 data class FundsTransferDetails(
     val transfer: FundsTransfer,

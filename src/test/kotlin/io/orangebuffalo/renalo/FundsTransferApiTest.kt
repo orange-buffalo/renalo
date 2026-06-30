@@ -123,6 +123,65 @@ class FundsTransferApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun filtersFundsTransfersByInclusiveDateRange() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD")
+        val travel = saveAccount(alice, "Travel", "EUR")
+        saveTransfer(alice, main, savings, 3100, 3100, LocalDate.parse("2026-05-31"))
+        val startBoundary = saveTransfer(alice, main, savings, 1000, 1000, LocalDate.parse("2026-06-01"))
+        val middle = saveTransfer(alice, savings, travel, 2000, 1200, LocalDate.parse("2026-06-15"))
+        val endBoundary = saveTransfer(alice, travel, main, 3000, 5000, LocalDate.parse("2026-06-30"))
+        saveTransfer(alice, main, savings, 7100, 7100, LocalDate.parse("2026-07-01"))
+        val token = api().login("alice", "password")
+
+        val response = api().get("/api/tracking/funds-transfers?from=2026-06-01&to=2026-06-30", token)
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${endBoundary.id},
+                    "sourceAccount": {"id": ${travel.id}, "name": "Travel", "currency": "EUR"},
+                    "targetAccount": {"id": ${main.id}, "name": "Main", "currency": "AUD"},
+                    "sourceAmountMinor": 3000,
+                    "targetAmountMinor": 5000,
+                    "date": "2026-06-30"
+                  },
+                  {
+                    "id": ${middle.id},
+                    "sourceAccount": {"id": ${savings.id}, "name": "Savings", "currency": "AUD"},
+                    "targetAccount": {"id": ${travel.id}, "name": "Travel", "currency": "EUR"},
+                    "sourceAmountMinor": 2000,
+                    "targetAmountMinor": 1200,
+                    "date": "2026-06-15"
+                  },
+                  {
+                    "id": ${startBoundary.id},
+                    "sourceAccount": {"id": ${main.id}, "name": "Main", "currency": "AUD"},
+                    "targetAccount": {"id": ${savings.id}, "name": "Savings", "currency": "AUD"},
+                    "sourceAmountMinor": 1000,
+                    "targetAmountMinor": 1000,
+                    "date": "2026-06-01"
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun rejectsInvalidFundsTransferDateFilters() {
+        val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        val token = api().login("alice", "password")
+
+        api().get("/api/tracking/funds-transfers?from=2026-06-01", token).statusCode().shouldBe(400)
+        api().get("/api/tracking/funds-transfers?to=2026-06-30", token).statusCode().shouldBe(400)
+        api().get("/api/tracking/funds-transfers?from=2026-07-01&to=2026-06-30", token).statusCode().shouldBe(400)
+    }
+
+    @Test
     fun rejectsInvalidFundsTransferReferencesAndAmounts() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)
@@ -212,6 +271,7 @@ class FundsTransferApiTest : IntegrationTestSupport() {
         targetAccount: TrackingAccount,
         sourceAmountMinor: Long,
         targetAmountMinor: Long,
+        date: LocalDate = LocalDate.parse("2026-06-10"),
     ): FundsTransfer = fundsTransferRepository.save(
         FundsTransfer(
             userId = user.id!!,
@@ -219,7 +279,7 @@ class FundsTransferApiTest : IntegrationTestSupport() {
             targetAccountId = targetAccount.id!!,
             sourceAmountMinor = sourceAmountMinor,
             targetAmountMinor = targetAmountMinor,
-            date = LocalDate.parse("2026-06-10"),
+            date = date,
         ),
     )
 }

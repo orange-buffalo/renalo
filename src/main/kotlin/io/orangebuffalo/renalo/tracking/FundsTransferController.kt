@@ -7,6 +7,7 @@ import io.micronaut.http.annotation.Delete
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
@@ -20,11 +21,20 @@ class FundsTransferController(
     private val fundsTransferService: FundsTransferService,
 ) {
     @Get
-    fun listTransfers(authentication: Authentication): HttpResponse<*> {
+    fun listTransfers(
+        authentication: Authentication,
+        @QueryValue from: LocalDate?,
+        @QueryValue to: LocalDate?,
+    ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
+        if ((from == null) != (to == null) || (from != null && to != null && from > to)) {
+            return HttpResponse.badRequest<Any>()
+        }
 
-        return HttpResponse.ok(fundsTransferService.listTransfers(user.id!!).map { it.toResponse() })
+        return HttpResponse.ok(
+            fundsTransferService.listTransfers(user.id!!, FundsTransferDateFilter(from, to)).map { it.toResponse() },
+        )
     }
 
     @Get("/{transferId}")

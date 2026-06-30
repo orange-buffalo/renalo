@@ -1,12 +1,14 @@
 import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { useAppState } from "@/AppState";
 import {
   deleteFundsTransfer,
   type FundsTransfer,
   fetchFundsTransfers,
 } from "@/api/fundsTransfers";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
 import { TableLoadingState } from "@/components/TableLoadingState";
@@ -24,6 +26,7 @@ import { formatMoney } from "@/utils/money";
 
 export function FundsTransfersPage() {
   const navigate = useNavigate();
+  const { transactionDateFilter, setTransactionDateFilter } = useAppState();
   const [transfers, setTransfers] = useState<FundsTransfer[]>();
   const [error, setError] = useState<string>();
   const [confirmingTransfer, setConfirmingTransfer] = useState<FundsTransfer>();
@@ -31,7 +34,7 @@ export function FundsTransfersPage() {
 
   useEffect(() => {
     let isActive = true;
-    fetchFundsTransfers()
+    fetchFundsTransfers(transactionDateFilter)
       .then((loadedTransfers) => {
         if (isActive) {
           setTransfers(loadedTransfers);
@@ -46,7 +49,7 @@ export function FundsTransfersPage() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [transactionDateFilter]);
 
   async function handleDeleteConfirmed() {
     if (!confirmingTransfer) {
@@ -85,6 +88,12 @@ export function FundsTransfersPage() {
         </Button>
       }
     >
+      <div className="transaction-filter-row">
+        <DateRangeFilter
+          value={transactionDateFilter}
+          onChange={setTransactionDateFilter}
+        />
+      </div>
       <section className="standard-page-panel user-management-panel">
         <TableCard.Root size="sm">
           {error && (

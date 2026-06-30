@@ -128,6 +128,52 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(transferRow.getByText("Today")).isVisible()
     }
 
+    @Test
+    fun filtersFundsTransfersBySharedDateRange(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", isDefault = false)
+        val travel = saveAccount(alice, "Travel", "EUR", isDefault = false)
+        saveTransfer(alice, main, savings, TestTimeProvider.DEFAULT_DATE.minusMonths(1), 1500, 1500)
+        saveTransfer(alice, main, travel, TestTimeProvider.DEFAULT_DATE, 3000, 1800)
+        saveTransfer(alice, savings, main, TestTimeProvider.DEFAULT_DATE.plusMonths(1), 7000, 7000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/transfers")
+
+        assertDateFilterLabel(page, "June 2099")
+        page.shouldEventuallyContainTransferRows(
+            TransferRow("Main -> Travel", "A$30.00 → €18.00", "Today", "edit delete"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Previous date range")).click()
+        assertDateFilterLabel(page, "May 2099")
+        page.shouldEventuallyContainTransferRows(
+            TransferRow("Main -> Savings", "A$15.00", "May 14", "edit delete"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range")).click()
+        assertDateFilterLabel(page, "July 2099")
+        page.shouldEventuallyContainTransferRows(
+            TransferRow("Savings -> Main", "A$70.00", "Jul 14", "edit delete"),
+        )
+
+        applyDateFilterPreset(page, "July 2099", "All time")
+        assertDateFilterLabel(page, "All time")
+        page.shouldEventuallyContainTransferRows(
+            TransferRow("Savings -> Main", "A$70.00", "Jul 14", "edit delete"),
+            TransferRow("Main -> Travel", "A$30.00 → €18.00", "Today", "edit delete"),
+            TransferRow("Main -> Savings", "A$15.00", "May 14", "edit delete"),
+        )
+
+        page.reload()
+        assertDateFilterLabel(page, "June 2099")
+        page.shouldEventuallyContainTransferRows(
+            TransferRow("Main -> Travel", "A$30.00 → €18.00", "Today", "edit delete"),
+        )
+    }
+
     private fun saveUser(username: String, type: UserType = UserType.USER): User = userRepository.save(
         User(
             username = username,
@@ -173,6 +219,17 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
         page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
+    }
+
+    private fun assertDateFilterLabel(page: Page, label: String) {
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(label).setExact(true))).isVisible()
+    }
+
+    private fun applyDateFilterPreset(page: Page, currentLabel: String, preset: String) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(currentLabel).setExact(true)).click()
+        val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(preset).setExact(true)).click()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply")).click()
     }
 
     private fun extractTransferRows(page: Page): List<TransferRow> {
