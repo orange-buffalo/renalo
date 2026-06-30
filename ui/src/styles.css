@@ -154,6 +154,13 @@ input {
   font-style: italic;
 }
 
+.funds-transfer-cross-currency-amount {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
 .date-filter-panel {
   display: flex;
   justify-content: flex-start;

@@ -19,6 +19,11 @@ import {
 } from "./routes/ExpenseFormPage.tsx";
 import { ExpensesPage } from "./routes/ExpensesPage.tsx";
 import {
+  CreateFundsTransferPage,
+  EditFundsTransferPage,
+} from "./routes/FundsTransferFormPage.tsx";
+import { FundsTransfersPage } from "./routes/FundsTransfersPage.tsx";
+import {
   CreateIncomeCategoryPage,
   EditIncomeCategoryPage,
 } from "./routes/IncomeCategoryFormPage.tsx";
@@ -96,6 +101,30 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <EditIncomePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/transfers",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <FundsTransfersPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/transfers/create",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <CreateFundsTransferPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/transfers/:transferId",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <EditFundsTransferPage />
       </ProtectedRoute>
     ),
   },
