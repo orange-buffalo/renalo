@@ -7,8 +7,14 @@ import {
   type FundsTransfer,
   fetchFundsTransfers,
 } from "@/api/fundsTransfers";
+import { fetchTrackingAccounts } from "@/api/trackingAccounts";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import {
+  emptyFundsTransferSecondaryFilters,
+  type FundsTransferFilterOption,
+  FundsTransferMoreFilters,
+} from "@/components/FundsTransferMoreFilters";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
 import { TableLoadingState } from "@/components/TableLoadingState";
@@ -28,13 +34,17 @@ export function FundsTransfersPage() {
   const navigate = useNavigate();
   const { transactionDateFilter, setTransactionDateFilter } = useAppState();
   const [transfers, setTransfers] = useState<FundsTransfer[]>();
+  const [accounts, setAccounts] = useState<FundsTransferFilterOption[]>([]);
+  const [secondaryFilters, setSecondaryFilters] = useState(
+    emptyFundsTransferSecondaryFilters,
+  );
   const [error, setError] = useState<string>();
   const [confirmingTransfer, setConfirmingTransfer] = useState<FundsTransfer>();
   const [deletingTransferId, setDeletingTransferId] = useState<number>();
 
   useEffect(() => {
     let isActive = true;
-    fetchFundsTransfers(transactionDateFilter)
+    fetchFundsTransfers(transactionDateFilter, secondaryFilters)
       .then((loadedTransfers) => {
         if (isActive) {
           setTransfers(loadedTransfers);
@@ -49,7 +59,31 @@ export function FundsTransfersPage() {
     return () => {
       isActive = false;
     };
-  }, [transactionDateFilter]);
+  }, [transactionDateFilter, secondaryFilters]);
+
+  useEffect(() => {
+    let isActive = true;
+    fetchTrackingAccounts()
+      .then((loadedAccounts) => {
+        if (isActive) {
+          setAccounts(
+            loadedAccounts.map((account) => ({
+              id: account.id,
+              name: account.name,
+            })),
+          );
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setError("Transfers could not be loaded. Try again in a moment.");
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   async function handleDeleteConfirmed() {
     if (!confirmingTransfer) {
@@ -92,6 +126,11 @@ export function FundsTransfersPage() {
         <DateRangeFilter
           value={transactionDateFilter}
           onChange={setTransactionDateFilter}
+        />
+        <FundsTransferMoreFilters
+          value={secondaryFilters}
+          accounts={accounts}
+          onChange={setSecondaryFilters}
         />
       </div>
       <section className="standard-page-panel user-management-panel">

@@ -25,15 +25,29 @@ class FundsTransferController(
         authentication: Authentication,
         @QueryValue from: LocalDate?,
         @QueryValue to: LocalDate?,
+        @QueryValue sourceAccountIds: String?,
+        @QueryValue targetAccountIds: String?,
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
         if ((from == null) != (to == null) || (from != null && to != null && from > to)) {
             return HttpResponse.badRequest<Any>()
         }
+        val sourceAccountIdFilter = parseIdFilter(sourceAccountIds)
+            ?: return HttpResponse.badRequest<Any>()
+        val targetAccountIdFilter = parseIdFilter(targetAccountIds)
+            ?: return HttpResponse.badRequest<Any>()
 
         return HttpResponse.ok(
-            fundsTransferService.listTransfers(user.id!!, FundsTransferDateFilter(from, to)).map { it.toResponse() },
+            fundsTransferService.listTransfers(
+                user.id!!,
+                FundsTransferDateFilter(
+                    from = from,
+                    to = to,
+                    sourceAccountIds = sourceAccountIdFilter,
+                    targetAccountIds = targetAccountIdFilter,
+                ),
+            ).map { it.toResponse() },
         )
     }
 
@@ -85,6 +99,16 @@ class FundsTransferController(
             DeleteFundsTransferResult.NotFound -> HttpResponse.notFound<Any>()
         }
     }
+}
+
+private fun parseIdFilter(rawValue: String?): List<Long>? {
+    if (rawValue.isNullOrBlank()) {
+        return emptyList()
+    }
+    return rawValue.split(',')
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { it.toLongOrNull()?.takeIf { id -> id > 0 } ?: return null }
 }
 
 private fun FundsTransferDetails.toResponse() = FundsTransferResponse(

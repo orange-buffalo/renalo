@@ -182,6 +182,50 @@ class FundsTransferApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun filtersFundsTransfersBySourceAndTargetAccounts() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD")
+        val travel = saveAccount(alice, "Travel", "EUR")
+        val matchingTransfer = saveTransfer(alice, main, travel, 3000, 1800)
+        saveTransfer(alice, main, savings, 1500, 1500)
+        saveTransfer(alice, savings, travel, 2000, 1200)
+        saveTransfer(alice, travel, main, 1800, 3000)
+        val token = api().login("alice", "password")
+
+        val response = api().get(
+            "/api/tracking/funds-transfers?sourceAccountIds=${main.id}&targetAccountIds=${travel.id}",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${matchingTransfer.id},
+                    "sourceAccount": {"id": ${main.id}, "name": "Main", "currency": "AUD"},
+                    "targetAccount": {"id": ${travel.id}, "name": "Travel", "currency": "EUR"},
+                    "sourceAmountMinor": 3000,
+                    "targetAmountMinor": 1800,
+                    "date": "2026-06-10"
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun rejectsInvalidFundsTransferAccountFilters() {
+        val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        val token = api().login("alice", "password")
+
+        api().get("/api/tracking/funds-transfers?sourceAccountIds=abc", token).statusCode().shouldBe(400)
+        api().get("/api/tracking/funds-transfers?targetAccountIds=-1", token).statusCode().shouldBe(400)
+    }
+
+    @Test
     fun rejectsInvalidFundsTransferReferencesAndAmounts() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)

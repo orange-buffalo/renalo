@@ -28,15 +28,33 @@ export type FundsTransferDateFilterParams = {
   to: string | null;
 };
 
+export type FundsTransferSecondaryFilterParams = {
+  sourceAccountIds: number[];
+  targetAccountIds: number[];
+};
+
 const fundsTransfersPath = "/api/tracking/funds-transfers";
 
 export function fetchFundsTransfers(
   dateFilter?: FundsTransferDateFilterParams,
+  secondaryFilters?: FundsTransferSecondaryFilterParams,
 ) {
   const queryParams = new URLSearchParams();
   if (dateFilter?.from && dateFilter.to) {
     queryParams.set("from", dateFilter.from);
     queryParams.set("to", dateFilter.to);
+  }
+  if (secondaryFilters?.sourceAccountIds.length) {
+    queryParams.set(
+      "sourceAccountIds",
+      secondaryFilters.sourceAccountIds.join(","),
+    );
+  }
+  if (secondaryFilters?.targetAccountIds.length) {
+    queryParams.set(
+      "targetAccountIds",
+      secondaryFilters.targetAccountIds.join(","),
+    );
   }
   const query = queryParams.toString();
   return apiRequest<FundsTransfer[]>(

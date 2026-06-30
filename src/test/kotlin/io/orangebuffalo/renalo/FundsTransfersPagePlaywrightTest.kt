@@ -174,6 +174,49 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         )
     }
 
+    @Test
+    fun filtersFundsTransfersBySourceAndTargetAccounts(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", isDefault = false)
+        val travel = saveAccount(alice, "Travel", "EUR", isDefault = false)
+        saveTransfer(alice, main, travel, TestTimeProvider.DEFAULT_DATE, 3000, 1800)
+        saveTransfer(alice, main, savings, TestTimeProvider.DEFAULT_DATE, 1500, 1500)
+        saveTransfer(alice, savings, travel, TestTimeProvider.DEFAULT_DATE, 2000, 1200)
+        saveTransfer(alice, travel, main, TestTimeProvider.DEFAULT_DATE, 1800, 3000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/transfers")
+
+        page.shouldEventuallyContainTransferRows(
+            TransferRow("Main -> Travel", "A$30.00 → €18.00", "Today", "edit delete"),
+            TransferRow("Main -> Savings", "A$15.00", "Today", "edit delete"),
+            TransferRow("Savings -> Travel", "A$20.00 → €12.00", "Today", "edit delete"),
+            TransferRow("Travel -> Main", "€18.00 → A$30.00", "Today", "edit delete"),
+        )
+
+        openMoreFilters(page)
+        selectMoreFilterOption(page, "Source account", "Main")
+        selectMoreFilterOption(page, "Target account", "Travel")
+
+        assertThat(page.locator(".transaction-filter-count-badge")).hasText("2")
+        assertThat(page.getByLabel("Selected source account").getByText("Main")).isVisible()
+        assertThat(page.getByLabel("Selected target account").getByText("Travel")).isVisible()
+        page.shouldEventuallyContainTransferRows(
+            TransferRow("Main -> Travel", "A$30.00 → €18.00", "Today", "edit delete"),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Clear all")).click()
+
+        assertThat(page.locator(".transaction-filter-count-badge")).not().isVisible()
+        page.shouldEventuallyContainTransferRows(
+            TransferRow("Main -> Travel", "A$30.00 → €18.00", "Today", "edit delete"),
+            TransferRow("Main -> Savings", "A$15.00", "Today", "edit delete"),
+            TransferRow("Savings -> Travel", "A$20.00 → €12.00", "Today", "edit delete"),
+            TransferRow("Travel -> Main", "€18.00 → A$30.00", "Today", "edit delete"),
+        )
+    }
+
     private fun saveUser(username: String, type: UserType = UserType.USER): User = userRepository.save(
         User(
             username = username,
@@ -230,6 +273,20 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(preset).setExact(true)).click()
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply")).click()
+    }
+
+    private fun openMoreFilters(page: Page) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("More filters")).click()
+        assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))).isVisible()
+    }
+
+    private fun selectMoreFilterOption(page: Page, label: String, option: String) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Choose ${label.lowercase()}"))
+            .click()
+        page.locator(".transaction-filter-option")
+            .filter(Locator.FilterOptions().setHasText(option))
+            .click()
+        page.keyboard().press("Escape")
     }
 
     private fun extractTransferRows(page: Page): List<TransferRow> {

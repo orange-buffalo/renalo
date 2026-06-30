@@ -2,14 +2,18 @@ package io.orangebuffalo.renalo.tracking
 
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Singleton
+import java.sql.ResultSet
 import java.time.LocalDate
+import javax.sql.DataSource
 
 @Singleton
 open class FundsTransferService(
     private val fundsTransferRepository: FundsTransferRepository,
     private val trackingAccountRepository: TrackingAccountRepository,
+    private val dataSource: DataSource,
 ) {
-    fun listTransfers(userId: Long, filter: FundsTransferDateFilter = FundsTransferDateFilter()): List<FundsTransferDetails> =
+    @Transactional(readOnly = true)
+    open fun listTransfers(userId: Long, filter: FundsTransferDateFilter = FundsTransferDateFilter()): List<FundsTransferDetails> =
         findTransfers(userId, filter)
             .mapNotNull { it.toDetails(userId) }
 
@@ -63,12 +67,53 @@ open class FundsTransferService(
         )
     }
 
-    private fun findTransfers(userId: Long, filter: FundsTransferDateFilter): List<FundsTransfer> =
+    private fun findTransfers(userId: Long, filter: FundsTransferDateFilter): List<FundsTransfer> {
+        val whereClauses = mutableListOf("user_id = ?")
+        val parameters = mutableListOf<Any>(userId)
         if (filter.from != null && filter.to != null) {
-            fundsTransferRepository.findByUserIdAndDateBetweenOrderByDateDesc(userId, filter.from, filter.to)
-        } else {
-            fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
+            whereClauses += "date BETWEEN ? AND ?"
+            parameters += filter.from
+            parameters += filter.to
         }
+        if (filter.sourceAccountIds.isNotEmpty()) {
+            whereClauses += "source_account_id IN (${filter.sourceAccountIds.joinToString(",") { "?" }})"
+            parameters.addAll(filter.sourceAccountIds)
+        }
+        if (filter.targetAccountIds.isNotEmpty()) {
+            whereClauses += "target_account_id IN (${filter.targetAccountIds.joinToString(",") { "?" }})"
+            parameters.addAll(filter.targetAccountIds)
+        }
+
+        val sql = """
+            SELECT id, user_id, source_account_id, target_account_id, source_amount_minor, target_amount_minor, date
+            FROM funds_transfers
+            WHERE ${whereClauses.joinToString(" AND ")}
+            ORDER BY date DESC
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                statement.executeQuery().use { resultSet ->
+                    buildList {
+                        while (resultSet.next()) {
+                            add(resultSet.toFundsTransfer())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun ResultSet.toFundsTransfer() = FundsTransfer(
+        id = getLong("id"),
+        userId = getLong("user_id"),
+        sourceAccountId = getLong("source_account_id"),
+        targetAccountId = getLong("target_account_id"),
+        sourceAmountMinor = getLong("source_amount_minor"),
+        targetAmountMinor = getLong("target_amount_minor"),
+        date = getObject("date", LocalDate::class.java),
+    )
 
     private fun FundsTransfer.toDetails(userId: Long): FundsTransferDetails? {
         val sourceAccount = trackingAccountRepository.findByIdAndUserId(sourceAccountId, userId) ?: return null
@@ -80,6 +125,8 @@ open class FundsTransferService(
 data class FundsTransferDateFilter(
     val from: LocalDate? = null,
     val to: LocalDate? = null,
+    val sourceAccountIds: List<Long> = emptyList(),
+    val targetAccountIds: List<Long> = emptyList(),
 )
 
 data class FundsTransferDetails(
