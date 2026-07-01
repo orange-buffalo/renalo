@@ -4,6 +4,7 @@ import { useAppState } from "@/AppState";
 import { clearAuthToken, createAuthToken, fetchProfile } from "@/api/auth";
 import { fetchSystemSettings } from "@/api/system";
 import { AnonymousPage } from "@/components/AnonymousPage";
+import { Alert } from "@/components/untitled/application/alerts/alert";
 import { showNotification } from "@/components/untitled/application/notifications/notifications";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
@@ -14,6 +15,8 @@ export function LoginPage() {
   const { profile, setProfile, setSettings } = useAppState();
   const [error, setError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
+  const sessionExpired =
+    new URLSearchParams(location.search).get("sessionExpired") === "true";
 
   useEffect(() => {
     const state = location.state as {
@@ -32,14 +35,14 @@ export function LoginPage() {
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
-    if (!profile) {
+    if (!profile || sessionExpired) {
       return;
     }
 
     navigate(profile.type === "ADMIN" ? "/user-management" : "/tracking", {
       replace: true,
     });
-  }, [navigate, profile]);
+  }, [navigate, profile, sessionExpired]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,6 +79,15 @@ export function LoginPage() {
       <section className="login-card" aria-labelledby="login-heading">
         <h1 id="login-heading">Sign in to Renalo</h1>
         <p className="intro">Sign in to continue to your budget workspace.</p>
+        {sessionExpired && (
+          <Alert
+            tone="brand"
+            title="Session expired"
+            className="login-info-alert"
+          >
+            <p>Please sign in again to continue.</p>
+          </Alert>
+        )}
         <form className="login-form" onSubmit={handleSubmit}>
           <Input label="Username" name="username" autoComplete="username" />
           <Input

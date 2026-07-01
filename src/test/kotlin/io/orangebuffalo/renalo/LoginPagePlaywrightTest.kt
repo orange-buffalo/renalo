@@ -2,6 +2,7 @@ package io.orangebuffalo.renalo
 
 import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
+import com.microsoft.playwright.Route
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
 import io.kotest.matchers.nulls.shouldBeNull
@@ -156,6 +157,29 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Session expired")
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Please sign in again to continue.")
+        page.evaluate("window.localStorage.getItem('renalo.authToken')").shouldBeNull()
+    }
+
+    @Test
+    fun redirectsToLoginWhenRuntimeApiRequestReturnsUnauthorized(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        page.navigate(server.url.toString() + "/")
+        val token = testAuthTokens.issueToken("alice", UserType.USER)
+        page.evaluate("window.localStorage.setItem('renalo.authToken', '$token')")
+        page.navigate(server.url.toString() + "/tracking")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+        page.route("**/api/tracking/transactions/EXPENSE**") { route ->
+            route.fulfill(Route.FulfillOptions().setStatus(401))
+        }
+
+        page.navigate(server.url.toString() + "/expenses")
+        page.waitForURL("**/?sessionExpired=true")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Session expired")
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Please sign in again to continue.")
         page.evaluate("window.localStorage.getItem('renalo.authToken')").shouldBeNull()
     }
 

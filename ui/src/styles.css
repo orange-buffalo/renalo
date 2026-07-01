@@ -1025,6 +1025,10 @@ input {
   gap: 18px;
 }
 
+.login-info-alert {
+  margin-bottom: 24px;
+}
+
 .standard-page-shell {
   display: grid;
   grid-template-rows: auto 1fr;

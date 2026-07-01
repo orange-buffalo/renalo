@@ -1,4 +1,5 @@
 const authTokenStorageKey = "renalo.authToken";
+let isRedirectingToExpiredSessionLogin = false;
 
 export class ApiError extends Error {
   constructor(
@@ -37,6 +38,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}) {
   if (!response.ok) {
     if (response.status === 401) {
       clearAuthToken();
+      redirectToLoginForExpiredSession();
     }
     throw new ApiError(
       "API request failed",
@@ -50,6 +52,23 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}) {
   }
 
   return (await response.json()) as T;
+}
+
+function redirectToLoginForExpiredSession() {
+  if (isRedirectingToExpiredSessionLogin) {
+    return;
+  }
+
+  const expiredSessionLoginPath = "/?sessionExpired=true";
+  if (
+    window.location.pathname === "/" &&
+    window.location.search === "?sessionExpired=true"
+  ) {
+    return;
+  }
+
+  isRedirectingToExpiredSessionLogin = true;
+  window.location.assign(expiredSessionLoginPath);
 }
 
 async function readErrorCode(response: Response) {
