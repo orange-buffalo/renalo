@@ -4,10 +4,12 @@ import io.kotest.assertions.json.shouldEqualJson
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
+import io.orangebuffalo.renalo.auth.RememberMeTokenRepository
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
@@ -26,6 +28,9 @@ class AuthApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
+
+    @Inject
+    lateinit var rememberMeTokenRepository: RememberMeTokenRepository
 
     @Test
     fun rejectsInvalidCredentials() {
@@ -137,7 +142,7 @@ class AuthApiTest : IntegrationTestSupport() {
         val loginResponse = api().postJson(
             "/api/create-auth-token",
             """
-                {"username":"alice","password":"correct-password","rememberMe":true}
+                {"username":"alice","password":"correct-password","rememberMe":true,"rememberMeDevice":"Chrome on Linux"}
             """.trimIndent(),
             null,
         )
@@ -148,6 +153,16 @@ class AuthApiTest : IntegrationTestSupport() {
         rememberMeCookie.shouldContain("HTTPOnly")
         rememberMeCookie.shouldContain("SameSite=Lax")
         rememberMeCookie.shouldContain("Max-Age=2592000")
+        val cookieValue = rememberMeCookie.substringAfter("renalo.rememberMe=").substringBefore(";")
+        cookieValue.shouldNotBeBlank()
+        cookieValue.split(".").size.shouldBe(1)
+
+        val persistedToken = rememberMeTokenRepository.findAll().toList().single()
+        persistedToken.userId.shouldBe(userRepository.findByUsername("alice")!!.id)
+        persistedToken.tokenHash.shouldNotBe(cookieValue)
+        persistedToken.device.shouldBe("Chrome on Linux")
+        persistedToken.createdAt.shouldBe(testTimeProvider.now())
+        persistedToken.lastUsedAt.shouldBe(testTimeProvider.now())
 
         val refreshResponse = api().postWithCookie("/api/refresh-access-token", rememberMeCookie.substringBefore(";"))
 
@@ -164,6 +179,7 @@ class AuthApiTest : IntegrationTestSupport() {
                 }
             """.trimIndent(),
         )
+        rememberMeTokenRepository.findAll().toList().single().lastUsedAt.shouldBe(testTimeProvider.now())
     }
 
     @Test
@@ -206,7 +222,36 @@ class AuthApiTest : IntegrationTestSupport() {
             .shouldContain("Max-Age=0")
     }
 
-    private fun saveUser(username: String, password: String, type: UserType) {
-        userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
+    @Test
+    fun rejectsRememberMeTokenForInactiveUser() {
+        val user = saveUser("alice", "correct-password", UserType.USER)
+        val loginResponse = api().postJson(
+            "/api/create-auth-token",
+            """
+                {"username":"alice","password":"correct-password","rememberMe":true,"rememberMeDevice":"Chrome on Linux"}
+            """.trimIndent(),
+            null,
+        )
+        val rememberMeCookie = loginResponse.headers().allValues("Set-Cookie").single().substringBefore(";")
+        user.active = false
+        userRepository.update(user)
+
+        val refreshResponse = api().postWithCookie("/api/refresh-access-token", rememberMeCookie)
+
+        refreshResponse.statusCode().shouldBe(200)
+        refreshResponse.body().shouldEqualJson(
+            """
+                {
+                  "token": null
+                }
+            """.trimIndent(),
+        )
+        refreshResponse.headers().allValues("Set-Cookie").singleOrNull()
+            .shouldNotBeNull()
+            .shouldContain("Max-Age=0")
+    }
+
+    private fun saveUser(username: String, password: String, type: UserType): User {
+        return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
     }
 }

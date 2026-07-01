@@ -19,11 +19,12 @@ export async function createAuthToken(
   password: string,
   rememberMe: boolean,
 ) {
+  const rememberMeDevice = rememberMe ? getCurrentDeviceLabel() : undefined;
   const response = await fetch("/api/create-auth-token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ username, password, rememberMe }),
+    body: JSON.stringify({ username, password, rememberMe, rememberMeDevice }),
   });
 
   if (!response.ok) {
@@ -73,4 +74,46 @@ export function getAuthTokenExpirationTime(token: string) {
 
 export async function fetchProfile() {
   return apiRequest<Profile>("/api/profile");
+}
+
+function getCurrentDeviceLabel() {
+  const userAgent = window.navigator.userAgent;
+  const browser = getBrowserName(userAgent);
+  const os = getOperatingSystemName(userAgent);
+  return `${browser} on ${os}`;
+}
+
+function getBrowserName(userAgent: string) {
+  if (/Edg\//.test(userAgent)) {
+    return "Edge";
+  }
+  if (/Firefox\//.test(userAgent)) {
+    return "Firefox";
+  }
+  if (/Chrome\//.test(userAgent) || /CriOS\//.test(userAgent)) {
+    return "Chrome";
+  }
+  if (/Safari\//.test(userAgent)) {
+    return "Safari";
+  }
+  return "Browser";
+}
+
+function getOperatingSystemName(userAgent: string) {
+  if (/Windows NT/.test(userAgent)) {
+    return "Windows";
+  }
+  if (/Android/.test(userAgent)) {
+    return "Android";
+  }
+  if (/iPhone|iPad|iPod/.test(userAgent)) {
+    return "iOS";
+  }
+  if (/Mac OS X/.test(userAgent)) {
+    return "macOS";
+  }
+  if (/Linux/.test(userAgent)) {
+    return "Linux";
+  }
+  return "this device";
 }
