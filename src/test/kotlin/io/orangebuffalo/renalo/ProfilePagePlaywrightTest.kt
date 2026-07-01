@@ -1,5 +1,7 @@
 package io.orangebuffalo.renalo
 
+import com.google.gson.JsonObject
+import com.microsoft.playwright.CDPSession
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
@@ -33,7 +35,7 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/")
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("old-password")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
 
         page.navigate(server.url.toString() + "/profile")
@@ -56,7 +58,7 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
 
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("new-password")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
     }
@@ -82,7 +84,55 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByText("Current password is incorrect.")).isVisible()
     }
 
+    @Test
+    fun registersAndUsesPasskey(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        installVirtualAuthenticator(page)
+        val baseUrl = "http://localhost:${server.port}"
+
+        page.navigate(baseUrl + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        page.navigate(baseUrl + "/profile")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Passkeys"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add passkey")).click()
+        assertThat(page.getByText("Chrome on Linux")).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign out")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in with passkey")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+    }
+
     private fun saveUser(username: String, password: String, type: UserType): User {
         return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
+    }
+
+    private fun installVirtualAuthenticator(page: Page): CDPSession {
+        val cdpSession = page.context().newCDPSession(page)
+        cdpSession.send("WebAuthn.enable")
+        cdpSession.send(
+            "WebAuthn.addVirtualAuthenticator",
+            JsonObject().apply {
+                add(
+                    "options",
+                    JsonObject().apply {
+                        addProperty("protocol", "ctap2")
+                        addProperty("transport", "internal")
+                        addProperty("hasResidentKey", true)
+                        addProperty("hasUserVerification", true)
+                        addProperty("isUserVerified", true)
+                        addProperty("automaticPresenceSimulation", true)
+                    },
+                )
+            },
+        )
+        return cdpSession
     }
 }

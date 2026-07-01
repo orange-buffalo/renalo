@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
-import { clearAuthToken, createAuthToken, fetchProfile } from "@/api/auth";
+import {
+  clearAuthToken,
+  createAuthToken,
+  createAuthTokenWithPasskey,
+  fetchProfile,
+} from "@/api/auth";
 import { fetchSystemSettings } from "@/api/system";
 import { AnonymousPage } from "@/components/AnonymousPage";
 import { Alert } from "@/components/untitled/application/alerts/alert";
@@ -16,6 +21,7 @@ export function LoginPage() {
   const { profile, setProfile, setSettings } = useAppState();
   const [error, setError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
+  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const sessionExpired =
     new URLSearchParams(location.search).get("sessionExpired") === "true";
@@ -76,6 +82,31 @@ export function LoginPage() {
     }
   }
 
+  async function handlePasskeySignIn() {
+    setError(undefined);
+    setIsPasskeyLoading(true);
+
+    try {
+      await createAuthTokenWithPasskey();
+      const [profile, settings] = await Promise.all([
+        fetchProfile(),
+        fetchSystemSettings(),
+      ]);
+      setProfile(profile);
+      setSettings(settings);
+      navigate(profile.type === "ADMIN" ? "/user-management" : "/tracking", {
+        replace: true,
+      });
+    } catch {
+      clearAuthToken();
+      setProfile(undefined);
+      setSettings(undefined);
+      setError("Passkey sign in failed.");
+    } finally {
+      setIsPasskeyLoading(false);
+    }
+  }
+
   return (
     <AnonymousPage className="anonymous-page-shell--login">
       <section className="login-card" aria-labelledby="login-heading">
@@ -110,6 +141,16 @@ export function LoginPage() {
             Sign in
           </Button>
         </form>
+        <div className="login-passkey-divider">or</div>
+        <Button
+          color="secondary"
+          size="md"
+          type="button"
+          isLoading={isPasskeyLoading}
+          onClick={handlePasskeySignIn}
+        >
+          Sign in with passkey
+        </Button>
       </section>
     </AnonymousPage>
   );

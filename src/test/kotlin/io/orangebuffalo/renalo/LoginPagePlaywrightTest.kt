@@ -43,7 +43,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/")
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
         assertAccountMenuTrigger(page, "alice", "USER")
@@ -60,7 +60,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
         page.getByText("Remember me", Page.GetByTextOptions().setExact(true)).click()
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
 
         val refreshedToken = page.evaluate(
@@ -83,7 +83,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/")
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
 
         page.reload()
@@ -229,7 +229,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/")
         page.getByLabel("Username").fill("admin")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("User management"))).isVisible()
         assertAccountMenuTrigger(page, "admin", "ADMIN")
@@ -244,7 +244,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/")
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("wrong-password")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
 
         assertThat(page.getByText("Invalid username or password.")).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()

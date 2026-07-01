@@ -40,6 +40,7 @@
 - Database cleanup for tests must truncate application tables before and after each test, excluding Flyway metadata tables.
 - Every API change must be fully covered with tests, including security verification, business flow coverage, and relevant edge cases.
 - Remember-me authentication uses an opaque random token stored in the `renalo.rememberMe` HttpOnly cookie and persisted as a hashed `RememberMeToken` row linked to a user with device, creation time, and last-used time. Access-token refresh goes through `/api/refresh-access-token`, which returns a nullable token body and must validate the cookie token against current persisted token and user state before issuing a new access token.
+- Passkeys use Yubico WebAuthn server support with persistent `PasskeyCredential` rows and short-lived `PasskeyChallenge` rows. Passkey login should issue the same JWT access tokens as password login through `AccessTokenService`; WebAuthn option JSON must be serialized as plain maps rather than Jackson `JsonNode` values so Micronaut returns browser-ready `publicKey` payloads.
 
 ## Frontend
 

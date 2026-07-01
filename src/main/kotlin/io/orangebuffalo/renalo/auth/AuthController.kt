@@ -16,7 +16,6 @@ import io.micronaut.http.cookie.SameSite
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.micronaut.security.rules.SecurityRule
-import io.micronaut.security.token.generator.TokenGenerator
 import io.micronaut.security.token.jwt.validator.JsonWebTokenValidator
 import io.orangebuffalo.renalo.time.TimeProvider
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -31,11 +30,9 @@ class AuthController(
     private val userRepository: UserRepository,
     private val rememberMeTokenRepository: RememberMeTokenRepository,
     private val passwordHasher: PasswordHasher,
-    private val tokenGenerator: TokenGenerator,
+    private val accessTokenService: AccessTokenService,
     private val jwtValidator: JsonWebTokenValidator<JWT, HttpRequest<*>>,
     private val timeProvider: TimeProvider,
-    @Value("\${renalo.auth.access-token-expiration-seconds}")
-    private val accessTokenExpirationSeconds: Long,
     @Value("\${renalo.auth.remember-me-token-expiration-seconds}")
     private val rememberMeTokenExpirationSeconds: Long,
 ) {
@@ -52,7 +49,7 @@ class AuthController(
             return HttpResponse.unauthorized()
         }
 
-        val token = issueAccessToken(user.username, user.type)
+        val token = accessTokenService.issueAccessToken(user.username, user.type)
 
         val response = HttpResponse.ok(CreateAuthTokenResponse(token = token))
         if (request.rememberMe) {
@@ -105,7 +102,7 @@ class AuthController(
         tokenRecord.lastUsedAt = timeProvider.now()
         rememberMeTokenRepository.update(tokenRecord)
 
-        return issueAccessToken(user.username, user.type)
+        return accessTokenService.issueAccessToken(user.username, user.type)
     }
 
     private fun refreshAccessTokenWithBearerToken(request: HttpRequest<*>): String? {
@@ -125,7 +122,7 @@ class AuthController(
             return null
         }
 
-        return issueAccessToken(user.username, user.type)
+        return accessTokenService.issueAccessToken(user.username, user.type)
     }
 
     @Get("/profile")
@@ -165,28 +162,6 @@ class AuthController(
     @Get("/user-management")
     @Secured(UserRoles.ADMIN)
     fun userManagement(): MessageResponse = MessageResponse("user-management")
-
-    private fun issueAccessToken(username: String, userType: UserType): String = issueToken(
-        username = username,
-        userType = userType,
-        expiresInSeconds = accessTokenExpirationSeconds,
-    )
-
-    private fun issueToken(
-        username: String,
-        userType: UserType,
-        expiresInSeconds: Long,
-    ): String {
-        val roles = listOf(userType.name)
-        val claims = mapOf(
-            "sub" to username,
-            "roles" to roles,
-            "userType" to userType.name,
-            "exp" to timeProvider.now().plusSeconds(expiresInSeconds).epochSecond,
-        )
-        return tokenGenerator.generateToken(claims)
-            .orElseThrow { IllegalStateException("JWT token could not be generated") }
-    }
 
     private fun createRememberMeToken(userId: Long, device: String?): String {
         val rawToken = generateOpaqueRememberMeToken()

@@ -1,5 +1,6 @@
 package io.orangebuffalo.renalo
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.assertions.json.shouldEqualJson
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -10,6 +11,7 @@ import io.kotest.matchers.string.shouldNotBeBlank
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.auth.RememberMeTokenRepository
+import io.orangebuffalo.renalo.auth.passkeys.PasskeyChallengeRepository
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
@@ -31,6 +33,11 @@ class AuthApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var rememberMeTokenRepository: RememberMeTokenRepository
+
+    @Inject
+    lateinit var passkeyChallengeRepository: PasskeyChallengeRepository
+
+    private val objectMapper = ObjectMapper()
 
     @Test
     fun rejectsInvalidCredentials() {
@@ -382,6 +389,101 @@ class AuthApiTest : IntegrationTestSupport() {
         refreshResponse.headers().allValues("Set-Cookie").singleOrNull()
             .shouldNotBeNull()
             .shouldContain("Max-Age=0")
+    }
+
+    @Test
+    fun requiresTokenForPasskeyProfileEndpoints() {
+        api().get("/api/profile/passkeys", null).statusCode().shouldBe(401)
+        api().postJson(
+            "/api/profile/passkeys/registration-options",
+            """
+                {"device":"Chrome on Linux"}
+            """.trimIndent(),
+            null,
+        ).statusCode().shouldBe(401)
+        api().postJson(
+            "/api/profile/passkeys",
+            """
+                {"requestId":"missing","credential":{}}
+            """.trimIndent(),
+            null,
+        ).statusCode().shouldBe(401)
+        api().delete("/api/profile/passkeys/1", null).statusCode().shouldBe(401)
+    }
+
+    @Test
+    fun startsPasskeyRegistrationForCurrentUser() {
+        val user = saveUser("alice", "correct-password", UserType.USER)
+        val token = api().login("alice", "correct-password")
+
+        val response = api().postJson(
+            "/api/profile/passkeys/registration-options",
+            """
+                {"device":"Chrome on Linux"}
+            """.trimIndent(),
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        val responseBody = objectMapper.readValue(response.body(), Map::class.java)
+        val requestId = responseBody["requestId"] as String
+        requestId.shouldNotBeBlank()
+        @Suppress("UNCHECKED_CAST")
+        val publicKey = responseBody["publicKey"] as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val relyingParty = publicKey["rp"] as Map<String, Any?>
+        relyingParty["name"].shouldBe("Renalo")
+        relyingParty["id"].shouldBe("localhost")
+        @Suppress("UNCHECKED_CAST")
+        val passkeyUser = publicKey["user"] as Map<String, Any?>
+        passkeyUser["name"].shouldBe("alice")
+        publicKey["challenge"].shouldBe(requestId)
+        @Suppress("UNCHECKED_CAST")
+        val authenticatorSelection = publicKey["authenticatorSelection"] as Map<String, Any?>
+        authenticatorSelection["residentKey"].shouldBe("required")
+
+        val persistedChallenge = passkeyChallengeRepository.findByRequestId(requestId).shouldNotBeNull()
+        persistedChallenge.userId.shouldBe(user.id)
+        persistedChallenge.device.shouldBe("Chrome on Linux")
+        persistedChallenge.requestJson.shouldNotBeBlank()
+    }
+
+    @Test
+    fun rejectsInvalidPasskeyRegistrationFinishRequest() {
+        saveUser("alice", "correct-password", UserType.USER)
+        val token = api().login("alice", "correct-password")
+
+        val response = api().postJson(
+            "/api/profile/passkeys",
+            """
+                {"requestId":"missing","credential":{}}
+            """.trimIndent(),
+            token,
+        )
+
+        response.statusCode().shouldBe(400)
+    }
+
+    @Test
+    fun startsAnonymousPasskeyAuthenticationAndRejectsUnknownChallenge() {
+        val optionsResponse = api().post("/api/passkeys/authentication-options", null)
+
+        optionsResponse.statusCode().shouldBe(200)
+        val responseBody = objectMapper.readValue(optionsResponse.body(), Map::class.java)
+        val requestId = responseBody["requestId"] as String
+        requestId.shouldNotBeBlank()
+        @Suppress("UNCHECKED_CAST")
+        val publicKey = responseBody["publicKey"] as Map<String, Any?>
+        publicKey["challenge"].shouldBe(requestId)
+
+        val finishResponse = api().postJson(
+            "/api/passkeys/create-auth-token",
+            """
+                {"requestId":"missing","credential":{}}
+            """.trimIndent(),
+            null,
+        )
+        finishResponse.statusCode().shouldBe(400)
     }
 
     private fun saveUser(username: String, password: String, type: UserType): User {

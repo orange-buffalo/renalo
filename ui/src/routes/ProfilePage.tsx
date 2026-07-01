@@ -1,5 +1,12 @@
-import { type FormEvent, useState } from "react";
-import { ApiError, changePassword } from "@/api/auth";
+import { type FormEvent, useEffect, useState } from "react";
+import {
+  ApiError,
+  changePassword,
+  deletePasskey,
+  fetchPasskeys,
+  type Passkey,
+  registerPasskey,
+} from "@/api/auth";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -14,6 +21,40 @@ export function ProfilePage() {
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [passkeyError, setPasskeyError] = useState<string>();
+  const [isLoadingPasskeys, setIsLoadingPasskeys] = useState(true);
+  const [isAddingPasskey, setIsAddingPasskey] = useState(false);
+  const [deletingPasskeyId, setDeletingPasskeyId] = useState<number>();
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadPasskeys() {
+      setIsLoadingPasskeys(true);
+      try {
+        const loadedPasskeys = await fetchPasskeys();
+        if (isActive) {
+          setPasskeys(loadedPasskeys);
+          setPasskeyError(undefined);
+        }
+      } catch {
+        if (isActive) {
+          setPasskeyError("Passkeys could not be loaded.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingPasskeys(false);
+        }
+      }
+    }
+
+    void loadPasskeys();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,6 +96,34 @@ export function ProfilePage() {
       setError("Password could not be changed. Try again in a moment.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleAddPasskey() {
+    setPasskeyError(undefined);
+    setIsAddingPasskey(true);
+    try {
+      const passkey = await registerPasskey();
+      setPasskeys((currentPasskeys) => [...currentPasskeys, passkey]);
+    } catch {
+      setPasskeyError("Passkey could not be added. Try again in a moment.");
+    } finally {
+      setIsAddingPasskey(false);
+    }
+  }
+
+  async function handleDeletePasskey(passkeyId: number) {
+    setPasskeyError(undefined);
+    setDeletingPasskeyId(passkeyId);
+    try {
+      await deletePasskey(passkeyId);
+      setPasskeys((currentPasskeys) =>
+        currentPasskeys.filter((passkey) => passkey.id !== passkeyId),
+      );
+    } catch {
+      setPasskeyError("Passkey could not be removed. Try again in a moment.");
+    } finally {
+      setDeletingPasskeyId(undefined);
     }
   }
 
@@ -145,6 +214,68 @@ export function ProfilePage() {
           </div>
         </form>
       </section>
+
+      <section className="standard-page-panel profile-panel profile-passkeys-panel">
+        <div className="profile-passkeys-heading">
+          <div>
+            <h2>Passkeys</h2>
+            <p>
+              Use this device's secure sign-in method instead of a password.
+            </p>
+          </div>
+          <Button
+            color="primary"
+            size="sm"
+            type="button"
+            isLoading={isAddingPasskey}
+            onClick={handleAddPasskey}
+          >
+            Add passkey
+          </Button>
+        </div>
+
+        {passkeyError && <Alert tone="error" title={passkeyError} />}
+
+        {isLoadingPasskeys ? (
+          <p className="profile-passkeys-muted">Loading passkeys...</p>
+        ) : passkeys.length === 0 ? (
+          <p className="profile-passkeys-muted">
+            No passkeys have been added yet.
+          </p>
+        ) : (
+          <div className="profile-passkeys-list">
+            {passkeys.map((passkey) => (
+              <div className="profile-passkey-row" key={passkey.id}>
+                <div>
+                  <strong>{passkey.device}</strong>
+                  <p>
+                    Added {formatPasskeyDate(passkey.createdAt)} · Last used{" "}
+                    {passkey.lastUsedAt
+                      ? formatPasskeyDate(passkey.lastUsedAt)
+                      : "never"}
+                  </p>
+                </div>
+                <Button
+                  color="secondary"
+                  size="sm"
+                  type="button"
+                  isLoading={deletingPasskeyId === passkey.id}
+                  onClick={() => void handleDeletePasskey(passkey.id)}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </PageLayout>
   );
+}
+
+function formatPasskeyDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }

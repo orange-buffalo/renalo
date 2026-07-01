@@ -57,7 +57,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       ) {
         const refreshedToken = await refreshAccessToken();
         if (!refreshedToken) {
-          if (expiresAt <= Date.now()) {
+          if (!expiresAt || expiresAt <= Date.now()) {
             clearAuthToken();
             redirectToLoginForExpiredSession();
             throw new Error(
