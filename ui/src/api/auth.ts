@@ -1,4 +1,9 @@
-import { ApiError, apiRequest, setAuthToken } from "@/api/client";
+import {
+  ApiError,
+  apiRequest,
+  getAuthToken as readAuthToken,
+  setAuthToken,
+} from "@/api/client";
 
 export {
   ApiError,
@@ -37,8 +42,10 @@ export async function createAuthToken(
 }
 
 export async function refreshAccessToken() {
+  const token = readAuthToken();
   const response = await fetch("/api/refresh-access-token", {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     credentials: "same-origin",
   });
 

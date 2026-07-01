@@ -183,6 +183,61 @@ class AuthApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun refreshesAccessTokenWithBearerTokenWhenRememberMeCookieIsNotPresent() {
+        saveUser("alice", "correct-password", UserType.USER)
+        val token = api().login("alice", "correct-password")
+
+        val refreshResponse = api().post("/api/refresh-access-token", token)
+
+        refreshResponse.statusCode().shouldBe(200)
+        val refreshedToken = api().extractToken(refreshResponse.body())
+        val profileResponse = api().get("/api/profile", refreshedToken)
+        profileResponse.statusCode().shouldBe(200)
+        profileResponse.body().shouldEqualJson(
+            """
+                {
+                  "username": "alice",
+                  "type": "USER"
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun refreshesAccessTokenWithBearerTokenWhenRememberMeCookieIsInvalid() {
+        saveUser("alice", "correct-password", UserType.USER)
+        val token = api().login("alice", "correct-password")
+
+        val refreshResponse = api().postWithCookie("/api/refresh-access-token", "renalo.rememberMe=stale", token)
+
+        refreshResponse.statusCode().shouldBe(200)
+        refreshResponse.headers().allValues("Set-Cookie").singleOrNull()
+            .shouldNotBeNull()
+            .shouldContain("Max-Age=0")
+        val refreshedToken = api().extractToken(refreshResponse.body())
+        api().get("/api/profile", refreshedToken).statusCode().shouldBe(200)
+    }
+
+    @Test
+    fun rejectsBearerTokenRefreshForInactiveUser() {
+        val user = saveUser("alice", "correct-password", UserType.USER)
+        val token = api().login("alice", "correct-password")
+        user.active = false
+        userRepository.update(user)
+
+        val refreshResponse = api().post("/api/refresh-access-token", token)
+
+        refreshResponse.statusCode().shouldBe(200)
+        refreshResponse.body().shouldEqualJson(
+            """
+                {
+                  "token": null
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
     fun doesNotIssueRememberMeCookieByDefaultAndReturnsNullWhenRefreshingWithoutValidCookie() {
         saveUser("alice", "correct-password", UserType.USER)
 

@@ -4,6 +4,7 @@ import com.microsoft.playwright.Page
 import com.microsoft.playwright.Route
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
+import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
@@ -32,7 +33,9 @@ class RememberMeRefreshPlaywrightTest : IntegrationTestSupport() {
     fun refreshesAccessTokenBeforeItExpires(page: Page) {
         saveUser("alice", "password", UserType.USER)
         val refreshedToken = "refresh-timer-token.${tokenPayloadWithExpiration(1800)}.signature"
+        val storedToken = testAuthTokens.issueToken("alice", UserType.USER)
         page.route("**/api/refresh-access-token") { route ->
+            route.request().headers()["authorization"].shouldBe("Bearer $storedToken")
             route.fulfill(
                 Route.FulfillOptions()
                     .setStatus(200)
@@ -40,7 +43,7 @@ class RememberMeRefreshPlaywrightTest : IntegrationTestSupport() {
                     .setBody("""{"token":"$refreshedToken"}"""),
             )
         }
-        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        setStoredToken(page, storedToken)
 
         page.navigate(server.url.toString() + "/tracking")
 

@@ -68,6 +68,14 @@ class ApiTestClient(
         return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
     }
 
+    fun postWithCookie(path: String, cookie: String, token: String): HttpResponse<String> {
+        val builder = HttpRequest.newBuilder(URI.create(server.url.toString() + path))
+            .header("Cookie", cookie)
+            .header("Authorization", "Bearer $token")
+            .POST(HttpRequest.BodyPublishers.noBody())
+        return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
+    }
+
     fun patchJson(path: String, body: String, token: String?): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI.create(server.url.toString() + path))
             .header("Content-Type", "application/json")

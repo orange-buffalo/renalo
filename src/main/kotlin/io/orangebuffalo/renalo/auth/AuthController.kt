@@ -1,6 +1,7 @@
 package io.orangebuffalo.renalo.auth
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.nimbusds.jwt.JWT
 import io.micronaut.context.annotation.Value
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
@@ -14,6 +15,7 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.micronaut.security.rules.SecurityRule
 import io.micronaut.security.token.generator.TokenGenerator
+import io.micronaut.security.token.jwt.validator.JsonWebTokenValidator
 import io.orangebuffalo.renalo.time.TimeProvider
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.UserRepository
@@ -28,6 +30,7 @@ class AuthController(
     private val rememberMeTokenRepository: RememberMeTokenRepository,
     private val passwordHasher: PasswordHasher,
     private val tokenGenerator: TokenGenerator,
+    private val jwtValidator: JsonWebTokenValidator<JWT, HttpRequest<*>>,
     private val timeProvider: TimeProvider,
     @Value("\${renalo.auth.access-token-expiration-seconds}")
     private val accessTokenExpirationSeconds: Long,
@@ -72,20 +75,55 @@ class AuthController(
     @Secured(SecurityRule.IS_ANONYMOUS)
     fun refreshAccessToken(request: HttpRequest<*>): HttpResponse<RefreshAccessTokenResponse> {
         val rememberMeToken = request.cookies.findCookie(rememberMeCookieName).orElse(null)?.value
-            ?: return HttpResponse.ok(RefreshAccessTokenResponse(token = null))
+        if (rememberMeToken != null) {
+            val refreshedToken = refreshAccessTokenWithRememberMeToken(rememberMeToken)
+            if (refreshedToken != null) {
+                return HttpResponse.ok(RefreshAccessTokenResponse(token = refreshedToken))
+            }
+        }
 
+        val response = HttpResponse.ok(
+            RefreshAccessTokenResponse(token = refreshAccessTokenWithBearerToken(request)),
+        )
+        if (rememberMeToken != null) {
+            response.cookie(expireRememberMeCookie())
+        }
+        return response
+    }
+
+    private fun refreshAccessTokenWithRememberMeToken(rememberMeToken: String): String? {
         val tokenRecord = rememberMeTokenRepository.findByTokenHash(hashRememberMeToken(rememberMeToken))
-            ?: return HttpResponse.ok(RefreshAccessTokenResponse(token = null)).cookie(expireRememberMeCookie())
+            ?: return null
         val user = userRepository.findById(tokenRecord.userId).orElse(null)
-            ?: return HttpResponse.ok(RefreshAccessTokenResponse(token = null)).cookie(expireRememberMeCookie())
+            ?: return null
         if (!user.active) {
-            return HttpResponse.ok(RefreshAccessTokenResponse(token = null)).cookie(expireRememberMeCookie())
+            return null
         }
 
         tokenRecord.lastUsedAt = timeProvider.now()
         rememberMeTokenRepository.update(tokenRecord)
 
-        return HttpResponse.ok(RefreshAccessTokenResponse(token = issueAccessToken(user.username, user.type)))
+        return issueAccessToken(user.username, user.type)
+    }
+
+    private fun refreshAccessTokenWithBearerToken(request: HttpRequest<*>): String? {
+        val bearerToken = request.headers.get("Authorization")
+            ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+            ?.substringAfter(" ")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val jwt = jwtValidator.validate(bearerToken, request).orElse(null)
+            ?: return null
+        val username = jwt.jwtClaimsSet.subject
+            ?: return null
+        val user = userRepository.findByUsername(username)
+            ?: return null
+        if (!user.active) {
+            return null
+        }
+
+        return issueAccessToken(user.username, user.type)
     }
 
     @Get("/profile")
