@@ -54,7 +54,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}) {
   return (await response.json()) as T;
 }
 
-function redirectToLoginForExpiredSession() {
+export function redirectToLoginForExpiredSession() {
   if (isRedirectingToExpiredSessionLogin) {
     return;
   }

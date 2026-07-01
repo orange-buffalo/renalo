@@ -7,6 +7,7 @@ import { AnonymousPage } from "@/components/AnonymousPage";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { showNotification } from "@/components/untitled/application/notifications/notifications";
 import { Button } from "@/components/untitled/base/buttons/button";
+import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Input } from "@/components/untitled/base/input/input";
 
 export function LoginPage() {
@@ -15,6 +16,7 @@ export function LoginPage() {
   const { profile, setProfile, setSettings } = useAppState();
   const [error, setError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const sessionExpired =
     new URLSearchParams(location.search).get("sessionExpired") === "true";
 
@@ -54,7 +56,7 @@ export function LoginPage() {
     const password = String(formData.get("password") ?? "");
 
     try {
-      await createAuthToken(username, password);
+      await createAuthToken(username, password, rememberMe);
       const [profile, settings] = await Promise.all([
         fetchProfile(),
         fetchSystemSettings(),
@@ -97,6 +99,12 @@ export function LoginPage() {
             autoComplete="current-password"
             isInvalid={Boolean(error)}
             hint={error}
+          />
+          <Checkbox
+            label="Remember me"
+            name="rememberMe"
+            isSelected={rememberMe}
+            onChange={setRememberMe}
           />
           <Button color="primary" size="md" type="submit" isLoading={isLoading}>
             Sign in

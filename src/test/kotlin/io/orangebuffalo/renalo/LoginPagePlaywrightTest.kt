@@ -8,6 +8,7 @@ import com.microsoft.playwright.options.AriaRole
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldNotBeBlank
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
@@ -49,6 +50,30 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))).isVisible()
         assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
         assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+    }
+
+    @Test
+    fun remembersUserWhenRememberMeIsSelected(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+
+        page.navigate(server.url.toString() + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByText("Remember me", Page.GetByTextOptions().setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        val refreshedToken = page.evaluate(
+            """
+                async () => {
+                  const response = await fetch('/api/refresh-access-token', { method: 'POST' });
+                  const body = await response.json();
+                  return body.token;
+                }
+            """.trimIndent(),
+        ) as String?
+
+        refreshedToken.shouldNotBeBlank()
     }
 
     @Test

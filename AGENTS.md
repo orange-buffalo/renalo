@@ -39,6 +39,7 @@
 - Tests run with `TestTimeProvider.DEFAULT_TIME`; Playwright pages must centrally move browser time to the same instant and let the clock run normally.
 - Database cleanup for tests must truncate application tables before and after each test, excluding Flyway metadata tables.
 - Every API change must be fully covered with tests, including security verification, business flow coverage, and relevant edge cases.
+- Remember-me authentication uses a long-lived signed JWT stored in the `renalo.rememberMe` HttpOnly cookie. Access-token refresh goes through `/api/refresh-access-token`, which returns a nullable token body and must validate the cookie token use plus current user state before issuing a new access token.
 
 ## Frontend
 

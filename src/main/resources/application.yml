@@ -36,6 +36,7 @@ renalo:
   public-url: ${RENALO_PUBLIC_URL:`http://localhost:8080`}
   auth:
     access-token-expiration-seconds: 1800
+    remember-me-token-expiration-seconds: 2592000
   activation-token:
     delay: PT1S
   default-admin:
