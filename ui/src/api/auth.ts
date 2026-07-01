@@ -83,6 +83,17 @@ export async function fetchProfile() {
   return apiRequest<Profile>("/api/profile");
 }
 
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+) {
+  return apiRequest<void>("/api/profile/password", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 function getCurrentDeviceLabel() {
   const userAgent = window.navigator.userAgent;
   const browser = getBrowserName(userAgent);

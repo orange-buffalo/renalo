@@ -95,6 +95,84 @@ class AuthApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun changesCurrentUsersPassword() {
+        saveUser("alice", "old-password", UserType.USER)
+        val token = api().login("alice", "old-password")
+
+        val response = api().patchJson(
+            "/api/profile/password",
+            """
+                {"currentPassword":"old-password","newPassword":"new-password"}
+            """.trimIndent(),
+            token,
+        )
+
+        response.statusCode().shouldBe(204)
+        api().postJson(
+            "/api/create-auth-token",
+            """
+                {"username":"alice","password":"old-password"}
+            """.trimIndent(),
+            null,
+        ).statusCode().shouldBe(401)
+        api().login("alice", "new-password").shouldNotBeBlank()
+    }
+
+    @Test
+    fun requiresTokenForPasswordChange() {
+        val response = api().patchJson(
+            "/api/profile/password",
+            """
+                {"currentPassword":"old-password","newPassword":"new-password"}
+            """.trimIndent(),
+            null,
+        )
+
+        response.statusCode().shouldBe(401)
+    }
+
+    @Test
+    fun rejectsBlankPasswordChangeValues() {
+        saveUser("alice", "old-password", UserType.USER)
+        val token = api().login("alice", "old-password")
+
+        val response = api().patchJson(
+            "/api/profile/password",
+            """
+                {"currentPassword":"old-password","newPassword":" "}
+            """.trimIndent(),
+            token,
+        )
+
+        response.statusCode().shouldBe(400)
+        api().login("alice", "old-password").shouldNotBeBlank()
+    }
+
+    @Test
+    fun rejectsPasswordChangeWithIncorrectCurrentPassword() {
+        saveUser("alice", "old-password", UserType.USER)
+        val token = api().login("alice", "old-password")
+
+        val response = api().patchJson(
+            "/api/profile/password",
+            """
+                {"currentPassword":"wrong-password","newPassword":"new-password"}
+            """.trimIndent(),
+            token,
+        )
+
+        response.statusCode().shouldBe(409)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "code": "CURRENT_PASSWORD_INVALID"
+                }
+            """.trimIndent(),
+        )
+        api().login("alice", "old-password").shouldNotBeBlank()
+    }
+
+    @Test
     fun enforcesRoleChecks() {
         saveUser("alice", "user-password", UserType.USER)
         saveUser("admin", "admin-password", UserType.ADMIN)

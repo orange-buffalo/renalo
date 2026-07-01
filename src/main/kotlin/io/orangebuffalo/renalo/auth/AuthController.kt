@@ -5,9 +5,11 @@ import com.nimbusds.jwt.JWT
 import io.micronaut.context.annotation.Value
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
+import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
+import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
 import io.micronaut.http.cookie.Cookie
 import io.micronaut.http.cookie.SameSite
@@ -137,6 +139,25 @@ class AuthController(
         )
     }
 
+    @Patch("/profile/password")
+    @Secured(UserRoles.USER, UserRoles.ADMIN)
+    fun changePassword(authentication: Authentication, @Body request: ChangePasswordRequest): HttpResponse<*> {
+        if (request.currentPassword.isBlank() || request.newPassword.isBlank()) {
+            return HttpResponse.badRequest<Any>()
+        }
+
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        if (!user.active || !passwordHasher.verify(request.currentPassword, user.passwordHash)) {
+            return HttpResponse.status<Any>(HttpStatus.CONFLICT)
+                .body(ChangePasswordErrorResponse("CURRENT_PASSWORD_INVALID"))
+        }
+
+        user.passwordHash = passwordHasher.hash(request.newPassword)
+        userRepository.update(user)
+        return HttpResponse.noContent<Any>()
+    }
+
     @Get("/tracking")
     @Secured(UserRoles.USER, UserRoles.ADMIN)
     fun tracking(): MessageResponse = MessageResponse("tracking")
@@ -229,6 +250,15 @@ data class RefreshAccessTokenResponse(
 data class ProfileResponse(
     val username: String,
     val type: UserType,
+)
+
+data class ChangePasswordRequest(
+    val currentPassword: String,
+    val newPassword: String,
+)
+
+data class ChangePasswordErrorResponse(
+    val code: String,
 )
 
 data class MessageResponse(
