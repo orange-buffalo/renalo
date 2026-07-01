@@ -58,9 +58,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const refreshedToken = await refreshAccessToken();
         if (!refreshedToken) {
           if (expiresAt <= Date.now()) {
+            clearAuthToken();
             redirectToLoginForExpiredSession();
+            throw new Error(
+              "Stored access token expired and could not be refreshed",
+            );
           }
-          throw new Error("Stored access token could not be refreshed");
         }
       }
 
@@ -118,16 +121,43 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         0,
       );
       refreshTimer = window.setTimeout(() => {
+        const tokenBeingRefreshed = token;
         refreshAccessToken()
           .then((refreshedToken) => {
             if (isActive && refreshedToken) {
               scheduleRefresh();
+              return;
             }
+
+            scheduleExpirationRedirect(tokenBeingRefreshed, expiresAt);
           })
           .catch(() => {
-            // The existing access token remains usable until expiry; a later 401 will redirect to login.
+            scheduleExpirationRedirect(tokenBeingRefreshed, expiresAt);
           });
       }, refreshDelay);
+    }
+
+    function scheduleExpirationRedirect(
+      tokenBeingRefreshed: string,
+      expiresAt: number,
+    ) {
+      if (!isActive) {
+        return;
+      }
+
+      refreshTimer = window.setTimeout(
+        () => {
+          if (
+            isActive &&
+            getAuthToken() === tokenBeingRefreshed &&
+            expiresAt <= Date.now()
+          ) {
+            clearAuthToken();
+            redirectToLoginForExpiredSession();
+          }
+        },
+        Math.max(expiresAt - Date.now(), 0),
+      );
     }
 
     scheduleRefresh();

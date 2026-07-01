@@ -51,6 +51,30 @@ class RememberMeRefreshPlaywrightTest : IntegrationTestSupport() {
         page.waitForFunction("token => window.localStorage.getItem('renalo.authToken') === token", refreshedToken)
     }
 
+    @Test
+    fun redirectsToExpiredSessionWhenTokenExpiresAfterRefreshReturnsNull(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        val storedToken = testAuthTokens.issueToken("alice", UserType.USER)
+        page.route("**/api/refresh-access-token") { route ->
+            route.request().headers()["authorization"].shouldBe("Bearer $storedToken")
+            route.fulfill(
+                Route.FulfillOptions()
+                    .setStatus(200)
+                    .setContentType("application/json")
+                    .setBody("""{"token":null}"""),
+            )
+        }
+        page.navigate(server.url.toString() + "/")
+        page.evaluate("window.localStorage.setItem('renalo.authToken', '$storedToken')")
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+        page.waitForURL("**/?sessionExpired=true", Page.WaitForURLOptions().setTimeout(40_000.0))
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Session expired")
+    }
+
     private fun saveUser(username: String, password: String, type: UserType): User {
         return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
     }
