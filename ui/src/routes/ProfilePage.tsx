@@ -1,18 +1,23 @@
 import { type FormEvent, useEffect, useState } from "react";
+import { useLocation } from "react-router";
 import {
   ApiError,
   changePassword,
+  createSignInLink,
   deletePasskey,
   fetchPasskeys,
   type Passkey,
   registerPasskey,
+  type SignInLink,
 } from "@/api/auth";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
+import { showNotification } from "@/components/untitled/application/notifications/notifications";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 
 export function ProfilePage() {
+  const location = useLocation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
@@ -26,6 +31,12 @@ export function ProfilePage() {
   const [isLoadingPasskeys, setIsLoadingPasskeys] = useState(true);
   const [isAddingPasskey, setIsAddingPasskey] = useState(false);
   const [deletingPasskeyId, setDeletingPasskeyId] = useState<number>();
+  const [signInLink, setSignInLink] = useState<SignInLink>();
+  const [signInLinkError, setSignInLinkError] = useState<string>();
+  const [isCreatingSignInLink, setIsCreatingSignInLink] = useState(false);
+
+  const showPasskeySetupPrompt =
+    new URLSearchParams(location.search).get("setupPasskey") === "true";
 
   useEffect(() => {
     let isActive = true;
@@ -127,6 +138,35 @@ export function ProfilePage() {
     }
   }
 
+  async function handleCreateSignInLink() {
+    setSignInLinkError(undefined);
+    setIsCreatingSignInLink(true);
+    try {
+      setSignInLink(await createSignInLink());
+    } catch {
+      setSignInLinkError(
+        "Sign in link could not be created. Try again in a moment.",
+      );
+    } finally {
+      setIsCreatingSignInLink(false);
+    }
+  }
+
+  async function handleCopySignInLink() {
+    if (!signInLink) {
+      return;
+    }
+
+    try {
+      await copyText(signInLink.link);
+      showNotification({ title: "Sign in link copied." });
+    } catch {
+      setSignInLinkError(
+        "Sign in link could not be copied. Copy it manually instead.",
+      );
+    }
+  }
+
   return (
     <PageLayout
       title="My profile"
@@ -215,6 +255,53 @@ export function ProfilePage() {
         </form>
       </section>
 
+      <section className="standard-page-panel profile-panel profile-sign-in-link-panel">
+        <div className="profile-passkeys-heading">
+          <div>
+            <h2>Create sign in link</h2>
+            <p>
+              Create a short-lived link to sign in on another device and set up
+              a passkey there. Links expire after 5 minutes.
+            </p>
+          </div>
+          <Button
+            color="primary"
+            size="sm"
+            type="button"
+            isLoading={isCreatingSignInLink}
+            onClick={handleCreateSignInLink}
+          >
+            Create link
+          </Button>
+        </div>
+
+        {signInLinkError && <Alert tone="error" title={signInLinkError} />}
+
+        {signInLink && (
+          <div>
+            <p className="profile-passkeys-muted">
+              This link expires {formatPasskeyDate(signInLink.expiresAt)}.
+            </p>
+            <div className="activation-link-row profile-sign-in-link-row">
+              <input
+                readOnly
+                value={signInLink.link}
+                aria-label="Sign in link"
+                onClick={() => void handleCopySignInLink()}
+              />
+              <Button
+                color="secondary"
+                size="sm"
+                type="button"
+                onClick={handleCopySignInLink}
+              >
+                Copy link
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
+
       <section className="standard-page-panel profile-panel profile-passkeys-panel">
         <div className="profile-passkeys-heading">
           <div>
@@ -233,6 +320,15 @@ export function ProfilePage() {
             Add passkey
           </Button>
         </div>
+
+        {showPasskeySetupPrompt && (
+          <Alert tone="brand" title="Set up a passkey on this device">
+            <p>
+              You are signed in with a link. Add a passkey so you can sign in
+              from this device next time.
+            </p>
+          </Alert>
+        )}
 
         {passkeyError && <Alert tone="error" title={passkeyError} />}
 
@@ -278,4 +374,23 @@ function formatPasskeyDate(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  try {
+    document.execCommand("copy");
+  } finally {
+    textarea.remove();
+  }
 }

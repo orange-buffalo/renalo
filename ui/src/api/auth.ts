@@ -26,6 +26,11 @@ export type Passkey = {
   lastUsedAt?: string | null;
 };
 
+export type SignInLink = {
+  link: string;
+  expiresAt: string;
+};
+
 export async function createAuthToken(
   username: string,
   password: string,
@@ -99,6 +104,27 @@ export async function changePassword(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ currentPassword, newPassword }),
   });
+}
+
+export async function createSignInLink() {
+  return apiRequest<SignInLink>("/api/profile/sign-in-link", {
+    method: "POST",
+  });
+}
+
+export async function createAuthTokenWithSignInLink(token: string) {
+  const response = await fetch("/api/create-auth-token-with-sign-in-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!response.ok) {
+    throw new ApiError("Sign in link is invalid", response.status);
+  }
+
+  const body = (await response.json()) as { token: string };
+  setAuthToken(body.token);
+  return body.token;
 }
 
 export async function fetchPasskeys() {

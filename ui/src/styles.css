@@ -1438,6 +1438,16 @@ input {
   margin-top: 32px;
 }
 
+.profile-sign-in-link-panel {
+  display: grid;
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.profile-sign-in-link-row {
+  margin-top: 12px;
+}
+
 .login-passkey-error {
   margin: 10px 0 0;
   color: #d92d20;

@@ -26,6 +26,9 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const sessionExpired =
     new URLSearchParams(location.search).get("sessionExpired") === "true";
+  const signInLinkInvalid =
+    new URLSearchParams(location.search).get("signInLinkInvalid") === "true";
+  const hasAnonymousMessage = sessionExpired || signInLinkInvalid;
 
   useEffect(() => {
     const state = location.state as {
@@ -44,14 +47,14 @@ export function LoginPage() {
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
-    if (!profile || sessionExpired) {
+    if (!profile || hasAnonymousMessage) {
       return;
     }
 
     navigate(profile.type === "ADMIN" ? "/user-management" : "/tracking", {
       replace: true,
     });
-  }, [navigate, profile, sessionExpired]);
+  }, [hasAnonymousMessage, navigate, profile]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,6 +125,15 @@ export function LoginPage() {
             className="login-info-alert"
           >
             <p>Please sign in again to continue.</p>
+          </Alert>
+        )}
+        {signInLinkInvalid && (
+          <Alert
+            tone="error"
+            title="Sign in link is invalid"
+            className="login-info-alert"
+          >
+            <p>Create a new sign in link from your profile and try again.</p>
           </Alert>
         )}
         <form className="login-form" onSubmit={handleSubmit}>

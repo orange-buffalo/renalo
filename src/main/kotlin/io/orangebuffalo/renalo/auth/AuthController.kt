@@ -31,6 +31,7 @@ class AuthController(
     private val rememberMeTokenRepository: RememberMeTokenRepository,
     private val passwordHasher: PasswordHasher,
     private val accessTokenService: AccessTokenService,
+    private val signInLinkService: SignInLinkService,
     private val jwtValidator: JsonWebTokenValidator<JWT, HttpRequest<*>>,
     private val timeProvider: TimeProvider,
     @Value("\${renalo.auth.remember-me-token-expiration-seconds}")
@@ -155,6 +156,24 @@ class AuthController(
         return HttpResponse.noContent<Any>()
     }
 
+    @Post("/profile/sign-in-link")
+    @Secured(UserRoles.USER, UserRoles.ADMIN)
+    fun createSignInLink(authentication: Authentication): SignInLinkResponse {
+        val signInLink = signInLinkService.createLink(authentication.name)
+        return SignInLinkResponse(
+            link = signInLink.link,
+            expiresAt = signInLink.expiresAt,
+        )
+    }
+
+    @Post("/create-auth-token-with-sign-in-link")
+    @Secured(SecurityRule.IS_ANONYMOUS)
+    fun createAuthTokenWithSignInLink(@Body request: SignInLinkAuthRequest): HttpResponse<CreateAuthTokenResponse> {
+        val token = signInLinkService.consumeLink(request.token)
+            ?: return HttpResponse.unauthorized()
+        return HttpResponse.ok(CreateAuthTokenResponse(token = token))
+    }
+
     @Get("/tracking")
     @Secured(UserRoles.USER, UserRoles.ADMIN)
     fun tracking(): MessageResponse = MessageResponse("tracking")
@@ -234,6 +253,15 @@ data class ChangePasswordRequest(
 
 data class ChangePasswordErrorResponse(
     val code: String,
+)
+
+data class SignInLinkResponse(
+    val link: String,
+    val expiresAt: java.time.Instant,
+)
+
+data class SignInLinkAuthRequest(
+    val token: String,
 )
 
 data class MessageResponse(

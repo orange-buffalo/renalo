@@ -32,6 +32,7 @@ import { IncomesPage } from "./routes/IncomesPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
 import { ProfilePage } from "./routes/ProfilePage.tsx";
 import { SettingsPage } from "./routes/SettingsPage.tsx";
+import { SignInLinkPage } from "./routes/SignInLinkPage.tsx";
 import {
   CreateTrackingAccountPage,
   EditTrackingAccountPage,
@@ -47,6 +48,10 @@ const router = createBrowserRouter([
   {
     path: "/activate-account",
     element: <ActivateAccountPage />,
+  },
+  {
+    path: "/sign-in-link",
+    element: <SignInLinkPage />,
   },
   {
     path: "/tracking",

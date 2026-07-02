@@ -5,6 +5,7 @@ import com.microsoft.playwright.CDPSession
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
+import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
@@ -108,6 +109,48 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in with passkey")).click()
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+    }
+
+    @Test
+    fun createsSignInLinkAndUsesItToOpenProfile(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        val baseUrl = server.url.toString()
+
+        page.navigate(baseUrl + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        page.navigate(baseUrl + "/profile")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Create sign in link"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create link")).click()
+        val linkInput = page.getByLabel("Sign in link")
+        assertThat(linkInput).isVisible()
+        linkInput.scrollIntoViewIfNeeded()
+        val generatedLink = linkInput.inputValue()
+        generatedLink.contains("/sign-in-link?token=").shouldBe(true)
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign out")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+
+        val localLink = baseUrl + "/sign-in-link?token=" + generatedLink.substringAfter("token=")
+        page.navigate(localLink)
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("My profile"))).isVisible()
+        val passkeySetupPrompt = page.getByRole(AriaRole.ALERT)
+        passkeySetupPrompt.scrollIntoViewIfNeeded()
+        assertThat(passkeySetupPrompt).containsText("Set up a passkey on this device")
+    }
+
+    @Test
+    fun showsLoginErrorForInvalidSignInLink(page: Page) {
+        page.navigate(server.url.toString() + "/sign-in-link?token=missing")
+
+        page.waitForURL("**/?signInLinkInvalid=true")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Sign in link is invalid")
     }
 
     private fun saveUser(username: String, password: String, type: UserType): User {

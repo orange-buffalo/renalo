@@ -139,6 +139,69 @@ class AuthApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun requiresTokenForCreatingSignInLink() {
+        val response = api().post("/api/profile/sign-in-link", null)
+
+        response.statusCode().shouldBe(401)
+    }
+
+    @Test
+    fun createsAndConsumesOneTimeSignInLink() {
+        saveUser("alice", "correct-password", UserType.USER)
+        val token = api().login("alice", "correct-password")
+
+        val createResponse = api().post("/api/profile/sign-in-link", token)
+
+        createResponse.statusCode().shouldBe(200)
+        val responseBody = objectMapper.readValue(createResponse.body(), Map::class.java)
+        val link = responseBody["link"] as String
+        link.shouldContain("/sign-in-link?token=")
+        responseBody["expiresAt"].toString().shouldNotBeBlank()
+        val signInLinkToken = link.substringAfter("token=")
+        signInLinkToken.shouldNotBeBlank()
+
+        val consumeResponse = api().postJson(
+            "/api/create-auth-token-with-sign-in-link",
+            """
+                {"token":"$signInLinkToken"}
+            """.trimIndent(),
+            null,
+        )
+
+        consumeResponse.statusCode().shouldBe(200)
+        val linkedToken = api().extractToken(consumeResponse.body())
+        api().get("/api/profile", linkedToken).body().shouldEqualJson(
+            """
+                {
+                  "username": "alice",
+                  "type": "USER"
+                }
+            """.trimIndent(),
+        )
+
+        api().postJson(
+            "/api/create-auth-token-with-sign-in-link",
+            """
+                {"token":"$signInLinkToken"}
+            """.trimIndent(),
+            null,
+        ).statusCode().shouldBe(401)
+    }
+
+    @Test
+    fun rejectsInvalidSignInLink() {
+        val response = api().postJson(
+            "/api/create-auth-token-with-sign-in-link",
+            """
+                {"token":"missing"}
+            """.trimIndent(),
+            null,
+        )
+
+        response.statusCode().shouldBe(401)
+    }
+
+    @Test
     fun rejectsBlankPasswordChangeValues() {
         saveUser("alice", "old-password", UserType.USER)
         val token = api().login("alice", "old-password")
