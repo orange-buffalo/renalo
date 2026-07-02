@@ -59,6 +59,7 @@ open class TransactionService(
                    date,
                    amount_minor,
                    notes,
+                   metadata,
                    recurring_rule_id,
                    recurring_instance_date,
                    recurring_locked
@@ -198,6 +199,7 @@ open class TransactionService(
             date = request.date,
             amountMinor = request.amountMinor,
             notes = notes,
+            metadata = existingTransaction?.metadata,
         )
 
         val savedTransaction = if (existingTransaction == null) {
@@ -402,6 +404,7 @@ private fun ResultSet.toTransaction() = Transaction(
     date = getDate("date").toLocalDate(),
     amountMinor = getLong("amount_minor"),
     notes = getString("notes"),
+    metadata = getString("metadata")?.let { emptyMap() },
     recurringRuleId = getNullableLong("recurring_rule_id"),
     recurringInstanceDate = getDate("recurring_instance_date")?.toLocalDate(),
     recurringLocked = getBoolean("recurring_locked"),

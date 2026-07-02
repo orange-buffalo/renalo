@@ -5,6 +5,7 @@ import {
   type ExpenseCategory,
   fetchExpenseCategories,
 } from "@/api/expenseCategories";
+import { importToshlCsv, type ToshlImportResult } from "@/api/imports";
 import {
   fetchIncomeCategories,
   type IncomeCategory,
@@ -21,6 +22,7 @@ import {
   TableMobileDetailsAction,
   TableRowActions,
 } from "@/components/TableRowActions";
+import { Alert } from "@/components/untitled/application/alerts/alert";
 import {
   Table,
   TableCard,
@@ -28,6 +30,7 @@ import {
 import { Tabs } from "@/components/untitled/application/tabs/tabs";
 import { BadgeWithDot } from "@/components/untitled/base/badges/badges";
 import { Button } from "@/components/untitled/base/buttons/button";
+import { InputFile } from "@/components/untitled/base/input/input-file";
 import { formatMoney } from "@/utils/money";
 
 export function SettingsPage() {
@@ -36,17 +39,43 @@ export function SettingsPage() {
   const requestedTab = searchParams.get("tab");
   const selectedTab =
     requestedTab === "expense-categories" ||
-    requestedTab === "income-categories"
+    requestedTab === "income-categories" ||
+    requestedTab === "import"
       ? requestedTab
       : "accounts";
   const [accounts, setAccounts] = useState<TrackingAccount[]>();
   const [expenseCategories, setExpenseCategories] =
     useState<ExpenseCategory[]>();
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>();
+  const [toshlFile, setToshlFile] = useState<File>();
+  const [toshlResult, setToshlResult] = useState<ToshlImportResult>();
   const [accountsError, setAccountsError] = useState<string>();
   const [expenseCategoriesError, setExpenseCategoriesError] =
     useState<string>();
   const [incomeCategoriesError, setIncomeCategoriesError] = useState<string>();
+  const [toshlImportError, setToshlImportError] = useState<string>();
+  const [isImportingToshl, setIsImportingToshl] = useState(false);
+
+  const handleToshlImport = async () => {
+    if (!toshlFile) {
+      setToshlImportError("Choose the CSV export from Toshl before importing.");
+      return;
+    }
+
+    setIsImportingToshl(true);
+    setToshlImportError(undefined);
+    setToshlResult(undefined);
+    try {
+      setToshlResult(await importToshlCsv(await toshlFile.text()));
+      setToshlFile(undefined);
+    } catch {
+      setToshlImportError(
+        "Toshl CSV could not be imported. Check the file format and try again.",
+      );
+    } finally {
+      setIsImportingToshl(false);
+    }
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -111,6 +140,8 @@ export function SettingsPage() {
             setSearchParams({ tab: "expense-categories" }, { replace: true });
           } else if (key === "income-categories") {
             setSearchParams({ tab: "income-categories" }, { replace: true });
+          } else if (key === "import") {
+            setSearchParams({ tab: "import" }, { replace: true });
           } else {
             setSearchParams({}, { replace: true });
           }
@@ -131,6 +162,9 @@ export function SettingsPage() {
           </Tabs.Item>
           <Tabs.Item id="income-categories" className="settings-tab-item">
             Income Categories
+          </Tabs.Item>
+          <Tabs.Item id="import" className="settings-tab-item">
+            Import
           </Tabs.Item>
         </Tabs.List>
         <Tabs.Panel id="accounts" className="settings-tab-panel">
@@ -337,6 +371,112 @@ export function SettingsPage() {
               </Table>
             )}
           </TableCard.Root>
+        </Tabs.Panel>
+        <Tabs.Panel id="import" className="settings-tab-panel">
+          <section className="standard-page-panel profile-panel settings-import-panel">
+            <div className="settings-import-heading">
+              <h2>Toshl</h2>
+              <p>
+                Import expenses, income, accounts, and categories from a Toshl
+                CSV export.
+              </p>
+            </div>
+
+            <div className="settings-import-instructions">
+              <h3>Prepare your Toshl export</h3>
+              <ol>
+                <li>Sign in to Toshl.</li>
+                <li>
+                  Open <strong>Exports and reports</strong> at{" "}
+                  <a
+                    href="https://toshl.com/app/#/export/export"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    toshl.com/app/#/export/export
+                  </a>
+                  .
+                </li>
+                <li>
+                  Select <strong>CSV</strong> as the export format.
+                </li>
+                <li>
+                  Include only <strong>Expenses</strong> and{" "}
+                  <strong>Income</strong>.
+                </li>
+                <li>
+                  Set the time span to <strong>All time</strong>.
+                </li>
+                <li>
+                  Click <strong>Generate</strong>, then download the CSV file.
+                </li>
+              </ol>
+            </div>
+
+            {toshlImportError && (
+              <Alert tone="error" title="Import failed">
+                <p>{toshlImportError}</p>
+              </Alert>
+            )}
+
+            {toshlResult && (
+              <Alert tone="success" title="Import complete">
+                <p>
+                  Imported {toshlResult.importedExpenses} expenses and{" "}
+                  {toshlResult.importedIncomes} income entries. Skipped{" "}
+                  {toshlResult.skippedDuplicateExpenses} duplicate expenses and{" "}
+                  {toshlResult.skippedDuplicateIncomes} duplicate income
+                  entries. Imported {toshlResult.importedTransfers} transfers
+                  and skipped {toshlResult.skippedDuplicateTransfers} duplicate
+                  transfers.
+                </p>
+              </Alert>
+            )}
+
+            {toshlResult && toshlResult.warnings.length > 0 && (
+              <Alert tone="warning" title="Some transfers could not be matched">
+                <p>
+                  These Toshl transfer rows did not have a matching opposite
+                  side, so they were not imported:
+                </p>
+                <ul className="settings-import-warning-list">
+                  {toshlResult.warnings.map((warning) => (
+                    <li key={warning.lineNumber}>
+                      Line {warning.lineNumber}: {warning.date},{" "}
+                      {warning.account}, {warning.type.toLowerCase()},{" "}
+                      {formatMoney(warning.amountMinor, warning.currency)}
+                    </li>
+                  ))}
+                </ul>
+              </Alert>
+            )}
+
+            <div className="settings-import-controls">
+              <InputFile
+                label="Toshl CSV file"
+                placeholder="Choose the CSV export"
+                buttonText="Choose file"
+                acceptedFileTypes={[".csv", "text/csv"]}
+                isDisabled={isImportingToshl}
+                onChange={(files) => {
+                  setToshlFile(files?.item(0) ?? undefined);
+                  setToshlResult(undefined);
+                  setToshlImportError(undefined);
+                }}
+              />
+              <div className="settings-import-actions">
+                <Button
+                  color="primary"
+                  size="sm"
+                  isLoading={isImportingToshl}
+                  isDisabled={!toshlFile || isImportingToshl}
+                  onPress={handleToshlImport}
+                >
+                  Import
+                </Button>
+              </div>
+            </div>
+          </section>
         </Tabs.Panel>
       </Tabs>
     </PageLayout>

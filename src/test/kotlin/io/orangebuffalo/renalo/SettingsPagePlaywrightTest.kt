@@ -23,6 +23,7 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
+import java.nio.file.Files
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -270,6 +271,39 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             CategoryRow("Interest", "edit"),
             CategoryRow("Payroll", "edit"),
         )
+    }
+
+    @Test
+    fun importsToshlCsvFromSettingsPage(page: Page) {
+        saveUser("alice")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        val csvFile = Files.createTempFile("toshl-import", ".csv")
+        Files.writeString(
+            csvFile,
+            """
+                Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                1/6/26,Cash,Food,travel,12.34,0,AUD,12.34,AUD,Lunch
+                2/6/26,Bank,Salary,,0,100.00,AUD,100.00,AUD,Pay
+                3/6/26,Cash,Transfer,,50.00,0,AUD,50.00,AUD,
+            """.trimIndent(),
+        )
+
+        page.navigate(server.url.toString() + "/settings?tab=import")
+
+        assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Import"))).isVisible()
+        assertThat(
+            page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Toshl").setExact(true)),
+        ).isVisible()
+        assertThat(page.getByText("Prepare your Toshl export")).isVisible()
+        page.locator("input[type='file']").setInputFiles(csvFile)
+        page.locator(".settings-import-controls input[readonly]").inputValue().shouldBe(csvFile.fileName.toString())
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Import")).click()
+
+        assertThat(page.getByRole(AriaRole.ALERT).filter(Locator.FilterOptions().setHasText("Import complete"))).isVisible()
+        assertThat(page.getByText("Imported 1 expenses and 1 income entries.")).isVisible()
+        assertThat(page.getByRole(AriaRole.ALERT).filter(Locator.FilterOptions().setHasText("Some transfers could not be matched"))).isVisible()
+        assertThat(page.getByText("Line 4: 2026-06-03, Cash, expense, A$50.00")).isVisible()
     }
 
     private fun saveUser(username: String): User = userRepository.save(

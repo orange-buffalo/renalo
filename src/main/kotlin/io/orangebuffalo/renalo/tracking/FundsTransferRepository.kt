@@ -12,4 +12,13 @@ interface FundsTransferRepository : CrudRepository<FundsTransfer, Long> {
     fun findByUserIdAndDateBetweenOrderByDateDesc(userId: Long, from: LocalDate, to: LocalDate): List<FundsTransfer>
 
     fun findByIdAndUserId(id: Long, userId: Long): FundsTransfer?
+
+    fun findByUserIdAndDateAndSourceAccountIdAndTargetAccountIdAndSourceAmountMinorAndTargetAmountMinor(
+        userId: Long,
+        date: LocalDate,
+        sourceAccountId: Long,
+        targetAccountId: Long,
+        sourceAmountMinor: Long,
+        targetAmountMinor: Long,
+    ): List<FundsTransfer>
 }

@@ -19,6 +19,13 @@ interface TransactionRepository : CrudRepository<Transaction, Long> {
 
     fun findByIdAndUserIdAndType(id: Long, userId: Long, type: TransactionType): Transaction?
 
+    fun findByUserIdAndTypeAndDateAndAmountMinor(
+        userId: Long,
+        type: TransactionType,
+        date: LocalDate,
+        amountMinor: Long,
+    ): List<Transaction>
+
     fun findByRecurringRuleIdAndRecurringInstanceDate(
         recurringRuleId: Long,
         recurringInstanceDate: LocalDate,
@@ -36,6 +43,7 @@ interface TransactionRepository : CrudRepository<Transaction, Long> {
                 date,
                 amount_minor,
                 notes,
+                metadata,
                 recurring_rule_id,
                 recurring_instance_date,
                 recurring_locked
@@ -47,6 +55,7 @@ interface TransactionRepository : CrudRepository<Transaction, Long> {
                 :date,
                 :amountMinor,
                 :notes,
+                NULL,
                 :recurringRuleId,
                 :recurringInstanceDate,
                 FALSE

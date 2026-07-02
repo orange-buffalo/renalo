@@ -32,6 +32,7 @@
 - Exactly one `TrackingAccount` per regular user must have `isDefault = true`; changing the default means nominating another account, not unchecking the current default.
 - Money is stored in integer minor units for the account currency, for example `12345` for `USD 123.45`; respect each ISO currency's default fraction digits when formatting/parsing.
 - Funds transfers are regular-user-bound records linking source and target `TrackingAccount` rows with separate source and target amount minor units and a date. They do not support recurrence unless explicitly requested.
+- Toshl imports create missing accounts and categories, store imported income/expense rows as regular `Transaction` records with metadata `source: toshl`, and reconcile Toshl `Transfer` category row pairs into `FundsTransfer` records; unreconciled transfer rows must be reported as import warnings instead of imported as transactions.
 - `index.html` responses must prohibit caching.
 - Static assets under `/assets/**` should use long-lived immutable cache headers.
 - Frontend build outputs for all cacheable assets, including CSS, must be fingerprinted before they are referenced by `index.html`.

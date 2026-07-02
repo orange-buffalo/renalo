@@ -699,6 +699,63 @@ input {
   border-radius: 12px;
 }
 
+.settings-import-panel {
+  display: grid;
+  gap: 24px;
+}
+
+.settings-import-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-import-instructions {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.settings-import-instructions h3 {
+  margin: 0;
+  color: #101828;
+  font-size: 1rem;
+}
+
+.settings-import-instructions ol {
+  margin: 0;
+  padding-left: 20px;
+  color: #475467;
+}
+
+.settings-import-instructions li + li {
+  margin-top: 8px;
+}
+
+.settings-import-instructions a {
+  color: #1570ef;
+  font-weight: 600;
+}
+
+.settings-import-controls {
+  display: grid;
+  max-width: 640px;
+  gap: 16px;
+}
+
+.settings-import-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-import-warning-list {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: #475467;
+}
+
 .tracking-account-panel {
   display: block;
   max-width: none;
