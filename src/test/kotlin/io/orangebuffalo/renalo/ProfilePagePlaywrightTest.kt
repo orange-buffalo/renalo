@@ -127,7 +127,10 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create link")).click()
         val linkInput = page.getByLabel("Sign in link")
         assertThat(linkInput).isVisible()
+        val qrCode = page.getByAltText("Sign in link QR code")
+        assertThat(qrCode).isVisible()
         linkInput.scrollIntoViewIfNeeded()
+        qrCode.scrollIntoViewIfNeeded()
         val generatedLink = linkInput.inputValue()
         generatedLink.contains("/sign-in-link?token=").shouldBe(true)
 

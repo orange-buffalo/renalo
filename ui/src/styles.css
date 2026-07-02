@@ -1448,6 +1448,25 @@ input {
   margin-top: 12px;
 }
 
+.profile-sign-in-link-row input {
+  max-width: none;
+}
+
+.profile-sign-in-link-qr {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.profile-sign-in-link-qr img {
+  width: 192px;
+  height: 192px;
+  padding: 8px;
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
 .login-passkey-error {
   margin: 10px 0 0;
   color: #d92d20;

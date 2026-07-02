@@ -1,3 +1,4 @@
+import QRCode from "qrcode";
 import { type FormEvent, useEffect, useState } from "react";
 import { useLocation } from "react-router";
 import {
@@ -32,6 +33,7 @@ export function ProfilePage() {
   const [isAddingPasskey, setIsAddingPasskey] = useState(false);
   const [deletingPasskeyId, setDeletingPasskeyId] = useState<number>();
   const [signInLink, setSignInLink] = useState<SignInLink>();
+  const [signInLinkQrCode, setSignInLinkQrCode] = useState<string>();
   const [signInLinkError, setSignInLinkError] = useState<string>();
   const [isCreatingSignInLink, setIsCreatingSignInLink] = useState(false);
 
@@ -66,6 +68,38 @@ export function ProfilePage() {
       isActive = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function generateQrCode() {
+      if (!signInLink) {
+        setSignInLinkQrCode(undefined);
+        return;
+      }
+
+      try {
+        const qrCode = await QRCode.toDataURL(signInLink.link, {
+          errorCorrectionLevel: "M",
+          margin: 1,
+          width: 192,
+        });
+        if (isActive) {
+          setSignInLinkQrCode(qrCode);
+        }
+      } catch {
+        if (isActive) {
+          setSignInLinkQrCode(undefined);
+        }
+      }
+    }
+
+    void generateQrCode();
+
+    return () => {
+      isActive = false;
+    };
+  }, [signInLink]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -298,6 +332,11 @@ export function ProfilePage() {
                 Copy link
               </Button>
             </div>
+            {signInLinkQrCode && (
+              <div className="profile-sign-in-link-qr">
+                <img src={signInLinkQrCode} alt="Sign in link QR code" />
+              </div>
+            )}
           </div>
         )}
       </section>
