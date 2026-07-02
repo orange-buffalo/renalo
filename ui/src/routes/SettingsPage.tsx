@@ -249,16 +249,16 @@ export function SettingsPage() {
                           <TableMobileDetailsAction
                             label={`Show ${account.name} details`}
                           />
-                          <TableEditAction
-                            label={`Edit ${account.name}`}
-                            onPress={() =>
-                              navigate(`/settings/accounts/${account.id}`)
-                            }
-                          />
                           <TableMergeAction
                             label={`Merge ${account.name}`}
                             onPress={() =>
                               navigate(`/settings/accounts/${account.id}/merge`)
+                            }
+                          />
+                          <TableEditAction
+                            label={`Edit ${account.name}`}
+                            onPress={() =>
+                              navigate(`/settings/accounts/${account.id}`)
                             }
                           />
                         </TableRowActions>

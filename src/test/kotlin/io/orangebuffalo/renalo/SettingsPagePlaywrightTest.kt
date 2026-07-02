@@ -75,8 +75,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts")).click()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
-            AccountRow("Main", "AUD", "A$0.00", "Default", "edit merge"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "edit merge"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "merge edit"),
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add new account")).click()
@@ -91,9 +91,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         cash.initialBalanceMinor.shouldBe(4200)
         cash.isDefault.shouldBe(false)
         page.shouldEventuallyContainRows(
-            AccountRow("Cash", "AUD", "A$42.00", "No", "edit merge"),
-            AccountRow("Main", "AUD", "A$0.00", "Default", "edit merge"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "edit merge"),
+            AccountRow("Cash", "AUD", "A$42.00", "No", "merge edit"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "merge edit"),
         )
 
         page.locator("[data-testid='account-row-${main.id}']")
@@ -113,9 +113,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         trackingAccountRepository.findById(main.id!!).get().name.shouldBe("Everyday")
         page.shouldEventuallyContainRows(
-            AccountRow("Cash", "AUD", "A$42.00", "No", "edit merge"),
-            AccountRow("Everyday", "AUD", "A$0.00", "Default", "edit merge"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "edit merge"),
+            AccountRow("Cash", "AUD", "A$42.00", "No", "merge edit"),
+            AccountRow("Everyday", "AUD", "A$0.00", "Default", "merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "merge edit"),
         )
     }
 
@@ -131,8 +131,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
-            AccountRow("Main", "AUD", "A$0.00", "Default", "edit merge"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "edit merge"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "merge edit"),
         )
 
         val mainCard = page.locator("[data-testid='account-row-${main.id}']")
@@ -222,6 +222,21 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         transactionRepository.findById(income.id!!).get().trackingAccountId.shouldBe(savings.id)
         fundsTransferRepository.findById(outgoing.id!!).get().sourceAccountId.shouldBe(savings.id)
         fundsTransferRepository.findById(internal.id!!).isPresent.shouldBe(false)
+    }
+
+    @Test
+    fun explainsWhenTrackingAccountHasNoCompatibleMergeTarget(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", 100, isDefault = true)
+        saveAccount(alice, "Euro", "EUR", 500, isDefault = false)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/settings/accounts/${main.id}/merge")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Merge Main"))).isVisible()
+        assertThat(page.getByText("No compatible account available")).isVisible()
+        assertThat(page.getByText("Create another AUD account before merging this account.")).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Merge account"))).isDisabled()
     }
 
     @Test

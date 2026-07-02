@@ -16,6 +16,9 @@ import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Label } from "@/components/untitled/base/input/label";
 import { formatMoney } from "@/utils/money";
 
+const mergeDetailsLoadError =
+  "Account merge details could not be loaded. Try again in a moment.";
+
 export function MergeTrackingAccountPage() {
   const navigate = useNavigate();
   const { accountId } = useParams();
@@ -38,15 +41,14 @@ export function MergeTrackingAccountPage() {
         if (!isActive) {
           return;
         }
+        setError(undefined);
         setSummary(loadedSummary);
         setTargetAccountId(loadedSummary.targetAccounts[0]?.id);
         setIsLoading(false);
       })
       .catch(() => {
         if (isActive) {
-          setError(
-            "Account merge details could not be loaded. Try again in a moment.",
-          );
+          setError(mergeDetailsLoadError);
           setIsLoading(false);
         }
       });
@@ -81,9 +83,13 @@ export function MergeTrackingAccountPage() {
     }
   }
 
-  const selectedTargetAccount = summary?.targetAccounts.find(
+  const targetAccounts = summary?.targetAccounts ?? [];
+  const selectedTargetAccount = targetAccounts.find(
     (account) => account.id === targetAccountId,
   );
+  const hasCompatibleTarget = targetAccounts.length > 0;
+  const visibleError =
+    error && (!summary || error !== mergeDetailsLoadError) ? error : undefined;
 
   return (
     <PageLayout
@@ -92,10 +98,10 @@ export function MergeTrackingAccountPage() {
     >
       <section className="standard-page-panel tracking-account-panel form-loading-container">
         <form className="tracking-account-form" onSubmit={handleSubmit}>
-          {error && (
+          {visibleError && (
             <Alert
               tone="error"
-              title={error}
+              title={visibleError}
               className="tracking-account-form-wide"
             />
           )}
@@ -122,8 +128,20 @@ export function MergeTrackingAccountPage() {
                   value={summary.transfersCount}
                 />
               </div>
+              {!hasCompatibleTarget && (
+                <Alert
+                  tone="error"
+                  title="No compatible account available"
+                  className="tracking-account-form-wide"
+                >
+                  <p>
+                    Create another {summary.sourceAccount.currency} account
+                    before merging this account.
+                  </p>
+                </Alert>
+              )}
               <TargetAccountDropdown
-                accounts={summary.targetAccounts}
+                accounts={targetAccounts}
                 selectedAccount={selectedTargetAccount}
                 selectedAccountId={targetAccountId}
                 isOpen={isTargetDropdownOpen}
@@ -171,7 +189,7 @@ export function MergeTrackingAccountPage() {
               size="sm"
               type="submit"
               isLoading={isSubmitting}
-              isDisabled={!summary || summary.targetAccounts.length === 0}
+              isDisabled={!summary || targetAccounts.length === 0}
             >
               Merge account
             </Button>
