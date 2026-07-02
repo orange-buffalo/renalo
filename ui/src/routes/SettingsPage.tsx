@@ -315,6 +315,16 @@ export function SettingsPage() {
                       <Table.Cell>{category.name}</Table.Cell>
                       <Table.Cell mobileRole="actions">
                         <TableRowActions>
+                          {expenseCategories.length > 1 && (
+                            <TableMergeAction
+                              label={`Merge ${category.name}`}
+                              onPress={() =>
+                                navigate(
+                                  `/settings/expense-categories/${category.id}/merge`,
+                                )
+                              }
+                            />
+                          )}
                           <TableEditAction
                             label={`Edit ${category.name}`}
                             onPress={() =>
@@ -377,6 +387,16 @@ export function SettingsPage() {
                       <Table.Cell>{category.name}</Table.Cell>
                       <Table.Cell mobileRole="actions">
                         <TableRowActions>
+                          {incomeCategories.length > 1 && (
+                            <TableMergeAction
+                              label={`Merge ${category.name}`}
+                              onPress={() =>
+                                navigate(
+                                  `/settings/income-categories/${category.id}/merge`,
+                                )
+                              }
+                            />
+                          )}
                           <TableEditAction
                             label={`Edit ${category.name}`}
                             onPress={() =>

@@ -9,6 +9,12 @@ export type SaveIncomeCategory = {
   name: string;
 };
 
+export type IncomeCategoryMergeSummary = {
+  sourceCategory: IncomeCategory;
+  incomesCount: number;
+  targetCategories: IncomeCategory[];
+};
+
 export function fetchIncomeCategories() {
   return apiRequest<IncomeCategory[]>("/api/tracking/income-categories");
 }
@@ -37,6 +43,26 @@ export function updateIncomeCategory(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(category),
+    },
+  );
+}
+
+export function fetchIncomeCategoryMergeSummary(categoryId: number) {
+  return apiRequest<IncomeCategoryMergeSummary>(
+    `/api/tracking/income-categories/${categoryId}/merge-summary`,
+  );
+}
+
+export function mergeIncomeCategory(
+  categoryId: number,
+  targetCategoryId: number,
+) {
+  return apiRequest<void>(
+    `/api/tracking/income-categories/${categoryId}/merge`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetCategoryId }),
     },
   );
 }

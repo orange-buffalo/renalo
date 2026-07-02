@@ -32,6 +32,12 @@ interface TransactionRepository : CrudRepository<Transaction, Long> {
         type: TransactionType,
     ): Long
 
+    fun countByUserIdAndCategoryIdAndType(
+        userId: Long,
+        categoryId: Long,
+        type: TransactionType,
+    ): Long
+
     @Query(
         """
             UPDATE transactions
@@ -41,6 +47,22 @@ interface TransactionRepository : CrudRepository<Transaction, Long> {
         """,
     )
     fun reassignTrackingAccount(userId: Long, sourceAccountId: Long, targetAccountId: Long)
+
+    @Query(
+        """
+            UPDATE transactions
+            SET category_id = :targetCategoryId
+            WHERE user_id = :userId
+              AND type = :type
+              AND category_id = :sourceCategoryId
+        """,
+    )
+    fun reassignCategory(
+        userId: Long,
+        type: TransactionType,
+        sourceCategoryId: Long,
+        targetCategoryId: Long,
+    )
 
     fun findByRecurringRuleIdAndRecurringInstanceDate(
         recurringRuleId: Long,

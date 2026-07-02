@@ -7,12 +7,20 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.tracking.IncomeCategory
 import io.orangebuffalo.renalo.tracking.IncomeCategoryRepository
+import io.orangebuffalo.renalo.tracking.ExpenseCategory
+import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
+import io.orangebuffalo.renalo.tracking.TrackingAccount
+import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -22,6 +30,15 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var incomeCategoryRepository: IncomeCategoryRepository
+
+    @Inject
+    lateinit var expenseCategoryRepository: ExpenseCategoryRepository
+
+    @Inject
+    lateinit var trackingAccountRepository: TrackingAccountRepository
+
+    @Inject
+    lateinit var transactionRepository: TransactionRepository
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -160,6 +177,105 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
         incomeCategoryRepository.findByUserIdOrderByName(alice.id!!).size.shouldBe(0)
     }
 
+    @Test
+    fun providesIncomeCategoryMergeSummary() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val salary = saveCategory(alice, "Salary")
+        val bonus = saveCategory(alice, "Bonus")
+        val interest = saveCategory(alice, "Interest")
+        val bobCategory = saveCategory(bob, "Bob category")
+        val account = saveAccount(alice)
+        val expenseCategory = saveExpenseCategory(alice)
+        saveTransaction(alice, account, salary, TransactionType.INCOME, 1_000)
+        saveTransaction(alice, account, salary, TransactionType.INCOME, 2_000)
+        saveTransaction(alice, account, expenseCategory, TransactionType.EXPENSE, 3_000)
+        saveTransaction(bob, saveAccount(bob), bobCategory, TransactionType.INCOME, 4_000)
+
+        val response = api().get(
+            "/api/tracking/income-categories/${salary.id}/merge-summary",
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "sourceCategory": {
+                    "id": ${salary.id},
+                    "name": "Salary"
+                  },
+                  "incomesCount": 2,
+                  "targetCategories": [
+                    {
+                      "id": ${bonus.id},
+                      "name": "Bonus"
+                    },
+                    {
+                      "id": ${interest.id},
+                      "name": "Interest"
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun mergesIncomeCategoryIntoTargetCategory() {
+        val alice = saveUser("alice", UserType.USER)
+        val salary = saveCategory(alice, "Salary")
+        val payroll = saveCategory(alice, "Payroll")
+        val expenseCategory = saveExpenseCategory(alice)
+        val account = saveAccount(alice)
+        val movedIncome = saveTransaction(alice, account, salary, TransactionType.INCOME, 1_000)
+        val existingIncome = saveTransaction(alice, account, payroll, TransactionType.INCOME, 2_000)
+        val expense = saveTransaction(alice, account, expenseCategory, TransactionType.EXPENSE, 3_000)
+        val token = api().login("alice", "password")
+
+        val response = api().postJson(
+            "/api/tracking/income-categories/${salary.id}/merge",
+            """
+                {"targetCategoryId": ${payroll.id}}
+            """.trimIndent(),
+            token,
+        )
+
+        response.statusCode().shouldBe(204)
+        incomeCategoryRepository.findById(salary.id!!).isPresent.shouldBe(false)
+        transactionRepository.findById(movedIncome.id!!).get().categoryId.shouldBe(payroll.id)
+        transactionRepository.findById(existingIncome.id!!).get().categoryId.shouldBe(payroll.id)
+        transactionRepository.findById(expense.id!!).get().categoryId.shouldBe(expenseCategory.id)
+    }
+
+    @Test
+    fun rejectsInvalidIncomeCategoryMerges() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val salary = saveCategory(alice, "Salary")
+        val payroll = saveCategory(alice, "Payroll")
+        val bobCategory = saveCategory(bob, "Bob category")
+        val token = api().login("alice", "password")
+
+        api().get("/api/tracking/income-categories/${salary.id}/merge-summary", null).statusCode().shouldBe(401)
+        api().get("/api/tracking/income-categories/${bobCategory.id}/merge-summary", token).statusCode().shouldBe(404)
+        api().postJson(
+            "/api/tracking/income-categories/${salary.id}/merge",
+            """{"targetCategoryId": ${salary.id}}""",
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/income-categories/${salary.id}/merge",
+            """{"targetCategoryId": ${bobCategory.id}}""",
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/income-categories/${bobCategory.id}/merge",
+            """{"targetCategoryId": ${payroll.id}}""",
+            token,
+        ).statusCode().shouldBe(404)
+    }
+
     private fun saveUser(username: String, type: UserType): User = userRepository.save(
         User(
             username = username,
@@ -172,6 +288,44 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
         IncomeCategory(
             userId = user.id!!,
             name = name,
+        ),
+    )
+
+    private fun saveExpenseCategory(user: User): ExpenseCategory = expenseCategoryRepository.save(
+        ExpenseCategory(
+            userId = user.id!!,
+            name = "Groceries",
+        ),
+    )
+
+    private fun saveAccount(user: User): TrackingAccount = trackingAccountRepository.save(
+        TrackingAccount(
+            userId = user.id!!,
+            name = "Main ${user.username}",
+            currency = "AUD",
+            initialBalanceMinor = 0,
+            isDefault = true,
+        ),
+    )
+
+    private fun saveTransaction(
+        user: User,
+        account: TrackingAccount,
+        category: Any,
+        type: TransactionType,
+        amountMinor: Long,
+    ): Transaction = transactionRepository.save(
+        Transaction(
+            userId = user.id!!,
+            type = type,
+            trackingAccountId = account.id!!,
+            categoryId = when (category) {
+                is ExpenseCategory -> category.id!!
+                is IncomeCategory -> category.id!!
+                else -> error("Unexpected category type")
+            },
+            date = LocalDate.of(2099, 6, 1),
+            amountMinor = amountMinor,
         ),
     )
 }

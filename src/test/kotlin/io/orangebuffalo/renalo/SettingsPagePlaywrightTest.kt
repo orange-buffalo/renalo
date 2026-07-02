@@ -251,8 +251,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Expense Categories"))).isVisible()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expense categories"))).isVisible()
         page.shouldEventuallyContainCategoryRows(
-            CategoryRow("Groceries", "edit"),
-            CategoryRow("Rent", "edit"),
+            CategoryRow("Groceries", "merge edit"),
+            CategoryRow("Rent", "merge edit"),
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add new category")).click()
@@ -270,9 +270,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             "Utilities",
         )
         page.shouldEventuallyContainCategoryRows(
-            CategoryRow("Groceries", "edit"),
-            CategoryRow("Rent", "edit"),
-            CategoryRow("Utilities", "edit"),
+            CategoryRow("Groceries", "merge edit"),
+            CategoryRow("Rent", "merge edit"),
+            CategoryRow("Utilities", "merge edit"),
         )
 
         page.locator("[data-testid='expense-category-row-${groceries.id}']")
@@ -285,10 +285,51 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         expenseCategoryRepository.findById(groceries.id!!).get().name.shouldBe("Food")
         page.shouldEventuallyContainCategoryRows(
-            CategoryRow("Food", "edit"),
-            CategoryRow("Rent", "edit"),
-            CategoryRow("Utilities", "edit"),
+            CategoryRow("Food", "merge edit"),
+            CategoryRow("Rent", "merge edit"),
+            CategoryRow("Utilities", "merge edit"),
         )
+    }
+
+    @Test
+    fun mergesExpenseCategoryFromSettingsPage(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        val groceries = saveCategory(alice, "Groceries")
+        val food = saveCategory(alice, "Food")
+        val expense = saveTransaction(alice, main, groceries, TransactionType.EXPENSE, 1_000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/settings?tab=expense-categories")
+        page.locator("[data-testid='expense-category-row-${groceries.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Merge Groceries"))
+            .click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Merge Groceries"))).isVisible()
+        assertThat(page.getByText("Category merges are irreversible.")).isVisible()
+        val mergePage = page.getByRole(AriaRole.MAIN)
+        assertThat(mergePage.getByText("Expenses")).isVisible()
+        assertThat(page.getByText("Groceries will be merged into Food")).isVisible()
+        page.getByText("Groceries will be merged into Food").scrollIntoViewIfNeeded()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Merge category")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
+        assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Expense Categories"))).isVisible()
+        expenseCategoryRepository.findByIdAndUserId(groceries.id!!, alice.id!!).shouldBe(null)
+        transactionRepository.findById(expense.id!!).get().categoryId.shouldBe(food.id)
+        page.shouldEventuallyContainCategoryRows(CategoryRow("Food", "edit"))
+    }
+
+    @Test
+    fun hidesExpenseCategoryMergeActionWhenThereIsNoTarget(page: Page) {
+        val alice = saveUser("alice")
+        saveCategory(alice, "Groceries")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/settings?tab=expense-categories")
+
+        page.shouldEventuallyContainCategoryRows(CategoryRow("Groceries", "edit"))
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Merge Groceries"))).not().isVisible()
     }
 
     @Test
@@ -303,8 +344,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Income Categories"))).isVisible()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Income categories"))).isVisible()
         page.shouldEventuallyContainIncomeCategoryRows(
-            CategoryRow("Interest", "edit"),
-            CategoryRow("Salary", "edit"),
+            CategoryRow("Interest", "merge edit"),
+            CategoryRow("Salary", "merge edit"),
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add new category")).click()
@@ -322,9 +363,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             "Salary",
         )
         page.shouldEventuallyContainIncomeCategoryRows(
-            CategoryRow("Bonus", "edit"),
-            CategoryRow("Interest", "edit"),
-            CategoryRow("Salary", "edit"),
+            CategoryRow("Bonus", "merge edit"),
+            CategoryRow("Interest", "merge edit"),
+            CategoryRow("Salary", "merge edit"),
         )
 
         page.locator("[data-testid='income-category-row-${salary.id}']")
@@ -337,10 +378,38 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         incomeCategoryRepository.findById(salary.id!!).get().name.shouldBe("Payroll")
         page.shouldEventuallyContainIncomeCategoryRows(
-            CategoryRow("Bonus", "edit"),
-            CategoryRow("Interest", "edit"),
-            CategoryRow("Payroll", "edit"),
+            CategoryRow("Bonus", "merge edit"),
+            CategoryRow("Interest", "merge edit"),
+            CategoryRow("Payroll", "merge edit"),
         )
+    }
+
+    @Test
+    fun mergesIncomeCategoryFromSettingsPage(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        val salary = saveIncomeCategory(alice, "Salary")
+        val payroll = saveIncomeCategory(alice, "Payroll")
+        val income = saveTransaction(alice, main, salary, TransactionType.INCOME, 1_000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/settings?tab=income-categories")
+        page.locator("[data-testid='income-category-row-${salary.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Merge Salary"))
+            .click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Merge Salary"))).isVisible()
+        val mergePage = page.getByRole(AriaRole.MAIN)
+        assertThat(mergePage.getByText("Income")).isVisible()
+        assertThat(page.getByText("Salary will be merged into Payroll")).isVisible()
+        page.getByText("Salary will be merged into Payroll").scrollIntoViewIfNeeded()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Merge category")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
+        assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Income Categories"))).isVisible()
+        incomeCategoryRepository.findByIdAndUserId(salary.id!!, alice.id!!).shouldBe(null)
+        transactionRepository.findById(income.id!!).get().categoryId.shouldBe(payroll.id)
+        page.shouldEventuallyContainIncomeCategoryRows(CategoryRow("Payroll", "edit"))
     }
 
     @Test

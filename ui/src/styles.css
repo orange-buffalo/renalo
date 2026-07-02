@@ -1138,6 +1138,11 @@ input {
   gap: 16px;
 }
 
+.category-merge-summary {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 300px;
+}
+
 .account-merge-stat {
   display: grid;
   gap: 4px;

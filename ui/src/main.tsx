@@ -30,6 +30,10 @@ import {
 import { CreateIncomePage, EditIncomePage } from "./routes/IncomeFormPage.tsx";
 import { IncomesPage } from "./routes/IncomesPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
+import {
+  MergeExpenseCategoryPage,
+  MergeIncomeCategoryPage,
+} from "./routes/MergeCategoryPage.tsx";
 import { MergeTrackingAccountPage } from "./routes/MergeTrackingAccountPage.tsx";
 import { ProfilePage } from "./routes/ProfilePage.tsx";
 import { SettingsPage } from "./routes/SettingsPage.tsx";
@@ -183,6 +187,14 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: "/settings/expense-categories/:categoryId/merge",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <MergeExpenseCategoryPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/settings/expense-categories/:categoryId",
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
@@ -195,6 +207,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <CreateIncomeCategoryPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/income-categories/:categoryId/merge",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <MergeIncomeCategoryPage />
       </ProtectedRoute>
     ),
   },

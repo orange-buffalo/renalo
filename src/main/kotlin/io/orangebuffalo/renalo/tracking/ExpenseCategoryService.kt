@@ -6,6 +6,7 @@ import jakarta.inject.Singleton
 @Singleton
 open class ExpenseCategoryService(
     private val expenseCategoryRepository: ExpenseCategoryRepository,
+    private val transactionRepository: TransactionRepository,
 ) {
     @Transactional
     open fun createDefaultCategoryForUser(userId: Long): ExpenseCategory {
@@ -50,8 +51,61 @@ open class ExpenseCategoryService(
 
         return expenseCategoryRepository.update(category.copy(name = name))
     }
+
+    fun getMergeSummary(userId: Long, categoryId: Long): ExpenseCategoryMergeSummary? {
+        val sourceCategory = expenseCategoryRepository.findByIdAndUserId(categoryId, userId)
+            ?: return null
+        val targetCategories = expenseCategoryRepository.findByUserIdOrderByName(userId)
+            .filter { it.id != categoryId }
+
+        return ExpenseCategoryMergeSummary(
+            sourceCategory = sourceCategory,
+            expensesCount = transactionRepository.countByUserIdAndCategoryIdAndType(
+                userId,
+                categoryId,
+                TransactionType.EXPENSE,
+            ),
+            targetCategories = targetCategories,
+        )
+    }
+
+    @Transactional
+    open fun mergeCategory(userId: Long, sourceCategoryId: Long, request: MergeExpenseCategoryRequest): CategoryMergeResult {
+        expenseCategoryRepository.findByIdAndUserId(sourceCategoryId, userId)
+            ?: return CategoryMergeResult.NOT_FOUND
+        if (sourceCategoryId == request.targetCategoryId) {
+            return CategoryMergeResult.INVALID_TARGET
+        }
+        expenseCategoryRepository.findByIdAndUserId(request.targetCategoryId, userId)
+            ?: return CategoryMergeResult.INVALID_TARGET
+
+        transactionRepository.reassignCategory(
+            userId = userId,
+            type = TransactionType.EXPENSE,
+            sourceCategoryId = sourceCategoryId,
+            targetCategoryId = request.targetCategoryId,
+        )
+        expenseCategoryRepository.deleteByIdAndUserId(sourceCategoryId, userId)
+        return CategoryMergeResult.MERGED
+    }
 }
 
 data class SaveExpenseCategoryRequest(
     val name: String,
 )
+
+data class MergeExpenseCategoryRequest(
+    val targetCategoryId: Long,
+)
+
+data class ExpenseCategoryMergeSummary(
+    val sourceCategory: ExpenseCategory,
+    val expensesCount: Long,
+    val targetCategories: List<ExpenseCategory>,
+)
+
+enum class CategoryMergeResult {
+    MERGED,
+    NOT_FOUND,
+    INVALID_TARGET,
+}

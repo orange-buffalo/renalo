@@ -65,6 +65,32 @@ class IncomeCategoryController(
 
         return HttpResponse.ok(category.toResponse())
     }
+
+    @Get("/{categoryId}/merge-summary")
+    fun getMergeSummary(categoryId: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val summary = incomeCategoryService.getMergeSummary(user.id!!, categoryId)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(summary.toResponse())
+    }
+
+    @Post("/{categoryId}/merge")
+    fun mergeCategory(
+        categoryId: Long,
+        authentication: Authentication,
+        @Body request: MergeIncomeCategoryRequest,
+    ): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+
+        return when (incomeCategoryService.mergeCategory(user.id!!, categoryId, request)) {
+            CategoryMergeResult.MERGED -> HttpResponse.noContent<Any>()
+            CategoryMergeResult.NOT_FOUND -> HttpResponse.notFound<Any>()
+            CategoryMergeResult.INVALID_TARGET -> HttpResponse.badRequest<Any>()
+        }
+    }
 }
 
 private fun IncomeCategory.toResponse() = IncomeCategoryResponse(
@@ -75,4 +101,16 @@ private fun IncomeCategory.toResponse() = IncomeCategoryResponse(
 data class IncomeCategoryResponse(
     val id: Long,
     val name: String,
+)
+
+private fun IncomeCategoryMergeSummary.toResponse() = IncomeCategoryMergeSummaryResponse(
+    sourceCategory = sourceCategory.toResponse(),
+    incomesCount = incomesCount,
+    targetCategories = targetCategories.map { it.toResponse() },
+)
+
+data class IncomeCategoryMergeSummaryResponse(
+    val sourceCategory: IncomeCategoryResponse,
+    val incomesCount: Long,
+    val targetCategories: List<IncomeCategoryResponse>,
 )
