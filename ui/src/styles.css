@@ -173,7 +173,7 @@ input {
 
 .dashboard-account-card {
   display: grid;
-  gap: 24px;
+  gap: 18px;
   border: 1px solid #eaecf0;
   border-radius: 12px;
   padding: 24px;
@@ -182,7 +182,7 @@ input {
 
 .dashboard-account-card-header {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .dashboard-account-card h2,
@@ -204,9 +204,9 @@ input {
 }
 
 .dashboard-account-balance {
-  margin-top: 8px;
+  margin-top: 4px;
   color: #101828;
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-size: clamp(1.5rem, 2.5vw, 1.875rem);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1;
@@ -234,8 +234,8 @@ input {
   border: 1px solid;
   border-radius: 999px;
   padding: 3px 10px;
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 400;
   line-height: 1.2;
 }
 
@@ -1916,10 +1916,6 @@ input {
 
   .dashboard-account-card {
     padding: 20px;
-  }
-
-  .dashboard-money-flow-row {
-    grid-template-columns: 1fr;
   }
 
   .standard-page-header {
