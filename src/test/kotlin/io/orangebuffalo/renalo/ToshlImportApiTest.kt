@@ -192,7 +192,7 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                       "amountMinor": 10400,
                       "currency": "AUD",
                       "status": "SKIPPED_DUPLICATE",
-                      "reason": "Duplicate expense by date, type, and amount."
+                      "reason": "Duplicate expense by date, type, amount, and description."
                     },
                     {
                       "lineNumber": 3,
@@ -203,7 +203,7 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                       "amountMinor": 50000,
                       "currency": "AUD",
                       "status": "SKIPPED_DUPLICATE",
-                      "reason": "Duplicate expense by date, type, and amount."
+                      "reason": "Duplicate expense by date, type, amount, and description."
                     },
                     {
                       "lineNumber": 4,
@@ -236,7 +236,7 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                       "amountMinor": 5498700,
                       "currency": "EUR",
                       "status": "SKIPPED_DUPLICATE",
-                      "reason": "Duplicate income by date, type, and amount."
+                      "reason": "Duplicate income by date, type, amount, and description."
                     }
                   ]
                 }
@@ -245,6 +245,80 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE).size.shouldBe(2)
         transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.INCOME).size.shouldBe(1)
         fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).size.shouldBe(1)
+    }
+
+    @Test
+    fun treatsSameDateTypeAndAmountWithDifferentDescriptionsAsDifferentTransactions() {
+        val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Cash", "AUD", isDefault = true)
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,Cash,Food,,12.00,0,AUD,12.00,AUD,Lunch
+                    1/6/26,Cash,Food,,12.00,0,AUD,12.00,AUD,Dinner
+                    1/6/26,Cash,Food,,12.00,0,AUD,12.00,AUD,Lunch
+                """.trimIndent(),
+            ),
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "importedExpenses": 2,
+                  "importedIncomes": 0,
+                  "skippedDuplicateExpenses": 1,
+                  "skippedDuplicateIncomes": 0,
+                  "importedTransfers": 0,
+                  "skippedDuplicateTransfers": 0,
+                  "warnings": [],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-01",
+                      "account": "Cash",
+                      "category": "Food",
+                      "type": "EXPENSE",
+                      "amountMinor": 1200,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as expense."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-01",
+                      "account": "Cash",
+                      "category": "Food",
+                      "type": "EXPENSE",
+                      "amountMinor": 1200,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as expense."
+                    },
+                    {
+                      "lineNumber": 4,
+                      "date": "2026-06-01",
+                      "account": "Cash",
+                      "category": "Food",
+                      "type": "EXPENSE",
+                      "amountMinor": 1200,
+                      "currency": "AUD",
+                      "status": "SKIPPED_DUPLICATE",
+                      "reason": "Duplicate expense by date, type, amount, and description."
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+        transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE)
+            .map { it.notes }
+            .filterNotNull()
+            .sorted()
+            .shouldContainExactly("Dinner", "Lunch")
     }
 
     @Test

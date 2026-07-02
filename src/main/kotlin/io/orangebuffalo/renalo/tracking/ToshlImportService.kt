@@ -60,7 +60,7 @@ open class ToshlImportService(
     private fun loadImportContext(userId: Long): ToshlImportContext {
         val transactionKeys = TransactionType.entries
             .flatMap { type -> transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, type) }
-            .mapTo(mutableSetOf()) { TransactionImportKey(it.type, it.date, it.amountMinor) }
+            .mapTo(mutableSetOf()) { TransactionImportKey(it.type, it.date, it.amountMinor, it.notes) }
         val transferKeys = fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
             .mapTo(mutableSetOf()) {
                 TransferImportKey(
@@ -133,11 +133,11 @@ open class ToshlImportService(
         report: MutableList<ToshlImportReportEntry>,
     ) {
         val transactionsToImport = rows.mapNotNull { row ->
-            val key = TransactionImportKey(row.type, row.date, row.amountMinor)
+            val key = TransactionImportKey(row.type, row.date, row.amountMinor, row.notes)
             if (!context.transactionKeys.add(key)) {
                 report += row.toReportEntry(
                     "SKIPPED_DUPLICATE",
-                    "Duplicate ${row.type.name.lowercase()} by date, type, and amount.",
+                    "Duplicate ${row.type.name.lowercase()} by date, type, amount, and description.",
                 )
                 null
             } else {
@@ -435,6 +435,7 @@ private data class TransactionImportKey(
     val type: TransactionType,
     val date: LocalDate,
     val amountMinor: Long,
+    val notes: String?,
 )
 
 private data class TransferImportKey(
