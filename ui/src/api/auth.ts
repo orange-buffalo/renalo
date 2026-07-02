@@ -17,6 +17,7 @@ export type UserType = "USER" | "ADMIN";
 export type Profile = {
   username: string;
   type: UserType;
+  passwordSignInDisabled: boolean;
 };
 
 export type Passkey = {
@@ -45,7 +46,11 @@ export async function createAuthToken(
   });
 
   if (!response.ok) {
-    throw new ApiError("Invalid username or password", response.status);
+    throw new ApiError(
+      "Invalid username or password",
+      response.status,
+      await readErrorCode(response),
+    );
   }
 
   const body = (await response.json()) as { token: string };
@@ -103,6 +108,18 @@ export async function changePassword(
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+export async function disablePasswordSignIn() {
+  return apiRequest<Profile>("/api/profile/disable-password-sign-in", {
+    method: "POST",
+  });
+}
+
+export async function enablePasswordSignIn() {
+  return apiRequest<Profile>("/api/profile/enable-password-sign-in", {
+    method: "POST",
   });
 }
 
@@ -368,4 +385,13 @@ function getOperatingSystemName(userAgent: string) {
     return "Linux";
   }
   return "this device";
+}
+
+async function readErrorCode(response: Response) {
+  try {
+    const body = (await response.json()) as { code?: string };
+    return body.code;
+  } catch {
+    return undefined;
+  }
 }

@@ -13,4 +13,5 @@ data class User(
     var passwordHash: String,
     var type: UserType,
     var active: Boolean = true,
+    var passwordSignInDisabled: Boolean = false,
 )

@@ -12,6 +12,8 @@ import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.auth.RememberMeTokenRepository
 import io.orangebuffalo.renalo.auth.passkeys.PasskeyChallengeRepository
+import io.orangebuffalo.renalo.auth.passkeys.PasskeyCredential
+import io.orangebuffalo.renalo.auth.passkeys.PasskeyCredentialRepository
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
@@ -36,6 +38,9 @@ class AuthApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var passkeyChallengeRepository: PasskeyChallengeRepository
+
+    @Inject
+    lateinit var passkeyCredentialRepository: PasskeyCredentialRepository
 
     private val objectMapper = ObjectMapper()
 
@@ -77,6 +82,38 @@ class AuthApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun rejectsPasswordLoginForPasswordDisabledAccountOnlyWhenPasswordIsCorrect() {
+        val user = saveUser("alice", "correct-password", UserType.USER)
+        user.passwordSignInDisabled = true
+        userRepository.update(user)
+
+        api().postJson(
+            "/api/create-auth-token",
+            """
+                {"username":"alice","password":"wrong-password"}
+            """.trimIndent(),
+            null,
+        ).statusCode().shouldBe(401)
+
+        val response = api().postJson(
+            "/api/create-auth-token",
+            """
+                {"username":"alice","password":"correct-password"}
+            """.trimIndent(),
+            null,
+        )
+
+        response.statusCode().shouldBe(409)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "code": "PASSWORD_SIGN_IN_DISABLED"
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
     fun issuesTokenAndReturnsProfile() {
         saveUser("alice", "correct-password", UserType.USER)
 
@@ -88,7 +125,8 @@ class AuthApiTest : IntegrationTestSupport() {
             """
                 {
                   "username": "alice",
-                  "type": "USER"
+                  "type": "USER",
+                  "passwordSignInDisabled": false
                 }
             """.trimIndent(),
         )
@@ -139,6 +177,78 @@ class AuthApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun disablesAndEnablesPasswordSignInWhenPasskeyExists() {
+        val user = saveUser("alice", "correct-password", UserType.USER)
+        savePasskey(user)
+        val token = api().login("alice", "correct-password")
+
+        val disableResponse = api().post("/api/profile/disable-password-sign-in", token)
+
+        disableResponse.statusCode().shouldBe(200)
+        disableResponse.body().shouldEqualJson(
+            """
+                {
+                  "username": "alice",
+                  "type": "USER",
+                  "passwordSignInDisabled": true
+                }
+            """.trimIndent(),
+        )
+        userRepository.findByUsername("alice")!!.passwordSignInDisabled.shouldBe(true)
+
+        val enableResponse = api().post("/api/profile/enable-password-sign-in", token)
+
+        enableResponse.statusCode().shouldBe(200)
+        enableResponse.body().shouldEqualJson(
+            """
+                {
+                  "username": "alice",
+                  "type": "USER",
+                  "passwordSignInDisabled": false
+                }
+            """.trimIndent(),
+        )
+        userRepository.findByUsername("alice")!!.passwordSignInDisabled.shouldBe(false)
+    }
+
+    @Test
+    fun rejectsPasswordSignInDisableWithoutPasskeys() {
+        saveUser("alice", "correct-password", UserType.USER)
+        val token = api().login("alice", "correct-password")
+
+        val response = api().post("/api/profile/disable-password-sign-in", token)
+
+        response.statusCode().shouldBe(409)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "code": "PASSWORD_SIGN_IN_REQUIRES_PASSKEY"
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun removingLastPasskeyReEnablesPasswordSignIn() {
+        val user = saveUser("alice", "correct-password", UserType.USER)
+        val passkey = savePasskey(user)
+        val token = api().login("alice", "correct-password")
+        user.passwordSignInDisabled = true
+        userRepository.update(user)
+
+        val response = api().delete("/api/profile/passkeys/${passkey.id}", token)
+
+        response.statusCode().shouldBe(204)
+        userRepository.findByUsername("alice")!!.passwordSignInDisabled.shouldBe(false)
+    }
+
+    @Test
+    fun requiresTokenForPasswordSignInSettings() {
+        api().post("/api/profile/disable-password-sign-in", null).statusCode().shouldBe(401)
+        api().post("/api/profile/enable-password-sign-in", null).statusCode().shouldBe(401)
+    }
+
+    @Test
     fun requiresTokenForCreatingSignInLink() {
         val response = api().post("/api/profile/sign-in-link", null)
 
@@ -174,7 +284,8 @@ class AuthApiTest : IntegrationTestSupport() {
             """
                 {
                   "username": "alice",
-                  "type": "USER"
+                  "type": "USER",
+                  "passwordSignInDisabled": false
                 }
             """.trimIndent(),
         )
@@ -323,7 +434,8 @@ class AuthApiTest : IntegrationTestSupport() {
             """
                 {
                   "username": "alice",
-                  "type": "USER"
+                  "type": "USER",
+                  "passwordSignInDisabled": false
                 }
             """.trimIndent(),
         )
@@ -345,7 +457,8 @@ class AuthApiTest : IntegrationTestSupport() {
             """
                 {
                   "username": "alice",
-                  "type": "USER"
+                  "type": "USER",
+                  "passwordSignInDisabled": false
                 }
             """.trimIndent(),
         )
@@ -551,5 +664,22 @@ class AuthApiTest : IntegrationTestSupport() {
 
     private fun saveUser(username: String, password: String, type: UserType): User {
         return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
+    }
+
+    private fun savePasskey(user: User): PasskeyCredential {
+        return passkeyCredentialRepository.save(
+            PasskeyCredential(
+                userId = user.id ?: throw IllegalStateException("Persisted user is missing id"),
+                credentialId = "credential-${user.username}",
+                userHandle = "user-handle-${user.username}",
+                publicKeyCose = "public-key-${user.username}",
+                signatureCount = 0,
+                device = "Chrome on Linux",
+                transports = "internal",
+                backupEligible = false,
+                backedUp = false,
+                createdAt = testTimeProvider.now(),
+            ),
+        )
     }
 }

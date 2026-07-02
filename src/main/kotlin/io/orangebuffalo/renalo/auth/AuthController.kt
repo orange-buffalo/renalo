@@ -17,6 +17,7 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.micronaut.security.rules.SecurityRule
 import io.micronaut.security.token.jwt.validator.JsonWebTokenValidator
+import io.orangebuffalo.renalo.auth.passkeys.PasskeyCredentialRepository
 import io.orangebuffalo.renalo.time.TimeProvider
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.UserRepository
@@ -29,6 +30,7 @@ import java.util.Base64
 class AuthController(
     private val userRepository: UserRepository,
     private val rememberMeTokenRepository: RememberMeTokenRepository,
+    private val passkeyCredentialRepository: PasskeyCredentialRepository,
     private val passwordHasher: PasswordHasher,
     private val accessTokenService: AccessTokenService,
     private val signInLinkService: SignInLinkService,
@@ -42,12 +44,16 @@ class AuthController(
     fun createAuthToken(
         httpRequest: HttpRequest<*>,
         @Body request: CreateAuthTokenRequest,
-    ): HttpResponse<CreateAuthTokenResponse> {
+    ): HttpResponse<*> {
         val user = userRepository.findByUsername(request.username)
-            ?: return HttpResponse.unauthorized()
+            ?: return HttpResponse.unauthorized<Any>()
 
         if (!user.active || !passwordHasher.verify(request.password, user.passwordHash)) {
-            return HttpResponse.unauthorized()
+            return HttpResponse.unauthorized<Any>()
+        }
+        if (user.passwordSignInDisabled) {
+            return HttpResponse.status<Any>(HttpStatus.CONFLICT)
+                .body(AuthErrorResponse("PASSWORD_SIGN_IN_DISABLED"))
         }
 
         val token = accessTokenService.issueAccessToken(user.username, user.type)
@@ -129,12 +135,39 @@ class AuthController(
     @Get("/profile")
     @Secured(UserRoles.USER, UserRoles.ADMIN)
     fun profile(authentication: Authentication): ProfileResponse {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: throw IllegalStateException("Authenticated user does not exist")
         return ProfileResponse(
-            username = authentication.name,
-            type = authentication.roles.firstNotNullOfOrNull { role ->
-                UserType.entries.find { it.name == role }
-            } ?: UserType.USER,
+            username = user.username,
+            type = user.type,
+            passwordSignInDisabled = user.passwordSignInDisabled,
         )
+    }
+
+    @Post("/profile/disable-password-sign-in")
+    @Secured(UserRoles.USER, UserRoles.ADMIN)
+    fun disablePasswordSignIn(authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val userId = user.id ?: throw IllegalStateException("Persisted user is missing id")
+        if (passkeyCredentialRepository.findByUserId(userId).isEmpty()) {
+            return HttpResponse.status<Any>(HttpStatus.CONFLICT)
+                .body(AuthErrorResponse("PASSWORD_SIGN_IN_REQUIRES_PASSKEY"))
+        }
+
+        user.passwordSignInDisabled = true
+        userRepository.update(user)
+        return HttpResponse.ok(user.toProfileResponse())
+    }
+
+    @Post("/profile/enable-password-sign-in")
+    @Secured(UserRoles.USER, UserRoles.ADMIN)
+    fun enablePasswordSignIn(authentication: Authentication): HttpResponse<ProfileResponse> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized()
+        user.passwordSignInDisabled = false
+        userRepository.update(user)
+        return HttpResponse.ok(user.toProfileResponse())
     }
 
     @Patch("/profile/password")
@@ -219,6 +252,12 @@ class AuthController(
         .sameSite(SameSite.Lax)
         .maxAge(0)
 
+    private fun io.orangebuffalo.renalo.user.User.toProfileResponse() = ProfileResponse(
+        username = username,
+        type = type,
+        passwordSignInDisabled = passwordSignInDisabled,
+    )
+
     companion object {
         private const val rememberMeCookieName = "renalo.rememberMe"
         private val secureRandom = SecureRandom()
@@ -236,6 +275,10 @@ data class CreateAuthTokenResponse(
     val token: String,
 )
 
+data class AuthErrorResponse(
+    val code: String,
+)
+
 data class RefreshAccessTokenResponse(
     @field:JsonInclude(JsonInclude.Include.ALWAYS)
     val token: String?,
@@ -244,6 +287,7 @@ data class RefreshAccessTokenResponse(
 data class ProfileResponse(
     val username: String,
     val type: UserType,
+    val passwordSignInDisabled: Boolean,
 )
 
 data class ChangePasswordRequest(

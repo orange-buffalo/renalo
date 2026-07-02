@@ -112,6 +112,60 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun disablesPasswordSignInAndResetsItWhenLastPasskeyIsRemoved(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        installVirtualAuthenticator(page)
+        val baseUrl = "http://localhost:${server.port}"
+
+        page.navigate(baseUrl + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        page.navigate(baseUrl + "/profile")
+        val disablePasswordButton = page.getByRole(
+            AriaRole.BUTTON,
+            Page.GetByRoleOptions().setName("disable passwork sing in"),
+        )
+        assertThat(disablePasswordButton).isDisabled()
+        page.locator(".profile-disable-password-wrapper").getAttribute("title").shouldBe(
+            "you must setup at least one passkey to disable password singins",
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add passkey")).click()
+        assertThat(page.getByText("Chrome on Linux")).isVisible()
+
+        assertThat(disablePasswordButton).isEnabled()
+        disablePasswordButton.click()
+        assertThat(page.getByRole(AriaRole.DIALOG)).containsText("if you disable, you can only sing in with a passkey")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Disable password sign in")).click()
+
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Password sign in is disabled")
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Enable password login"))).isVisible()
+        assertThat(page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Current password").setExact(true)))
+            .isHidden()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign out")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
+        assertThat(page.getByText("Your account prohibits password sign in, use passkey instead.")).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in with passkey")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        page.navigate(baseUrl + "/profile")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Remove")).click()
+        assertThat(page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Current password").setExact(true)))
+            .isVisible()
+        assertThat(disablePasswordButton).isDisabled()
+    }
+
+    @Test
     fun createsSignInLinkAndUsesItToOpenProfile(page: Page) {
         saveUser("alice", "password", UserType.USER)
         val baseUrl = server.url.toString()

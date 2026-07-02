@@ -141,6 +141,10 @@ class PasskeyService(
         val user = requireActiveUser(username)
         val userId = user.id ?: throw PasskeyOperationException("Persisted user is missing id")
         passkeyCredentialRepository.deleteByIdAndUserId(passkeyId, userId)
+        if (passkeyCredentialRepository.findByUserId(userId).isEmpty() && user.passwordSignInDisabled) {
+            user.passwordSignInDisabled = false
+            userRepository.update(user)
+        }
     }
 
     fun startAuthentication(): PasskeyOptionsResponse {

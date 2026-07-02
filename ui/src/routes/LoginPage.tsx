@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
 import {
+  ApiError,
   clearAuthToken,
   createAuthToken,
   createAuthTokenWithPasskey,
@@ -77,11 +78,16 @@ export function LoginPage() {
       navigate(profile.type === "ADMIN" ? "/user-management" : "/tracking", {
         replace: true,
       });
-    } catch {
+    } catch (caughtError) {
       clearAuthToken();
       setProfile(undefined);
       setSettings(undefined);
-      setPasswordError("Invalid username or password.");
+      setPasswordError(
+        caughtError instanceof ApiError &&
+          caughtError.code === "PASSWORD_SIGN_IN_DISABLED"
+          ? "Your account prohibits password sign in, use passkey instead."
+          : "Invalid username or password.",
+      );
     } finally {
       setIsLoading(false);
     }

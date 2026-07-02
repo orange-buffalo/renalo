@@ -1432,6 +1432,10 @@ input {
   padding-top: 8px;
 }
 
+.profile-disable-password-wrapper {
+  display: inline-flex;
+}
+
 .profile-passkeys-panel {
   display: grid;
   gap: 24px;

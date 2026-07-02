@@ -1,16 +1,20 @@
 import QRCode from "qrcode";
 import { type FormEvent, useEffect, useState } from "react";
 import { useLocation } from "react-router";
+import { useAppState } from "@/AppState";
 import {
   ApiError,
   changePassword,
   createSignInLink,
   deletePasskey,
+  disablePasswordSignIn,
+  enablePasswordSignIn,
   fetchPasskeys,
   type Passkey,
   registerPasskey,
   type SignInLink,
 } from "@/api/auth";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { showNotification } from "@/components/untitled/application/notifications/notifications";
@@ -19,6 +23,7 @@ import { Input } from "@/components/untitled/base/input/input";
 
 export function ProfilePage() {
   const location = useLocation();
+  const { profile, setProfile } = useAppState();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
@@ -36,9 +41,16 @@ export function ProfilePage() {
   const [signInLinkQrCode, setSignInLinkQrCode] = useState<string>();
   const [signInLinkError, setSignInLinkError] = useState<string>();
   const [isCreatingSignInLink, setIsCreatingSignInLink] = useState(false);
+  const [passwordSignInError, setPasswordSignInError] = useState<string>();
+  const [isDisablePasswordDialogOpen, setIsDisablePasswordDialogOpen] =
+    useState(false);
+  const [isUpdatingPasswordSignIn, setIsUpdatingPasswordSignIn] =
+    useState(false);
 
   const showPasskeySetupPrompt =
     new URLSearchParams(location.search).get("setupPasskey") === "true";
+  const passwordSignInDisabled = Boolean(profile?.passwordSignInDisabled);
+  const canDisablePasswordSignIn = passkeys.length > 0;
 
   useEffect(() => {
     let isActive = true;
@@ -162,9 +174,15 @@ export function ProfilePage() {
     setDeletingPasskeyId(passkeyId);
     try {
       await deletePasskey(passkeyId);
-      setPasskeys((currentPasskeys) =>
-        currentPasskeys.filter((passkey) => passkey.id !== passkeyId),
-      );
+      setPasskeys((currentPasskeys) => {
+        const nextPasskeys = currentPasskeys.filter(
+          (passkey) => passkey.id !== passkeyId,
+        );
+        if (nextPasskeys.length === 0 && profile?.passwordSignInDisabled) {
+          setProfile({ ...profile, passwordSignInDisabled: false });
+        }
+        return nextPasskeys;
+      });
     } catch {
       setPasskeyError("Passkey could not be removed. Try again in a moment.");
     } finally {
@@ -201,93 +219,195 @@ export function ProfilePage() {
     }
   }
 
+  async function handleDisablePasswordSignIn() {
+    setPasswordSignInError(undefined);
+    setIsUpdatingPasswordSignIn(true);
+    try {
+      setProfile(await disablePasswordSignIn());
+      setIsDisablePasswordDialogOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setNewPasswordConfirmation("");
+      setSuccess(false);
+    } catch {
+      setPasswordSignInError(
+        "Password sign in could not be disabled. Try again in a moment.",
+      );
+    } finally {
+      setIsUpdatingPasswordSignIn(false);
+    }
+  }
+
+  async function handleEnablePasswordSignIn() {
+    setPasswordSignInError(undefined);
+    setIsUpdatingPasswordSignIn(true);
+    try {
+      setProfile(await enablePasswordSignIn());
+    } catch {
+      setPasswordSignInError(
+        "Password sign in could not be enabled. Try again in a moment.",
+      );
+    } finally {
+      setIsUpdatingPasswordSignIn(false);
+    }
+  }
+
   return (
     <PageLayout
       title="My profile"
       description="Manage your personal account settings."
     >
       <section className="standard-page-panel profile-panel">
-        <form className="profile-form" onSubmit={handleSubmit}>
-          <div className="profile-form-heading">
-            <h2>Change password</h2>
-            <p>Update the password you use to sign in to Renalo.</p>
-          </div>
-
-          {success && (
+        {passwordSignInDisabled ? (
+          <div className="profile-form">
+            <div className="profile-form-heading">
+              <h2>Change password</h2>
+              <p>Password sign in is currently disabled for this account.</p>
+            </div>
             <Alert
-              tone="success"
-              title="Password changed"
+              tone="warning"
+              title="Password sign in is disabled"
               className="profile-form-wide"
             >
-              <p>Use your new password the next time you sign in.</p>
+              <p>Only passkeys can be used to sign in to this account.</p>
             </Alert>
-          )}
-          {error && (
-            <Alert tone="error" title={error} className="profile-form-wide" />
-          )}
-
-          <Input
-            label="Current password"
-            name="currentPassword"
-            type="password"
-            autoComplete="current-password"
-            size="md"
-            wrapperClassName="profile-password-field"
-            value={currentPassword}
-            isInvalid={Boolean(currentPasswordError)}
-            hint={currentPasswordError}
-            onChange={(nextPassword) => {
-              setCurrentPassword(nextPassword);
-              setCurrentPasswordError(undefined);
-              setSuccess(false);
-            }}
-          />
-          <div className="profile-form-spacer" aria-hidden="true" />
-          <Input
-            label="New password"
-            name="newPassword"
-            type="password"
-            autoComplete="new-password"
-            size="md"
-            wrapperClassName="profile-password-field"
-            value={newPassword}
-            isInvalid={Boolean(newPasswordError)}
-            hint={newPasswordError}
-            onChange={(nextPassword) => {
-              setNewPassword(nextPassword);
-              setNewPasswordError(undefined);
-              setSuccess(false);
-            }}
-          />
-          <Input
-            label="Confirm new password"
-            name="newPasswordConfirmation"
-            type="password"
-            autoComplete="new-password"
-            size="md"
-            wrapperClassName="profile-password-field"
-            value={newPasswordConfirmation}
-            isInvalid={Boolean(newPasswordError)}
-            onChange={(nextPasswordConfirmation) => {
-              setNewPasswordConfirmation(nextPasswordConfirmation);
-              setNewPasswordError(undefined);
-              setSuccess(false);
-            }}
-          />
-
-          <div className="profile-form-actions">
-            <span />
-            <Button
-              color="primary"
-              size="sm"
-              type="submit"
-              isLoading={isSubmitting}
-            >
-              Change password
-            </Button>
+            {passwordSignInError && (
+              <Alert
+                tone="error"
+                title={passwordSignInError}
+                className="profile-form-wide"
+              />
+            )}
+            <div className="profile-form-actions">
+              <span />
+              <Button
+                color="secondary"
+                size="sm"
+                type="button"
+                isLoading={isUpdatingPasswordSignIn}
+                onClick={handleEnablePasswordSignIn}
+              >
+                Enable password login
+              </Button>
+            </div>
           </div>
-        </form>
+        ) : (
+          <form className="profile-form" onSubmit={handleSubmit}>
+            <div className="profile-form-heading">
+              <h2>Change password</h2>
+              <p>Update the password you use to sign in to Renalo.</p>
+            </div>
+
+            {success && (
+              <Alert
+                tone="success"
+                title="Password changed"
+                className="profile-form-wide"
+              >
+                <p>Use your new password the next time you sign in.</p>
+              </Alert>
+            )}
+            {error && (
+              <Alert tone="error" title={error} className="profile-form-wide" />
+            )}
+            {passwordSignInError && (
+              <Alert
+                tone="error"
+                title={passwordSignInError}
+                className="profile-form-wide"
+              />
+            )}
+
+            <Input
+              label="Current password"
+              name="currentPassword"
+              type="password"
+              autoComplete="current-password"
+              size="md"
+              wrapperClassName="profile-password-field"
+              value={currentPassword}
+              isInvalid={Boolean(currentPasswordError)}
+              hint={currentPasswordError}
+              onChange={(nextPassword) => {
+                setCurrentPassword(nextPassword);
+                setCurrentPasswordError(undefined);
+                setSuccess(false);
+              }}
+            />
+            <div className="profile-form-spacer" aria-hidden="true" />
+            <Input
+              label="New password"
+              name="newPassword"
+              type="password"
+              autoComplete="new-password"
+              size="md"
+              wrapperClassName="profile-password-field"
+              value={newPassword}
+              isInvalid={Boolean(newPasswordError)}
+              hint={newPasswordError}
+              onChange={(nextPassword) => {
+                setNewPassword(nextPassword);
+                setNewPasswordError(undefined);
+                setSuccess(false);
+              }}
+            />
+            <Input
+              label="Confirm new password"
+              name="newPasswordConfirmation"
+              type="password"
+              autoComplete="new-password"
+              size="md"
+              wrapperClassName="profile-password-field"
+              value={newPasswordConfirmation}
+              isInvalid={Boolean(newPasswordError)}
+              onChange={(nextPasswordConfirmation) => {
+                setNewPasswordConfirmation(nextPasswordConfirmation);
+                setNewPasswordError(undefined);
+                setSuccess(false);
+              }}
+            />
+
+            <div className="profile-form-actions">
+              <span
+                className="profile-disable-password-wrapper"
+                title={
+                  canDisablePasswordSignIn
+                    ? undefined
+                    : "you must setup at least one passkey to disable password singins"
+                }
+              >
+                <Button
+                  color="link-destructive"
+                  size="sm"
+                  type="button"
+                  isDisabled={!canDisablePasswordSignIn}
+                  onClick={() => setIsDisablePasswordDialogOpen(true)}
+                >
+                  disable passwork sing in
+                </Button>
+              </span>
+              <Button
+                color="primary"
+                size="sm"
+                type="submit"
+                isLoading={isSubmitting}
+              >
+                Change password
+              </Button>
+            </div>
+          </form>
+        )}
       </section>
+
+      <ConfirmationDialog
+        isOpen={isDisablePasswordDialogOpen}
+        title="Disable password sign in?"
+        description="if you disable, you can only sing in with a passkey. if passkey is lost, you need to request your administrator to reset you signing method"
+        confirmLabel="Disable password sign in"
+        isConfirming={isUpdatingPasswordSignIn}
+        onCancel={() => setIsDisablePasswordDialogOpen(false)}
+        onConfirm={() => void handleDisablePasswordSignIn()}
+      />
 
       <section className="standard-page-panel profile-panel profile-sign-in-link-panel">
         <div className="profile-passkeys-heading">
