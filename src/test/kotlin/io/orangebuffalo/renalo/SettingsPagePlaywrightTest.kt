@@ -302,11 +302,13 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Import").setExact(true)).click()
 
-        assertThat(page.getByRole(AriaRole.ALERT).filter(Locator.FilterOptions().setHasText("Import complete"))).isVisible()
+        assertThat(
+            page.getByRole(AriaRole.ALERT).filter(Locator.FilterOptions().setHasText("Import completed with warnings")),
+        ).isVisible()
         assertThat(page.getByText("Imported 1 expenses and 1 income entries.")).isVisible()
+        assertThat(page.getByText("1 transfer row could not be matched.")).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Get processing report"))).isVisible()
-        assertThat(page.getByRole(AriaRole.ALERT).filter(Locator.FilterOptions().setHasText("Some transfers could not be matched"))).isVisible()
-        assertThat(page.getByText("Line 4: 2026-06-03, Cash, expense, A$50.00")).isVisible()
+        assertThat(page.getByText("Some transfers could not be matched")).not().isVisible()
     }
 
     private fun saveUser(username: String): User = userRepository.save(

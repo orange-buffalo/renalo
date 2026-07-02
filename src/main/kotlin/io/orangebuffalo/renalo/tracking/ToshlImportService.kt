@@ -175,8 +175,8 @@ open class ToshlImportService(
         transfers.forEach { transfer ->
             val sourceAccount = context.accountsByName.getValue(transfer.source.account)
             val targetAccount = context.accountsByName.getValue(transfer.target.account)
-            val sourceAmountMinor = transfer.source.amountForAccount(sourceAccount)
-            val targetAmountMinor = transfer.target.amountForAccount(targetAccount)
+            val sourceAmountMinor = transfer.source.amountMinor
+            val targetAmountMinor = transfer.target.amountMinor
             val key = TransferImportKey(
                 date = transfer.source.date,
                 sourceAccountId = sourceAccount.id!!,
@@ -210,7 +210,7 @@ open class ToshlImportService(
 
     private fun reconcileTransfers(transferRows: List<ToshlRow>): List<ReconciledToshlTransfer> {
         val reconciled = mutableListOf<ReconciledToshlTransfer>()
-        val transferGroups = transferRows.groupBy { TransferMatchKey(it.date, it.mainCurrency, it.mainAmountMinor) }
+        val transferGroups = transferRows.groupBy { TransferMatchKey(it.date, it.amountMinor) }
 
         transferGroups.values.forEach { groupRows ->
             val incomeTransfers = groupRows.filter { it.type == TransactionType.INCOME }.toMutableList()
@@ -234,7 +234,6 @@ open class ToshlImportService(
         }
         val amount = if (type == TransactionType.EXPENSE) expenseAmount else incomeAmount
         val currency = value(row, header, "Currency", lineNumber).trim().uppercase()
-        val mainCurrency = value(row, header, "Main currency", lineNumber).trim().uppercase()
         val description = value(row, header, "Description", lineNumber).trim()
         val tags = value(row, header, "Tags", lineNumber).trim()
 
@@ -248,8 +247,6 @@ open class ToshlImportService(
             type = type,
             amountMinor = amount.toMinorUnits(currency, lineNumber),
             currency = currency,
-            mainAmountMinor = value(row, header, "In main currency", lineNumber).parseAmountOrZero().toMinorUnits(mainCurrency, lineNumber),
-            mainCurrency = mainCurrency,
             notes = buildNotes(description, tags),
         )
     }
@@ -286,12 +283,6 @@ open class ToshlImportService(
         status = status,
         reason = reason,
     )
-
-    private fun ToshlRow.amountForAccount(account: TrackingAccount): Long = when (account.currency) {
-        currency -> amountMinor
-        mainCurrency -> mainAmountMinor
-        else -> amountMinor
-    }
 
     private fun String.parseAmountOrZero(): BigDecimal = trim()
         .replace(",", "")
@@ -404,8 +395,6 @@ private data class ToshlRow(
     val type: TransactionType,
     val amountMinor: Long,
     val currency: String,
-    val mainAmountMinor: Long,
-    val mainCurrency: String,
     val notes: String?,
 )
 
@@ -433,8 +422,7 @@ private data class TransferImportKey(
 
 private data class TransferMatchKey(
     val date: LocalDate,
-    val mainCurrency: String,
-    val mainAmountMinor: Long,
+    val amountMinor: Long,
 )
 
 private data class ReconciledToshlTransfer(

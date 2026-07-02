@@ -437,7 +437,14 @@ export function SettingsPage() {
             )}
 
             {toshlResult && (
-              <Alert tone="success" title="Import complete">
+              <Alert
+                tone={toshlResult.warnings.length > 0 ? "warning" : "success"}
+                title={
+                  toshlResult.warnings.length > 0
+                    ? "Import completed with warnings"
+                    : "Import complete"
+                }
+              >
                 <p>
                   Imported {toshlResult.importedExpenses} expenses and{" "}
                   {toshlResult.importedIncomes} income entries. Skipped{" "}
@@ -445,7 +452,7 @@ export function SettingsPage() {
                   {toshlResult.skippedDuplicateIncomes} duplicate income
                   entries. Imported {toshlResult.importedTransfers} transfers
                   and skipped {toshlResult.skippedDuplicateTransfers} duplicate
-                  transfers.
+                  transfers. {formatUnmatchedTransferSummary(toshlResult)}
                 </p>
                 <Button
                   color="secondary"
@@ -454,24 +461,6 @@ export function SettingsPage() {
                 >
                   Get processing report
                 </Button>
-              </Alert>
-            )}
-
-            {toshlResult && toshlResult.warnings.length > 0 && (
-              <Alert tone="warning" title="Some transfers could not be matched">
-                <p>
-                  These Toshl transfer rows did not have a matching opposite
-                  side, so they were not imported:
-                </p>
-                <ul className="settings-import-warning-list">
-                  {toshlResult.warnings.map((warning) => (
-                    <li key={warning.lineNumber}>
-                      Line {warning.lineNumber}: {warning.date},{" "}
-                      {warning.account}, {warning.type.toLowerCase()},{" "}
-                      {formatMoney(warning.amountMinor, warning.currency)}
-                    </li>
-                  ))}
-                </ul>
               </Alert>
             )}
 
@@ -534,6 +523,13 @@ function buildToshlReportCsv(result: ToshlImportResult) {
     ]),
   ];
   return rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+}
+
+function formatUnmatchedTransferSummary(result: ToshlImportResult) {
+  if (result.warnings.length === 1) {
+    return "1 transfer row could not be matched.";
+  }
+  return `${result.warnings.length} transfer rows could not be matched.`;
 }
 
 function escapeCsvValue(value: string) {

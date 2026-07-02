@@ -159,7 +159,7 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         transfer.sourceAccountId.shouldBe(accounts.getValue("Acc2").id)
         transfer.targetAccountId.shouldBe(accounts.getValue("Acc1").id)
         transfer.sourceAmountMinor.shouldBe(2_198_700L)
-        transfer.targetAmountMinor.shouldBe(6_798_734L)
+        transfer.targetAmountMinor.shouldBe(2_198_700L)
     }
 
     @Test
@@ -385,6 +385,71 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         )
         fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).single().targetAccountId
             .shouldBe(trackingAccountRepository.findByUserIdOrderByName(alice.id!!).single { it.name == "Acc2" }.id)
+    }
+
+    @Test
+    fun matchesCrossCurrencyTransfersByOriginalAmountsOnly() {
+        val alice = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    6/6/26,Euro account,Transfer,,100.00,0,EUR,170.00,AUD,
+                    6/6/26,Aud account,Transfer,,0,100.00,AUD,150.00,AUD,
+                """.trimIndent(),
+            ),
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "importedExpenses": 0,
+                  "importedIncomes": 0,
+                  "skippedDuplicateExpenses": 0,
+                  "skippedDuplicateIncomes": 0,
+                  "importedTransfers": 1,
+                  "skippedDuplicateTransfers": 0,
+                  "warnings": [],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-06",
+                      "account": "Euro account",
+                      "category": "Transfer",
+                      "type": "EXPENSE",
+                      "amountMinor": 10000,
+                      "currency": "EUR",
+                      "status": "IMPORTED",
+                      "reason": "Imported as transfer source."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-06",
+                      "account": "Aud account",
+                      "category": "Transfer",
+                      "type": "INCOME",
+                      "amountMinor": 10000,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as transfer target."
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+        val accounts = trackingAccountRepository.findByUserIdOrderByName(alice.id!!).associateBy { it.name }
+        accounts.getValue("Euro account").currency.shouldBe("EUR")
+        accounts.getValue("Aud account").currency.shouldBe("AUD")
+        val transfer = fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).single()
+        transfer.sourceAccountId.shouldBe(accounts.getValue("Euro account").id)
+        transfer.targetAccountId.shouldBe(accounts.getValue("Aud account").id)
+        transfer.sourceAmountMinor.shouldBe(10_000L)
+        transfer.targetAmountMinor.shouldBe(10_000L)
     }
 
     @Test
