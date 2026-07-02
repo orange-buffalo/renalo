@@ -811,7 +811,7 @@ input {
 }
 
 .settings-import-instructions {
-  max-width: 640px;
+  width: 100%;
 }
 
 .settings-import-instructions ol {
@@ -831,7 +831,7 @@ input {
 
 .settings-import-controls {
   display: grid;
-  width: min(100%, 640px);
+  width: 100%;
   gap: 16px;
 }
 
