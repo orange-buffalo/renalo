@@ -85,7 +85,7 @@ export function LoginPage() {
       setPasswordError(
         caughtError instanceof ApiError &&
           caughtError.code === "PASSWORD_SIGN_IN_DISABLED"
-          ? "Your account prohibits password sign in, use passkey instead."
+          ? "Password sign-in is disabled for this account. Use a passkey instead."
           : "Invalid username or password.",
       );
     } finally {

@@ -33,7 +33,7 @@ class RememberMeRefreshPlaywrightTest : IntegrationTestSupport() {
     fun refreshesAccessTokenBeforeItExpires(page: Page) {
         saveUser("alice", "password", UserType.USER)
         val refreshedToken = "refresh-timer-token.${tokenPayloadWithExpiration(1800)}.signature"
-        val storedToken = testAuthTokens.issueToken("alice", UserType.USER)
+        val storedToken = testAuthTokens.issueToken("alice", UserType.USER, testTimeProvider.now().plusSeconds(45))
         page.route("**/api/refresh-access-token") { route ->
             route.request().headers()["authorization"].shouldBe("Bearer $storedToken")
             route.fulfill(
@@ -54,7 +54,7 @@ class RememberMeRefreshPlaywrightTest : IntegrationTestSupport() {
     @Test
     fun redirectsToExpiredSessionWhenTokenExpiresAfterRefreshReturnsNull(page: Page) {
         saveUser("alice", "password", UserType.USER)
-        val storedToken = testAuthTokens.issueToken("alice", UserType.USER)
+        val storedToken = testAuthTokens.issueToken("alice", UserType.USER, testTimeProvider.now().plusSeconds(45))
         page.route("**/api/refresh-access-token") { route ->
             route.request().headers()["authorization"].shouldBe("Bearer $storedToken")
             route.fulfill(
@@ -64,13 +64,12 @@ class RememberMeRefreshPlaywrightTest : IntegrationTestSupport() {
                     .setBody("""{"token":null}"""),
             )
         }
-        page.navigate(server.url.toString() + "/")
-        page.evaluate("window.localStorage.setItem('renalo.authToken', '$storedToken')")
+        setStoredToken(page, storedToken)
 
         page.navigate(server.url.toString() + "/tracking")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
-        page.waitForURL("**/?sessionExpired=true", Page.WaitForURLOptions().setTimeout(40_000.0))
+        page.waitForURL("**/?sessionExpired=true", Page.WaitForURLOptions().setTimeout(55_000.0))
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
         assertThat(page.getByRole(AriaRole.ALERT)).containsText("Session expired")
     }

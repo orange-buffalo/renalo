@@ -35,7 +35,7 @@ public class TestAuthTokens {
         return issueToken(username, type, EXPIRED_TOKEN_TIME);
     }
 
-    private String issueToken(String username, UserType type, Instant expiresAt) {
+    public String issueToken(String username, UserType type, Instant expiresAt) {
         return tokenGenerator.generateToken(Map.of(
                 "sub", username,
                 "roles", List.of(type.name()),

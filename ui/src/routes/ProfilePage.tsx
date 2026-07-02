@@ -231,7 +231,7 @@ export function ProfilePage() {
       setSuccess(false);
     } catch {
       setPasswordSignInError(
-        "Password sign in could not be disabled. Try again in a moment.",
+        "Password sign-in could not be disabled. Try again in a moment.",
       );
     } finally {
       setIsUpdatingPasswordSignIn(false);
@@ -245,7 +245,7 @@ export function ProfilePage() {
       setProfile(await enablePasswordSignIn());
     } catch {
       setPasswordSignInError(
-        "Password sign in could not be enabled. Try again in a moment.",
+        "Password sign-in could not be enabled. Try again in a moment.",
       );
     } finally {
       setIsUpdatingPasswordSignIn(false);
@@ -262,11 +262,11 @@ export function ProfilePage() {
           <div className="profile-form">
             <div className="profile-form-heading">
               <h2>Change password</h2>
-              <p>Password sign in is currently disabled for this account.</p>
+              <p>Password sign-in is currently disabled for this account.</p>
             </div>
             <Alert
               tone="warning"
-              title="Password sign in is disabled"
+              title="Password sign-in is disabled"
               className="profile-form-wide"
             >
               <p>Only passkeys can be used to sign in to this account.</p>
@@ -373,7 +373,7 @@ export function ProfilePage() {
                 title={
                   canDisablePasswordSignIn
                     ? undefined
-                    : "you must setup at least one passkey to disable password singins"
+                    : "Set up at least one passkey before disabling password sign-in."
                 }
               >
                 <Button
@@ -383,7 +383,7 @@ export function ProfilePage() {
                   isDisabled={!canDisablePasswordSignIn}
                   onClick={() => setIsDisablePasswordDialogOpen(true)}
                 >
-                  disable passwork sing in
+                  Disable password sign-in
                 </Button>
               </span>
               <Button
@@ -401,9 +401,9 @@ export function ProfilePage() {
 
       <ConfirmationDialog
         isOpen={isDisablePasswordDialogOpen}
-        title="Disable password sign in?"
-        description="if you disable, you can only sing in with a passkey. if passkey is lost, you need to request your administrator to reset you signing method"
-        confirmLabel="Disable password sign in"
+        title="Disable password sign-in?"
+        description="If you disable password sign-in, you can only sign in with a passkey. If you lose access to your passkeys, you will need an administrator to reset your sign-in method."
+        confirmLabel="Disable password sign-in"
         isConfirming={isUpdatingPasswordSignIn}
         onCancel={() => setIsDisablePasswordDialogOpen(false)}
         onConfirm={() => void handleDisablePasswordSignIn()}

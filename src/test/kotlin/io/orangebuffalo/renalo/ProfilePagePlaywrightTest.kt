@@ -2,6 +2,7 @@ package io.orangebuffalo.renalo
 
 import com.google.gson.JsonObject
 import com.microsoft.playwright.CDPSession
+import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
@@ -126,11 +127,11 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(baseUrl + "/profile")
         val disablePasswordButton = page.getByRole(
             AriaRole.BUTTON,
-            Page.GetByRoleOptions().setName("disable passwork sing in"),
+            Page.GetByRoleOptions().setName("Disable password sign-in"),
         )
         assertThat(disablePasswordButton).isDisabled()
         page.locator(".profile-disable-password-wrapper").getAttribute("title").shouldBe(
-            "you must setup at least one passkey to disable password singins",
+            "Set up at least one passkey before disabling password sign-in.",
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add passkey")).click()
@@ -138,10 +139,12 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(disablePasswordButton).isEnabled()
         disablePasswordButton.click()
-        assertThat(page.getByRole(AriaRole.DIALOG)).containsText("if you disable, you can only sing in with a passkey")
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Disable password sign in")).click()
+        assertThat(page.getByRole(AriaRole.DIALOG)).containsText("If you disable password sign-in")
+        page.getByRole(AriaRole.DIALOG)
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Disable password sign-in"))
+            .click()
 
-        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Password sign in is disabled")
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("Password sign-in is disabled")
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Enable password login"))).isVisible()
         assertThat(page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Current password").setExact(true)))
             .isHidden()
@@ -153,7 +156,7 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
-        assertThat(page.getByText("Your account prohibits password sign in, use passkey instead.")).isVisible()
+        assertThat(page.getByText("Password sign-in is disabled for this account. Use a passkey instead.")).isVisible()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in with passkey")).click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
