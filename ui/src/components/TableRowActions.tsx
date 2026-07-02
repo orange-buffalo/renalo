@@ -1,4 +1,4 @@
-import { Edit02, Eye, Trash01 } from "@untitledui/icons";
+import { Edit02, Eye, GitMerge, Trash01 } from "@untitledui/icons";
 import type { ComponentProps, ReactNode } from "react";
 import { Table } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -25,6 +25,11 @@ type TableMobileDetailsActionProps = {
 };
 
 type TableViewActionProps = {
+  label: string;
+  onPress: () => void;
+};
+
+type TableMergeActionProps = {
   label: string;
   onPress: () => void;
 };
@@ -63,6 +68,18 @@ export function TableViewAction({ label, onPress }: TableViewActionProps) {
   );
 }
 
+export function TableMergeAction({ label, onPress }: TableMergeActionProps) {
+  return (
+    <Button
+      aria-label={label}
+      color="tertiary"
+      size="sm"
+      iconLeading={MergeActionIcon}
+      onPress={onPress}
+    />
+  );
+}
+
 export function TableDeleteAction({
   label,
   onPress,
@@ -95,4 +112,8 @@ function EditActionIcon(props: ComponentProps<typeof Edit02>) {
 
 function ViewActionIcon(props: ComponentProps<typeof Eye>) {
   return <Eye {...props} data-action-icon="view" aria-hidden="true" />;
+}
+
+function MergeActionIcon(props: ComponentProps<typeof GitMerge>) {
+  return <GitMerge {...props} data-action-icon="merge" aria-hidden="true" />;
 }

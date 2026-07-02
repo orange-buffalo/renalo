@@ -15,6 +15,14 @@ export type SaveTrackingAccount = {
   isDefault: boolean;
 };
 
+export type TrackingAccountMergeSummary = {
+  sourceAccount: TrackingAccount;
+  expensesCount: number;
+  incomesCount: number;
+  transfersCount: number;
+  targetAccounts: TrackingAccount[];
+};
+
 export function fetchTrackingAccounts() {
   return apiRequest<TrackingAccount[]>("/api/tracking/accounts");
 }
@@ -39,5 +47,22 @@ export function updateTrackingAccount(
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(account),
+  });
+}
+
+export function fetchTrackingAccountMergeSummary(accountId: number) {
+  return apiRequest<TrackingAccountMergeSummary>(
+    `/api/tracking/accounts/${accountId}/merge-summary`,
+  );
+}
+
+export function mergeTrackingAccount(
+  accountId: number,
+  targetAccountId: number,
+) {
+  return apiRequest<void>(`/api/tracking/accounts/${accountId}/merge`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ targetAccountId }),
   });
 }

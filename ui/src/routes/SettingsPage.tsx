@@ -19,6 +19,7 @@ import { TableEmptyState } from "@/components/TableEmptyState";
 import { TableLoadingState } from "@/components/TableLoadingState";
 import {
   TableEditAction,
+  TableMergeAction,
   TableMobileDetailsAction,
   TableRowActions,
 } from "@/components/TableRowActions";
@@ -252,6 +253,12 @@ export function SettingsPage() {
                             label={`Edit ${account.name}`}
                             onPress={() =>
                               navigate(`/settings/accounts/${account.id}`)
+                            }
+                          />
+                          <TableMergeAction
+                            label={`Merge ${account.name}`}
+                            onPress={() =>
+                              navigate(`/settings/accounts/${account.id}/merge`)
                             }
                           />
                         </TableRowActions>

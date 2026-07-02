@@ -13,10 +13,15 @@ import io.orangebuffalo.renalo.test.TestAuthTokens
 import io.orangebuffalo.renalo.test.shouldEventually
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
+import io.orangebuffalo.renalo.tracking.FundsTransfer
+import io.orangebuffalo.renalo.tracking.FundsTransferRepository
 import io.orangebuffalo.renalo.tracking.IncomeCategory
 import io.orangebuffalo.renalo.tracking.IncomeCategoryRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
@@ -24,6 +29,7 @@ import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
+import java.time.LocalDate
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -39,6 +45,12 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var incomeCategoryRepository: IncomeCategoryRepository
+
+    @Inject
+    lateinit var transactionRepository: TransactionRepository
+
+    @Inject
+    lateinit var fundsTransferRepository: FundsTransferRepository
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -63,8 +75,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts")).click()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
-            AccountRow("Main", "AUD", "A$0.00", "Default", "edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "edit"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "edit merge"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "edit merge"),
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add new account")).click()
@@ -79,9 +91,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         cash.initialBalanceMinor.shouldBe(4200)
         cash.isDefault.shouldBe(false)
         page.shouldEventuallyContainRows(
-            AccountRow("Cash", "AUD", "A$42.00", "No", "edit"),
-            AccountRow("Main", "AUD", "A$0.00", "Default", "edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "edit"),
+            AccountRow("Cash", "AUD", "A$42.00", "No", "edit merge"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "edit merge"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "edit merge"),
         )
 
         page.locator("[data-testid='account-row-${main.id}']")
@@ -101,9 +113,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         trackingAccountRepository.findById(main.id!!).get().name.shouldBe("Everyday")
         page.shouldEventuallyContainRows(
-            AccountRow("Cash", "AUD", "A$42.00", "No", "edit"),
-            AccountRow("Everyday", "AUD", "A$0.00", "Default", "edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "edit"),
+            AccountRow("Cash", "AUD", "A$42.00", "No", "edit merge"),
+            AccountRow("Everyday", "AUD", "A$0.00", "Default", "edit merge"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "edit merge"),
         )
     }
 
@@ -119,8 +131,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
-            AccountRow("Main", "AUD", "A$0.00", "Default", "edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "edit"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "edit merge"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "edit merge"),
         )
 
         val mainCard = page.locator("[data-testid='account-row-${main.id}']")
@@ -167,6 +179,49 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByText("Enter a valid initial amount.")).isVisible()
         trackingAccountRepository.findByUserIdOrderByName(alice.id!!).map { it.name }.shouldContainExactly("Main")
+    }
+
+    @Test
+    fun mergesTrackingAccountFromSettingsPage(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", 100, isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", 500, isDefault = false)
+        val external = saveAccount(alice, "External", "AUD", 0, isDefault = false)
+        val expenseCategory = saveCategory(alice, "Groceries")
+        val incomeCategory = saveIncomeCategory(alice, "Salary")
+        val expense = saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, 1_000)
+        val income = saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, 2_000)
+        val outgoing = saveTransfer(alice, main, external, 300, 300)
+        val internal = saveTransfer(alice, main, savings, 400, 400)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/settings")
+        page.locator("[data-testid='account-row-${main.id}']")
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Merge Main"))
+            .click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Merge Main"))).isVisible()
+        assertThat(page.getByText("Account merges are irreversible.")).isVisible()
+        val mergePage = page.getByRole(AriaRole.MAIN)
+        assertThat(mergePage.getByText("Expenses")).isVisible()
+        assertThat(mergePage.getByText("Income")).isVisible()
+        assertThat(mergePage.getByText("Transfers")).isVisible()
+        assertThat(page.getByText("Main will be merged into External")).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Merge into account")).click()
+        page.getByText("Savings").click()
+        assertThat(page.getByText("Main will be merged into Savings")).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Merge account")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
+        trackingAccountRepository.findByIdAndUserId(main.id!!, alice.id!!).shouldBe(null)
+        val mergedSavings = trackingAccountRepository.findById(savings.id!!).get()
+        mergedSavings.initialBalanceMinor.shouldBe(600)
+        mergedSavings.isDefault.shouldBe(true)
+        transactionRepository.findById(expense.id!!).get().trackingAccountId.shouldBe(savings.id)
+        transactionRepository.findById(income.id!!).get().trackingAccountId.shouldBe(savings.id)
+        fundsTransferRepository.findById(outgoing.id!!).get().sourceAccountId.shouldBe(savings.id)
+        fundsTransferRepository.findById(internal.id!!).isPresent.shouldBe(false)
     }
 
     @Test
@@ -346,6 +401,44 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         IncomeCategory(
             userId = user.id!!,
             name = name,
+        ),
+    )
+
+    private fun saveTransaction(
+        user: User,
+        account: TrackingAccount,
+        category: Any,
+        type: TransactionType,
+        amountMinor: Long,
+    ): Transaction = transactionRepository.save(
+        Transaction(
+            userId = user.id!!,
+            type = type,
+            trackingAccountId = account.id!!,
+            categoryId = when (category) {
+                is ExpenseCategory -> category.id!!
+                is IncomeCategory -> category.id!!
+                else -> error("Unsupported category")
+            },
+            date = LocalDate.parse("2026-06-01"),
+            amountMinor = amountMinor,
+        ),
+    )
+
+    private fun saveTransfer(
+        user: User,
+        sourceAccount: TrackingAccount,
+        targetAccount: TrackingAccount,
+        sourceAmountMinor: Long,
+        targetAmountMinor: Long,
+    ): FundsTransfer = fundsTransferRepository.save(
+        FundsTransfer(
+            userId = user.id!!,
+            sourceAccountId = sourceAccount.id!!,
+            targetAccountId = targetAccount.id!!,
+            sourceAmountMinor = sourceAmountMinor,
+            targetAmountMinor = targetAmountMinor,
+            date = LocalDate.parse("2026-06-01"),
         ),
     )
 

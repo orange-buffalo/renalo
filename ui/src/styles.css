@@ -1132,6 +1132,51 @@ input {
   padding-top: 24px;
 }
 
+.account-merge-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.account-merge-stat {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
+  background: #fcfcfd;
+  padding: 16px;
+}
+
+.account-merge-stat span,
+.account-merge-target-summary {
+  color: #475467;
+  font-size: 0.875rem;
+}
+
+.account-merge-stat strong {
+  color: #101828;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.account-merge-target-field {
+  max-width: 300px;
+}
+
+.account-merge-target-summary {
+  margin: 0;
+}
+
+.account-merge-target-summary p {
+  margin: 0;
+}
+
+.tracking-account-field-error {
+  margin: 0;
+  color: #d92d20;
+  font-size: 0.875rem;
+}
+
 .tracking-account-actions {
   display: flex;
   justify-content: space-between;
@@ -1954,6 +1999,10 @@ input {
   }
 
   .transaction-recurrence-end-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .account-merge-summary {
     grid-template-columns: 1fr;
   }
 

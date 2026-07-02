@@ -7,6 +7,8 @@ import java.util.Currency
 @Singleton
 open class TrackingAccountService(
     private val trackingAccountRepository: TrackingAccountRepository,
+    private val transactionRepository: TransactionRepository,
+    private val fundsTransferRepository: FundsTransferRepository,
 ) {
     @Transactional
     open fun createDefaultAccountForUser(userId: Long): TrackingAccount {
@@ -30,6 +32,29 @@ open class TrackingAccountService(
 
     fun findAccount(userId: Long, accountId: Long): TrackingAccount? =
         trackingAccountRepository.findByIdAndUserId(accountId, userId)
+
+    fun getMergeSummary(userId: Long, accountId: Long): TrackingAccountMergeSummary? {
+        val sourceAccount = trackingAccountRepository.findByIdAndUserId(accountId, userId)
+            ?: return null
+        val targetAccounts = trackingAccountRepository.findByUserIdOrderByName(userId)
+            .filter { it.id != sourceAccount.id && it.currency == sourceAccount.currency }
+
+        return TrackingAccountMergeSummary(
+            sourceAccount = sourceAccount,
+            expensesCount = transactionRepository.countByUserIdAndTrackingAccountIdAndType(
+                userId = userId,
+                trackingAccountId = accountId,
+                type = TransactionType.EXPENSE,
+            ),
+            incomesCount = transactionRepository.countByUserIdAndTrackingAccountIdAndType(
+                userId = userId,
+                trackingAccountId = accountId,
+                type = TransactionType.INCOME,
+            ),
+            transfersCount = fundsTransferRepository.countByUserIdAndAccountId(userId, accountId),
+            targetAccounts = targetAccounts,
+        )
+    }
 
     @Transactional
     open fun createAccount(userId: Long, request: SaveTrackingAccountRequest): TrackingAccount? {
@@ -80,6 +105,40 @@ open class TrackingAccountService(
         )
     }
 
+    @Transactional
+    open fun mergeAccount(userId: Long, sourceAccountId: Long, request: MergeTrackingAccountRequest): TrackingAccountMergeResult {
+        val sourceAccount = trackingAccountRepository.findByIdAndUserId(sourceAccountId, userId)
+            ?: return TrackingAccountMergeResult.NOT_FOUND
+        val targetAccount = trackingAccountRepository.findByIdAndUserId(request.targetAccountId, userId)
+            ?: return TrackingAccountMergeResult.INVALID_TARGET
+        if (targetAccount.id == sourceAccount.id || targetAccount.currency != sourceAccount.currency) {
+            return TrackingAccountMergeResult.INVALID_TARGET
+        }
+        val persistedSourceAccountId = sourceAccount.id
+            ?: return TrackingAccountMergeResult.NOT_FOUND
+        val persistedTargetAccountId = targetAccount.id
+            ?: return TrackingAccountMergeResult.INVALID_TARGET
+
+        if (sourceAccount.isDefault) {
+            trackingAccountRepository.clearDefaultForUser(userId)
+        }
+
+        trackingAccountRepository.update(
+            targetAccount.copy(
+                initialBalanceMinor = targetAccount.initialBalanceMinor + sourceAccount.initialBalanceMinor,
+                isDefault = targetAccount.isDefault || sourceAccount.isDefault,
+            ),
+        )
+
+        fundsTransferRepository.deleteInternalTransfers(userId, persistedSourceAccountId, persistedTargetAccountId)
+        transactionRepository.reassignTrackingAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
+        fundsTransferRepository.reassignSourceAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
+        fundsTransferRepository.reassignTargetAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
+        trackingAccountRepository.deleteByIdAndUserId(persistedSourceAccountId, userId)
+
+        return TrackingAccountMergeResult.MERGED
+    }
+
     private fun isValidCurrency(currency: String): Boolean = try {
         Currency.getInstance(currency)
         true
@@ -94,3 +153,21 @@ data class SaveTrackingAccountRequest(
     val initialBalanceMinor: Long = 0,
     val isDefault: Boolean = false,
 )
+
+data class MergeTrackingAccountRequest(
+    val targetAccountId: Long,
+)
+
+data class TrackingAccountMergeSummary(
+    val sourceAccount: TrackingAccount,
+    val expensesCount: Long,
+    val incomesCount: Long,
+    val transfersCount: Long,
+    val targetAccounts: List<TrackingAccount>,
+)
+
+enum class TrackingAccountMergeResult {
+    MERGED,
+    NOT_FOUND,
+    INVALID_TARGET,
+}

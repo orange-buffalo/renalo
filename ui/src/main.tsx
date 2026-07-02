@@ -30,6 +30,7 @@ import {
 import { CreateIncomePage, EditIncomePage } from "./routes/IncomeFormPage.tsx";
 import { IncomesPage } from "./routes/IncomesPage.tsx";
 import { LoginPage } from "./routes/LoginPage.tsx";
+import { MergeTrackingAccountPage } from "./routes/MergeTrackingAccountPage.tsx";
 import { ProfilePage } from "./routes/ProfilePage.tsx";
 import { SettingsPage } from "./routes/SettingsPage.tsx";
 import { SignInLinkPage } from "./routes/SignInLinkPage.tsx";
@@ -154,6 +155,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <CreateTrackingAccountPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/accounts/:accountId/merge",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <MergeTrackingAccountPage />
       </ProtectedRoute>
     ),
   },

@@ -26,6 +26,22 @@ interface TransactionRepository : CrudRepository<Transaction, Long> {
         amountMinor: Long,
     ): List<Transaction>
 
+    fun countByUserIdAndTrackingAccountIdAndType(
+        userId: Long,
+        trackingAccountId: Long,
+        type: TransactionType,
+    ): Long
+
+    @Query(
+        """
+            UPDATE transactions
+            SET tracking_account_id = :targetAccountId
+            WHERE user_id = :userId
+              AND tracking_account_id = :sourceAccountId
+        """,
+    )
+    fun reassignTrackingAccount(userId: Long, sourceAccountId: Long, targetAccountId: Long)
+
     fun findByRecurringRuleIdAndRecurringInstanceDate(
         recurringRuleId: Long,
         recurringInstanceDate: LocalDate,

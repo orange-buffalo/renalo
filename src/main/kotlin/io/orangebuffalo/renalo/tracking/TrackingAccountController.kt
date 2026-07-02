@@ -65,6 +65,32 @@ class TrackingAccountController(
 
         return HttpResponse.ok(account.toResponse())
     }
+
+    @Get("/{accountId}/merge-summary")
+    fun getMergeSummary(accountId: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val summary = trackingAccountService.getMergeSummary(user.id!!, accountId)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(summary.toResponse())
+    }
+
+    @Post("/{accountId}/merge")
+    fun mergeAccount(
+        accountId: Long,
+        authentication: Authentication,
+        @Body request: MergeTrackingAccountRequest,
+    ): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+
+        return when (trackingAccountService.mergeAccount(user.id!!, accountId, request)) {
+            TrackingAccountMergeResult.MERGED -> HttpResponse.noContent<Any>()
+            TrackingAccountMergeResult.NOT_FOUND -> HttpResponse.notFound<Any>()
+            TrackingAccountMergeResult.INVALID_TARGET -> HttpResponse.badRequest<Any>()
+        }
+    }
 }
 
 private fun TrackingAccount.toResponse() = TrackingAccountResponse(
@@ -81,4 +107,20 @@ data class TrackingAccountResponse(
     val currency: String,
     val initialBalanceMinor: Long,
     val isDefault: Boolean,
+)
+
+private fun TrackingAccountMergeSummary.toResponse() = TrackingAccountMergeSummaryResponse(
+    sourceAccount = sourceAccount.toResponse(),
+    expensesCount = expensesCount,
+    incomesCount = incomesCount,
+    transfersCount = transfersCount,
+    targetAccounts = targetAccounts.map { it.toResponse() },
+)
+
+data class TrackingAccountMergeSummaryResponse(
+    val sourceAccount: TrackingAccountResponse,
+    val expensesCount: Long,
+    val incomesCount: Long,
+    val transfersCount: Long,
+    val targetAccounts: List<TrackingAccountResponse>,
 )

@@ -13,6 +13,8 @@ interface TrackingAccountRepository : CrudRepository<TrackingAccount, Long> {
 
     fun countByUserId(userId: Long): Long
 
+    fun deleteByIdAndUserId(id: Long, userId: Long)
+
     @Query("UPDATE tracking_accounts SET is_default = FALSE WHERE user_id = :userId")
     fun clearDefaultForUser(userId: Long)
 }

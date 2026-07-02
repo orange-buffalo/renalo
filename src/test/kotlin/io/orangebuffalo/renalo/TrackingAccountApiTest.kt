@@ -5,14 +5,24 @@ import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.tracking.ExpenseCategory
+import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
+import io.orangebuffalo.renalo.tracking.FundsTransfer
+import io.orangebuffalo.renalo.tracking.FundsTransferRepository
+import io.orangebuffalo.renalo.tracking.IncomeCategory
+import io.orangebuffalo.renalo.tracking.IncomeCategoryRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -25,6 +35,18 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
+
+    @Inject
+    lateinit var expenseCategoryRepository: ExpenseCategoryRepository
+
+    @Inject
+    lateinit var incomeCategoryRepository: IncomeCategoryRepository
+
+    @Inject
+    lateinit var transactionRepository: TransactionRepository
+
+    @Inject
+    lateinit var fundsTransferRepository: FundsTransferRepository
 
     @Test
     fun requiresRegularUserForTrackingAccounts() {
@@ -195,6 +217,126 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun providesTrackingAccountMergeSummary() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 100, isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", 500, isDefault = false)
+        saveAccount(alice, "Euro", "EUR", 0, isDefault = false)
+        val external = saveAccount(alice, "External", "AUD", 0, isDefault = false)
+        saveAccount(bob, "Bob account", "AUD", 0, isDefault = true)
+        val expenseCategory = saveExpenseCategory(alice)
+        val incomeCategory = saveIncomeCategory(alice)
+        saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, 1_000)
+        saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, 2_000)
+        saveTransaction(alice, savings, expenseCategory, TransactionType.EXPENSE, 999)
+        saveTransfer(alice, main, external, 300, 300)
+        saveTransfer(alice, savings, main, 400, 400)
+
+        val response = api().get("/api/tracking/accounts/${main.id}/merge-summary", api().login("alice", "password"))
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "sourceAccount": {
+                    "id": ${main.id},
+                    "name": "Main",
+                    "currency": "AUD",
+                    "initialBalanceMinor": 100,
+                    "isDefault": true
+                  },
+                  "expensesCount": 1,
+                  "incomesCount": 1,
+                  "transfersCount": 2,
+                  "targetAccounts": [
+                    {
+                      "id": ${external.id},
+                      "name": "External",
+                      "currency": "AUD",
+                      "initialBalanceMinor": 0,
+                      "isDefault": false
+                    },
+                    {
+                      "id": ${savings.id},
+                      "name": "Savings",
+                      "currency": "AUD",
+                      "initialBalanceMinor": 500,
+                      "isDefault": false
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun mergesTrackingAccountIntoSameCurrencyTarget() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 100, isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", 500, isDefault = false)
+        val external = saveAccount(alice, "External", "AUD", 0, isDefault = false)
+        val expenseCategory = saveExpenseCategory(alice)
+        val incomeCategory = saveIncomeCategory(alice)
+        val expense = saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, 1_000)
+        val income = saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, 2_000)
+        val outgoing = saveTransfer(alice, main, external, 300, 300)
+        val incoming = saveTransfer(alice, external, main, 400, 400)
+        saveTransfer(alice, main, savings, 500, 500)
+        saveTransfer(alice, savings, main, 600, 600)
+
+        val response = api().postJson(
+            "/api/tracking/accounts/${main.id}/merge",
+            """{"targetAccountId":${savings.id}}""",
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(204)
+        trackingAccountRepository.findByIdAndUserId(main.id!!, alice.id!!).shouldBe(null)
+        val mergedTarget = trackingAccountRepository.findById(savings.id!!).get()
+        mergedTarget.initialBalanceMinor.shouldBe(600)
+        mergedTarget.isDefault.shouldBe(true)
+        transactionRepository.findById(expense.id!!).get().trackingAccountId.shouldBe(savings.id)
+        transactionRepository.findById(income.id!!).get().trackingAccountId.shouldBe(savings.id)
+        fundsTransferRepository.findById(outgoing.id!!).get().sourceAccountId.shouldBe(savings.id)
+        fundsTransferRepository.findById(incoming.id!!).get().targetAccountId.shouldBe(savings.id)
+        fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).size.shouldBe(2)
+    }
+
+    @Test
+    fun rejectsInvalidTrackingAccountMerges() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 100, isDefault = true)
+        val euro = saveAccount(alice, "Euro", "EUR", 0, isDefault = false)
+        val bobAccount = saveAccount(bob, "Bob account", "AUD", 0, isDefault = true)
+        val token = api().login("alice", "password")
+
+        api().get("/api/tracking/accounts/${main.id}/merge-summary", null).statusCode().shouldBe(401)
+        api().get("/api/tracking/accounts/${bobAccount.id}/merge-summary", token).statusCode().shouldBe(404)
+        api().postJson(
+            "/api/tracking/accounts/${main.id}/merge",
+            """{"targetAccountId":${main.id}}""",
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/accounts/${main.id}/merge",
+            """{"targetAccountId":${euro.id}}""",
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/accounts/${bobAccount.id}/merge",
+            """{"targetAccountId":${main.id}}""",
+            token,
+        ).statusCode().shouldBe(404)
+        api().postJson(
+            "/api/tracking/accounts/${main.id}/merge",
+            """{"targetAccountId":${bobAccount.id}}""",
+            token,
+        ).statusCode().shouldBe(400)
+    }
+
+    @Test
     fun createsDefaultAccountForNewRegularUser() {
         saveUser("admin", UserType.ADMIN)
         val adminToken = api().login("admin", "password")
@@ -238,6 +380,52 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
             currency = currency,
             initialBalanceMinor = initialBalanceMinor,
             isDefault = isDefault,
+        ),
+    )
+
+    private fun saveExpenseCategory(user: User): ExpenseCategory = expenseCategoryRepository.save(
+        ExpenseCategory(userId = user.id!!, name = "General"),
+    )
+
+    private fun saveIncomeCategory(user: User): IncomeCategory = incomeCategoryRepository.save(
+        IncomeCategory(userId = user.id!!, name = "General"),
+    )
+
+    private fun saveTransaction(
+        user: User,
+        account: TrackingAccount,
+        category: Any,
+        type: TransactionType,
+        amountMinor: Long,
+    ): Transaction = transactionRepository.save(
+        Transaction(
+            userId = user.id!!,
+            type = type,
+            trackingAccountId = account.id!!,
+            categoryId = when (category) {
+                is ExpenseCategory -> category.id!!
+                is IncomeCategory -> category.id!!
+                else -> error("Unsupported category")
+            },
+            date = LocalDate.parse("2026-06-01"),
+            amountMinor = amountMinor,
+        ),
+    )
+
+    private fun saveTransfer(
+        user: User,
+        sourceAccount: TrackingAccount,
+        targetAccount: TrackingAccount,
+        sourceAmountMinor: Long,
+        targetAmountMinor: Long,
+    ): FundsTransfer = fundsTransferRepository.save(
+        FundsTransfer(
+            userId = user.id!!,
+            sourceAccountId = sourceAccount.id!!,
+            targetAccountId = targetAccount.id!!,
+            sourceAmountMinor = sourceAmountMinor,
+            targetAmountMinor = targetAmountMinor,
+            date = LocalDate.parse("2026-06-01"),
         ),
     )
 }
