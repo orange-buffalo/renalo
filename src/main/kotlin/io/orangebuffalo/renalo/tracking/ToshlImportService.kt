@@ -43,6 +43,7 @@ open class ToshlImportService(
         unreconciledTransfers.forEach { row ->
             report += row.toReportEntry("UNMATCHED_TRANSFER", "Transfer row could not be matched with its opposite side.")
         }
+        val warningRows = unreconciledTransfers + transferImportResult.unmatchedRows
 
         return ToshlImportResult(
             importedExpenses = report.count { it.status == "IMPORTED" && it.reason == "Imported as expense." },
@@ -51,7 +52,7 @@ open class ToshlImportService(
             skippedDuplicateIncomes = report.count { it.status == "SKIPPED_DUPLICATE" && it.type == TransactionType.INCOME && it.reason.startsWith("Duplicate income") },
             importedTransfers = transferImportResult.imported,
             skippedDuplicateTransfers = transferImportResult.skippedDuplicates,
-            warnings = unreconciledTransfers.map { it.toWarning() },
+            warnings = warningRows.map { it.toWarning() },
             report = report.sortedBy { it.lineNumber },
         )
     }
@@ -85,15 +86,13 @@ open class ToshlImportService(
         transactionRows: List<ToshlRow>,
         transfers: List<ReconciledToshlTransfer>,
     ) {
-        val transferRows = transfers.flatMap { listOf(it.source, it.target) }
-        val allRowsWithAccounts = transactionRows + transferRows
-        val missingAccounts = allRowsWithAccounts
+        val missingAccounts = transactionRows
             .map { it.account }
             .distinct()
             .filterNot { it in context.accountsByName }
         if (missingAccounts.isNotEmpty()) {
             val hasExistingAccounts = context.accountsByName.isNotEmpty()
-            val accountCurrencyByName = allRowsWithAccounts.associate { it.account to it.currency }
+            val accountCurrencyByName = transactionRows.associate { it.account to it.currency }
             val accountsToSave = missingAccounts.mapIndexed { index, accountName ->
                 TrackingAccount(
                     userId = userId,
@@ -173,10 +172,21 @@ open class ToshlImportService(
         var skippedDuplicates = 0
         val transfersToImport = mutableListOf<FundsTransfer>()
         transfers.forEach { transfer ->
-            val sourceAccount = context.accountsByName.getValue(transfer.source.account)
-            val targetAccount = context.accountsByName.getValue(transfer.target.account)
-            val sourceAmountMinor = transfer.source.amountMinor
-            val targetAmountMinor = transfer.target.amountMinor
+            val sourceAccount = context.accountsByName[transfer.source.account]
+            val targetAccount = context.accountsByName[transfer.target.account]
+            val sourceAmountMinor = sourceAccount?.let { transfer.source.amountForAccount(it) }
+            val targetAmountMinor = targetAccount?.let { transfer.target.amountForAccount(it) }
+            if (sourceAccount == null || targetAccount == null || sourceAmountMinor == null || targetAmountMinor == null) {
+                report += transfer.source.toReportEntry(
+                    "UNMATCHED_TRANSFER",
+                    "Transfer row could not be matched with account currencies.",
+                )
+                report += transfer.target.toReportEntry(
+                    "UNMATCHED_TRANSFER",
+                    "Transfer row could not be matched with account currencies.",
+                )
+                return@forEach
+            }
             val key = TransferImportKey(
                 date = transfer.source.date,
                 sourceAccountId = sourceAccount.id!!,
@@ -205,12 +215,15 @@ open class ToshlImportService(
         if (transfersToImport.isNotEmpty()) {
             fundsTransferRepository.saveAll(transfersToImport).toList()
         }
-        return TransferImportResult(imported, skippedDuplicates)
+        val unmatchedRows = report
+            .filter { it.status == "UNMATCHED_TRANSFER" && it.reason == "Transfer row could not be matched with account currencies." }
+            .mapNotNull { entry -> transfers.flatMap { listOf(it.source, it.target) }.firstOrNull { it.lineNumber == entry.lineNumber } }
+        return TransferImportResult(imported, skippedDuplicates, unmatchedRows)
     }
 
     private fun reconcileTransfers(transferRows: List<ToshlRow>): List<ReconciledToshlTransfer> {
         val reconciled = mutableListOf<ReconciledToshlTransfer>()
-        val transferGroups = transferRows.groupBy { TransferMatchKey(it.date, it.amountMinor) }
+        val transferGroups = transferRows.groupBy { TransferMatchKey(it.date, it.amountMinor, it.currency) }
 
         transferGroups.values.forEach { groupRows ->
             val incomeTransfers = groupRows.filter { it.type == TransactionType.INCOME }.toMutableList()
@@ -224,6 +237,12 @@ open class ToshlImportService(
         return reconciled
     }
 
+    private fun ToshlRow.amountForAccount(account: TrackingAccount): Long? = when (account.currency) {
+        currency -> amountMinor
+        mainCurrency -> mainAmountMinor
+        else -> null
+    }
+
     private fun parseRow(header: Map<String, Int>, row: List<String>, lineNumber: Int): ToshlRow {
         val expenseAmount = value(row, header, "Expense amount", lineNumber).parseAmountOrZero()
         val incomeAmount = value(row, header, "Income amount", lineNumber).parseAmountOrZero()
@@ -234,6 +253,8 @@ open class ToshlImportService(
         }
         val amount = if (type == TransactionType.EXPENSE) expenseAmount else incomeAmount
         val currency = value(row, header, "Currency", lineNumber).trim().uppercase()
+        val mainCurrency = value(row, header, "Main currency", lineNumber).trim().uppercase()
+        val mainAmount = value(row, header, "In main currency", lineNumber).parseAmountOrZero()
         val description = value(row, header, "Description", lineNumber).trim()
         val tags = value(row, header, "Tags", lineNumber).trim()
 
@@ -247,6 +268,8 @@ open class ToshlImportService(
             type = type,
             amountMinor = amount.toMinorUnits(currency, lineNumber),
             currency = currency,
+            mainAmountMinor = mainAmount.toMinorUnits(mainCurrency, lineNumber),
+            mainCurrency = mainCurrency,
             notes = buildNotes(description, tags),
         )
     }
@@ -395,6 +418,8 @@ private data class ToshlRow(
     val type: TransactionType,
     val amountMinor: Long,
     val currency: String,
+    val mainAmountMinor: Long,
+    val mainCurrency: String,
     val notes: String?,
 )
 
@@ -423,6 +448,7 @@ private data class TransferImportKey(
 private data class TransferMatchKey(
     val date: LocalDate,
     val amountMinor: Long,
+    val currency: String,
 )
 
 private data class ReconciledToshlTransfer(
@@ -433,4 +459,5 @@ private data class ReconciledToshlTransfer(
 private data class TransferImportResult(
     val imported: Int,
     val skippedDuplicates: Int,
+    val unmatchedRows: List<ToshlRow>,
 )

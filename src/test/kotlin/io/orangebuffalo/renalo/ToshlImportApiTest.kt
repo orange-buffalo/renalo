@@ -159,7 +159,7 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         transfer.sourceAccountId.shouldBe(accounts.getValue("Acc2").id)
         transfer.targetAccountId.shouldBe(accounts.getValue("Acc1").id)
         transfer.sourceAmountMinor.shouldBe(2_198_700L)
-        transfer.targetAmountMinor.shouldBe(2_198_700L)
+        transfer.targetAmountMinor.shouldBe(6_798_734L)
     }
 
     @Test
@@ -388,7 +388,7 @@ class ToshlImportApiTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun matchesCrossCurrencyTransfersByOriginalAmountsOnly() {
+    fun usesNonTransferRowsToDetectAccountCurrenciesAndStoresConvertedTransferAmounts() {
         val alice = saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")
 
@@ -397,8 +397,10 @@ class ToshlImportApiTest : IntegrationTestSupport() {
             toshlRequest(
                 """
                     Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,Euro account,Setup income,,0,1.00,EUR,1.70,AUD,
+                    1/6/26,Aud account,Setup expense,,1.00,0,AUD,1.00,AUD,
                     6/6/26,Euro account,Transfer,,100.00,0,EUR,170.00,AUD,
-                    6/6/26,Aud account,Transfer,,0,100.00,AUD,150.00,AUD,
+                    6/6/26,Aud account,Transfer,,0,100.00,EUR,150.00,AUD,
                 """.trimIndent(),
             ),
             token,
@@ -408,8 +410,8 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         response.body().shouldEqualJson(
             """
                 {
-                  "importedExpenses": 0,
-                  "importedIncomes": 0,
+                  "importedExpenses": 1,
+                  "importedIncomes": 1,
                   "skippedDuplicateExpenses": 0,
                   "skippedDuplicateIncomes": 0,
                   "importedTransfers": 1,
@@ -418,6 +420,28 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "report": [
                     {
                       "lineNumber": 2,
+                      "date": "2026-06-01",
+                      "account": "Euro account",
+                      "category": "Setup income",
+                      "type": "INCOME",
+                      "amountMinor": 100,
+                      "currency": "EUR",
+                      "status": "IMPORTED",
+                      "reason": "Imported as income."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-01",
+                      "account": "Aud account",
+                      "category": "Setup expense",
+                      "type": "EXPENSE",
+                      "amountMinor": 100,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as expense."
+                    },
+                    {
+                      "lineNumber": 4,
                       "date": "2026-06-06",
                       "account": "Euro account",
                       "category": "Transfer",
@@ -428,13 +452,13 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                       "reason": "Imported as transfer source."
                     },
                     {
-                      "lineNumber": 3,
+                      "lineNumber": 5,
                       "date": "2026-06-06",
                       "account": "Aud account",
                       "category": "Transfer",
                       "type": "INCOME",
                       "amountMinor": 10000,
-                      "currency": "AUD",
+                      "currency": "EUR",
                       "status": "IMPORTED",
                       "reason": "Imported as transfer target."
                     }
@@ -449,7 +473,85 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         transfer.sourceAccountId.shouldBe(accounts.getValue("Euro account").id)
         transfer.targetAccountId.shouldBe(accounts.getValue("Aud account").id)
         transfer.sourceAmountMinor.shouldBe(10_000L)
-        transfer.targetAmountMinor.shouldBe(10_000L)
+        transfer.targetAmountMinor.shouldBe(15_000L)
+    }
+
+    @Test
+    fun reportsTransfersUnmatchedWhenAccountCurrencyCannotBeDetectedFromTransactions() {
+        val alice = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    6/6/26,Euro account,Transfer,,100.00,0,EUR,170.00,AUD,
+                    6/6/26,Aud account,Transfer,,0,100.00,EUR,150.00,AUD,
+                """.trimIndent(),
+            ),
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "importedExpenses": 0,
+                  "importedIncomes": 0,
+                  "skippedDuplicateExpenses": 0,
+                  "skippedDuplicateIncomes": 0,
+                  "importedTransfers": 0,
+                  "skippedDuplicateTransfers": 0,
+                  "warnings": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-06",
+                      "account": "Euro account",
+                      "amountMinor": 10000,
+                      "currency": "EUR",
+                      "type": "EXPENSE",
+                      "description": "Transfer row could not be matched with its opposite side."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-06",
+                      "account": "Aud account",
+                      "amountMinor": 10000,
+                      "currency": "EUR",
+                      "type": "INCOME",
+                      "description": "Transfer row could not be matched with its opposite side."
+                    }
+                  ],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-06",
+                      "account": "Euro account",
+                      "category": "Transfer",
+                      "type": "EXPENSE",
+                      "amountMinor": 10000,
+                      "currency": "EUR",
+                      "status": "UNMATCHED_TRANSFER",
+                      "reason": "Transfer row could not be matched with account currencies."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-06",
+                      "account": "Aud account",
+                      "category": "Transfer",
+                      "type": "INCOME",
+                      "amountMinor": 10000,
+                      "currency": "EUR",
+                      "status": "UNMATCHED_TRANSFER",
+                      "reason": "Transfer row could not be matched with account currencies."
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+        trackingAccountRepository.findByUserIdOrderByName(alice.id!!).shouldBe(emptyList())
+        fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).shouldBe(emptyList())
     }
 
     @Test
