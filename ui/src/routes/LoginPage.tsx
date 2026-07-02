@@ -19,7 +19,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, setProfile, setSettings } = useAppState();
-  const [error, setError] = useState<string | undefined>();
+  const [passwordError, setPasswordError] = useState<string | undefined>();
+  const [passkeyError, setPasskeyError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -54,7 +55,8 @@ export function LoginPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(undefined);
+    setPasswordError(undefined);
+    setPasskeyError(undefined);
     setIsLoading(true);
 
     const formData = new FormData(event.currentTarget);
@@ -76,14 +78,15 @@ export function LoginPage() {
       clearAuthToken();
       setProfile(undefined);
       setSettings(undefined);
-      setError("Invalid username or password.");
+      setPasswordError("Invalid username or password.");
     } finally {
       setIsLoading(false);
     }
   }
 
   async function handlePasskeySignIn() {
-    setError(undefined);
+    setPasswordError(undefined);
+    setPasskeyError(undefined);
     setIsPasskeyLoading(true);
 
     try {
@@ -101,7 +104,7 @@ export function LoginPage() {
       clearAuthToken();
       setProfile(undefined);
       setSettings(undefined);
-      setError("Passkey sign in failed.");
+      setPasskeyError("Passkey sign in failed.");
     } finally {
       setIsPasskeyLoading(false);
     }
@@ -128,8 +131,8 @@ export function LoginPage() {
             name="password"
             type="password"
             autoComplete="current-password"
-            isInvalid={Boolean(error)}
-            hint={error}
+            isInvalid={Boolean(passwordError)}
+            hint={passwordError}
           />
           <Checkbox
             label="Remember me"
@@ -151,6 +154,7 @@ export function LoginPage() {
         >
           Sign in with passkey
         </Button>
+        {passkeyError && <p className="login-passkey-error">{passkeyError}</p>}
       </section>
     </AnonymousPage>
   );

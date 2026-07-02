@@ -250,6 +250,25 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
     }
 
+    @Test
+    fun allowsPasswordSignInAfterPasskeySignInFails(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        page.route("**/api/passkeys/authentication-options") { route ->
+            route.fulfill(Route.FulfillOptions().setStatus(400))
+        }
+
+        page.navigate(server.url.toString() + "/")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in with passkey")).click()
+
+        assertThat(page.getByText("Passkey sign in failed.")).isVisible()
+
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+    }
+
     private fun saveUser(username: String, password: String, type: UserType): User {
         return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
     }
