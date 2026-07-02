@@ -295,10 +295,12 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Toshl").setExact(true)),
         ).isVisible()
         assertThat(page.getByText("Prepare your Toshl export")).isVisible()
+        assertThat(page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Open Exports and reports")))
+            .hasAttribute("target", "_blank")
         page.locator("input[type='file']").setInputFiles(csvFile)
-        page.locator(".settings-import-controls input[readonly]").inputValue().shouldBe(csvFile.fileName.toString())
+        assertThat(page.getByText(csvFile.fileName.toString())).isVisible()
 
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Import")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Import").setExact(true)).click()
 
         assertThat(page.getByRole(AriaRole.ALERT).filter(Locator.FilterOptions().setHasText("Import complete"))).isVisible()
         assertThat(page.getByText("Imported 1 expenses and 1 income entries.")).isVisible()

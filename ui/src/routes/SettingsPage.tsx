@@ -382,18 +382,20 @@ export function SettingsPage() {
               </p>
             </div>
 
-            <div className="settings-import-instructions">
-              <h3>Prepare your Toshl export</h3>
+            <Alert
+              tone="brand"
+              title="Prepare your Toshl export"
+              className="settings-import-instructions"
+            >
               <ol>
                 <li>Sign in to Toshl.</li>
                 <li>
-                  Open <strong>Exports and reports</strong> at{" "}
                   <a
                     href="https://toshl.com/app/#/export/export"
                     target="_blank"
                     rel="noreferrer"
                   >
-                    toshl.com/app/#/export/export
+                    Open Exports and reports
                   </a>
                   .
                 </li>
@@ -411,7 +413,7 @@ export function SettingsPage() {
                   Click <strong>Generate</strong>, then download the CSV file.
                 </li>
               </ol>
-            </div>
+            </Alert>
 
             {toshlImportError && (
               <Alert tone="error" title="Import failed">
@@ -454,8 +456,9 @@ export function SettingsPage() {
             <div className="settings-import-controls">
               <InputFile
                 label="Toshl CSV file"
-                placeholder="Choose the CSV export"
-                buttonText="Choose file"
+                hint="CSV files exported from Toshl"
+                variant="dropzone"
+                buttonText="Click to upload"
                 acceptedFileTypes={[".csv", "text/csv"]}
                 isDisabled={isImportingToshl}
                 onChange={(files) => {

@@ -710,18 +710,7 @@ input {
 }
 
 .settings-import-instructions {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid #eaecf0;
-  border-radius: 12px;
-  background: #ffffff;
-}
-
-.settings-import-instructions h3 {
-  margin: 0;
-  color: #101828;
-  font-size: 1rem;
+  max-width: 640px;
 }
 
 .settings-import-instructions ol {
@@ -741,7 +730,7 @@ input {
 
 .settings-import-controls {
   display: grid;
-  max-width: 640px;
+  width: min(100%, 640px);
   gap: 16px;
 }
 
@@ -754,6 +743,127 @@ input {
   margin: 12px 0 0;
   padding-left: 20px;
   color: #475467;
+}
+
+.file-uploader {
+  display: grid;
+  gap: 16px;
+}
+
+.file-uploader-label {
+  margin: 0;
+  color: #344054;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.file-uploader-dropzone {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 148px;
+  padding: 24px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #344054;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.file-uploader-dropzone:hover {
+  border-color: #9e77ed;
+  background: #fcfaff;
+}
+
+.file-uploader-dropzone--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.file-uploader-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  color: #344054;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 5%);
+}
+
+.file-uploader-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.file-uploader-dropzone strong {
+  color: #6941c6;
+  font-weight: 600;
+}
+
+.file-uploader-hint {
+  color: #475467;
+  font-size: 0.875rem;
+}
+
+.file-uploader-file {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.file-uploader-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 44px;
+  color: #667085;
+}
+
+.file-uploader-file-icon svg,
+.file-uploader-remove svg {
+  width: 20px;
+  height: 20px;
+}
+
+.file-uploader-file-details {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #475467;
+}
+
+.file-uploader-file-details strong {
+  overflow: hidden;
+  color: #344054;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-uploader-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: #98a2b3;
+  cursor: pointer;
+}
+
+.file-uploader-remove:hover {
+  color: #d92d20;
 }
 
 .tracking-account-panel {

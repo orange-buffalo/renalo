@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { File04, Trash01, UploadCloud01 } from "@untitledui/icons";
+import type { DragEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { InputBase } from "@/components/untitled/base/input/input";
@@ -31,6 +32,8 @@ interface InputFileProps {
   acceptedFileTypes?: string[];
   /** Whether multiple files can be selected. */
   allowsMultiple?: boolean;
+  /** Visual style for the file input. */
+  variant?: "input" | "dropzone";
   /** Whether the file is currently uploading. */
   isLoading?: boolean;
   /** Handler when a user selects files. */
@@ -56,12 +59,14 @@ export const InputFile = ({
   isLoading,
   acceptedFileTypes,
   allowsMultiple,
+  variant = "input",
   onChange,
   className,
   buttonText = "Upload",
 }: InputFileProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileNames, setFileNames] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const handleClick = () => {
     if (inputRef.current?.value) {
@@ -70,19 +75,100 @@ export const InputFile = ({
     inputRef.current?.click();
   };
 
-  const handleChange = () => {
-    const files = inputRef.current?.files ?? null;
+  const updateFiles = (files: FileList | null) => {
     if (files && files.length > 0) {
+      setSelectedFiles(Array.from(files));
       setFileNames(
         Array.from(files)
           .map((f) => f.name)
           .join(", "),
       );
     } else {
+      setSelectedFiles([]);
       setFileNames("");
     }
     onChange?.(files);
   };
+
+  const handleChange = () => {
+    updateFiles(inputRef.current?.files ?? null);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    if (isDisabled) {
+      return;
+    }
+    updateFiles(event.dataTransfer.files);
+  };
+
+  const clearFiles = () => {
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+    setSelectedFiles([]);
+    setFileNames("");
+    onChange?.(null);
+  };
+
+  const hiddenInput = (
+    <input
+      ref={inputRef}
+      type="file"
+      className="hidden"
+      disabled={isDisabled}
+      accept={acceptedFileTypes?.toString()}
+      multiple={allowsMultiple}
+      onChange={handleChange}
+    />
+  );
+
+  if (variant === "dropzone") {
+    return (
+      <div className={cx("file-uploader", className)}>
+        {label && <p className="file-uploader-label">{label}</p>}
+        <button
+          type="button"
+          className={cx(
+            "file-uploader-dropzone",
+            isDisabled && "file-uploader-dropzone--disabled",
+          )}
+          disabled={isDisabled}
+          onClick={handleClick}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDrop}
+        >
+          <span className="file-uploader-icon">
+            <UploadCloud01 aria-hidden="true" />
+          </span>
+          <span>
+            <strong>{buttonText}</strong> or drag and drop
+          </span>
+          {hint && <span className="file-uploader-hint">{hint}</span>}
+        </button>
+        {selectedFiles.map((file) => (
+          <div className="file-uploader-file" key={file.name}>
+            <span className="file-uploader-file-icon">
+              <File04 aria-hidden="true" />
+            </span>
+            <span className="file-uploader-file-details">
+              <strong>{file.name}</strong>
+              <span>{formatFileSize(file.size)}</span>
+            </span>
+            <button
+              type="button"
+              className="file-uploader-remove"
+              aria-label={`Remove ${file.name}`}
+              onClick={clearFiles}
+            >
+              <Trash01 aria-hidden="true" />
+            </button>
+          </div>
+        ))}
+        {hiddenInput}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -142,17 +228,19 @@ export const InputFile = ({
         </div>
       </InputGroup>
 
-      <input
-        ref={inputRef}
-        type="file"
-        className="hidden"
-        disabled={isDisabled}
-        accept={acceptedFileTypes?.toString()}
-        multiple={allowsMultiple}
-        onChange={handleChange}
-      />
+      {hiddenInput}
     </>
   );
 };
 
 InputFile.displayName = "InputFile";
+
+function formatFileSize(size: number): string {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+  if (size < 1024 * 1024) {
+    return `${Math.round(size / 1024)} KB`;
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
