@@ -29,165 +29,199 @@ open class ToshlImportService(
         val transferRows = parsedRows.filter { it.category.equals("Transfer", ignoreCase = true) }
         val reconciledTransfers = reconcileTransfers(transferRows)
         val reconciledTransferRows = reconciledTransfers.flatMap { listOf(it.source, it.target) }.toSet()
-
-        var importedExpenses = 0
-        var importedIncomes = 0
-        var skippedDuplicateExpenses = 0
-        var skippedDuplicateIncomes = 0
-
-        parsedRows
+        val transactionRows = parsedRows
             .filter { it !in reconciledTransferRows }
             .filterNot { it.category.equals("Transfer", ignoreCase = true) }
-            .forEach { row ->
-                when (row.type) {
-                    TransactionType.EXPENSE -> {
-                        if (importTransaction(userId, row)) {
-                            importedExpenses++
-                        } else {
-                            skippedDuplicateExpenses++
-                        }
-                    }
-                    TransactionType.INCOME -> {
-                        if (importTransaction(userId, row)) {
-                            importedIncomes++
-                        } else {
-                            skippedDuplicateIncomes++
-                        }
-                    }
-                }
-            }
+        val context = loadImportContext(userId)
+        val report = mutableListOf<ToshlImportReportEntry>()
 
-        val transferImportResult = importTransfers(userId, reconciledTransfers)
+        createMissingReferences(userId, context, transactionRows, reconciledTransfers)
+        importTransactions(userId, context, transactionRows, report)
+        val transferImportResult = importTransfers(userId, context, reconciledTransfers, report)
+
         val unreconciledTransfers = transferRows.filter { it !in reconciledTransferRows }
+        unreconciledTransfers.forEach { row ->
+            report += row.toReportEntry("UNMATCHED_TRANSFER", "Transfer row could not be matched with its opposite side.")
+        }
 
         return ToshlImportResult(
-            importedExpenses = importedExpenses,
-            importedIncomes = importedIncomes,
-            skippedDuplicateExpenses = skippedDuplicateExpenses,
-            skippedDuplicateIncomes = skippedDuplicateIncomes,
+            importedExpenses = report.count { it.status == "IMPORTED" && it.reason == "Imported as expense." },
+            importedIncomes = report.count { it.status == "IMPORTED" && it.reason == "Imported as income." },
+            skippedDuplicateExpenses = report.count { it.status == "SKIPPED_DUPLICATE" && it.type == TransactionType.EXPENSE && it.reason.startsWith("Duplicate expense") },
+            skippedDuplicateIncomes = report.count { it.status == "SKIPPED_DUPLICATE" && it.type == TransactionType.INCOME && it.reason.startsWith("Duplicate income") },
             importedTransfers = transferImportResult.imported,
             skippedDuplicateTransfers = transferImportResult.skippedDuplicates,
             warnings = unreconciledTransfers.map { it.toWarning() },
+            report = report.sortedBy { it.lineNumber },
         )
     }
 
-    private fun importTransaction(userId: Long, row: ToshlRow): Boolean {
-        if (transactionRepository.findByUserIdAndTypeAndDateAndAmountMinor(
-                userId,
-                row.type,
-                row.date,
-                row.amountMinor,
-            ).isNotEmpty()
-        ) {
-            return false
-        }
-
-        val account = findOrCreateAccount(userId, row.account, row.currency)
-        val categoryId = when (row.type) {
-            TransactionType.EXPENSE -> findOrCreateExpenseCategory(userId, row.category).id!!
-            TransactionType.INCOME -> findOrCreateIncomeCategory(userId, row.category).id!!
-        }
-        transactionRepository.save(
-            Transaction(
-                userId = userId,
-                type = row.type,
-                trackingAccountId = account.id!!,
-                categoryId = categoryId,
-                date = row.date,
-                amountMinor = row.amountMinor,
-                notes = row.notes,
-                metadata = mapOf("source" to "toshl"),
-            ),
+    private fun loadImportContext(userId: Long): ToshlImportContext {
+        val transactionKeys = TransactionType.entries
+            .flatMap { type -> transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, type) }
+            .mapTo(mutableSetOf()) { TransactionImportKey(it.type, it.date, it.amountMinor) }
+        val transferKeys = fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
+            .mapTo(mutableSetOf()) {
+                TransferImportKey(
+                    date = it.date,
+                    sourceAccountId = it.sourceAccountId,
+                    targetAccountId = it.targetAccountId,
+                    sourceAmountMinor = it.sourceAmountMinor,
+                    targetAmountMinor = it.targetAmountMinor,
+                )
+            }
+        return ToshlImportContext(
+            accountsByName = trackingAccountRepository.findByUserIdOrderByName(userId).associateByTo(mutableMapOf()) { it.name },
+            expenseCategoriesByName = expenseCategoryRepository.findByUserIdOrderByName(userId).associateByTo(mutableMapOf()) { it.name },
+            incomeCategoriesByName = incomeCategoryRepository.findByUserIdOrderByName(userId).associateByTo(mutableMapOf()) { it.name },
+            transactionKeys = transactionKeys,
+            transferKeys = transferKeys,
         )
-        return true
     }
 
-    private fun importTransfers(userId: Long, transfers: List<ReconciledToshlTransfer>): TransferImportResult {
+    private fun createMissingReferences(
+        userId: Long,
+        context: ToshlImportContext,
+        transactionRows: List<ToshlRow>,
+        transfers: List<ReconciledToshlTransfer>,
+    ) {
+        val transferRows = transfers.flatMap { listOf(it.source, it.target) }
+        val allRowsWithAccounts = transactionRows + transferRows
+        val missingAccounts = allRowsWithAccounts
+            .map { it.account }
+            .distinct()
+            .filterNot { it in context.accountsByName }
+        if (missingAccounts.isNotEmpty()) {
+            val hasExistingAccounts = context.accountsByName.isNotEmpty()
+            val accountCurrencyByName = allRowsWithAccounts.associate { it.account to it.currency }
+            val accountsToSave = missingAccounts.mapIndexed { index, accountName ->
+                TrackingAccount(
+                    userId = userId,
+                    name = accountName,
+                    currency = accountCurrencyByName.getValue(accountName),
+                    initialBalanceMinor = 0,
+                    isDefault = !hasExistingAccounts && index == 0,
+                )
+            }
+            trackingAccountRepository.saveAll(accountsToSave).forEach { context.accountsByName[it.name] = it }
+        }
+
+        val missingExpenseCategories = transactionRows
+            .filter { it.type == TransactionType.EXPENSE }
+            .map { it.category }
+            .distinct()
+            .filterNot { it in context.expenseCategoriesByName }
+        if (missingExpenseCategories.isNotEmpty()) {
+            expenseCategoryRepository.saveAll(missingExpenseCategories.map { ExpenseCategory(userId = userId, name = it) })
+                .forEach { context.expenseCategoriesByName[it.name] = it }
+        }
+
+        val missingIncomeCategories = transactionRows
+            .filter { it.type == TransactionType.INCOME }
+            .map { it.category }
+            .distinct()
+            .filterNot { it in context.incomeCategoriesByName }
+        if (missingIncomeCategories.isNotEmpty()) {
+            incomeCategoryRepository.saveAll(missingIncomeCategories.map { IncomeCategory(userId = userId, name = it) })
+                .forEach { context.incomeCategoriesByName[it.name] = it }
+        }
+    }
+
+    private fun importTransactions(
+        userId: Long,
+        context: ToshlImportContext,
+        rows: List<ToshlRow>,
+        report: MutableList<ToshlImportReportEntry>,
+    ) {
+        val transactionsToImport = rows.mapNotNull { row ->
+            val key = TransactionImportKey(row.type, row.date, row.amountMinor)
+            if (!context.transactionKeys.add(key)) {
+                report += row.toReportEntry(
+                    "SKIPPED_DUPLICATE",
+                    "Duplicate ${row.type.name.lowercase()} by date, type, and amount.",
+                )
+                null
+            } else {
+                report += row.toReportEntry("IMPORTED", "Imported as ${row.type.name.lowercase()}.")
+                Transaction(
+                    userId = userId,
+                    type = row.type,
+                    trackingAccountId = context.accountsByName.getValue(row.account).id!!,
+                    categoryId = when (row.type) {
+                        TransactionType.EXPENSE -> context.expenseCategoriesByName.getValue(row.category).id!!
+                        TransactionType.INCOME -> context.incomeCategoriesByName.getValue(row.category).id!!
+                    },
+                    date = row.date,
+                    amountMinor = row.amountMinor,
+                    notes = row.notes,
+                    metadata = mapOf("source" to "toshl"),
+                )
+            }
+        }
+        if (transactionsToImport.isNotEmpty()) {
+            transactionRepository.saveAll(transactionsToImport).toList()
+        }
+    }
+
+    private fun importTransfers(
+        userId: Long,
+        context: ToshlImportContext,
+        transfers: List<ReconciledToshlTransfer>,
+        report: MutableList<ToshlImportReportEntry>,
+    ): TransferImportResult {
         var imported = 0
         var skippedDuplicates = 0
+        val transfersToImport = mutableListOf<FundsTransfer>()
         transfers.forEach { transfer ->
-            val sourceAccount = findOrCreateAccount(userId, transfer.source.account, transfer.source.currency)
-            val targetAccount = findOrCreateAccount(userId, transfer.target.account, transfer.target.currency)
+            val sourceAccount = context.accountsByName.getValue(transfer.source.account)
+            val targetAccount = context.accountsByName.getValue(transfer.target.account)
             val sourceAmountMinor = transfer.source.amountForAccount(sourceAccount)
             val targetAmountMinor = transfer.target.amountForAccount(targetAccount)
-            val existing = fundsTransferRepository
-                .findByUserIdAndDateAndSourceAccountIdAndTargetAccountIdAndSourceAmountMinorAndTargetAmountMinor(
+            val key = TransferImportKey(
+                date = transfer.source.date,
+                sourceAccountId = sourceAccount.id!!,
+                targetAccountId = targetAccount.id!!,
+                sourceAmountMinor = sourceAmountMinor,
+                targetAmountMinor = targetAmountMinor,
+            )
+            if (!context.transferKeys.add(key)) {
+                skippedDuplicates++
+                report += transfer.source.toReportEntry("SKIPPED_DUPLICATE", "Duplicate transfer pair.")
+                report += transfer.target.toReportEntry("SKIPPED_DUPLICATE", "Duplicate transfer pair.")
+            } else {
+                transfersToImport += FundsTransfer(
                     userId = userId,
-                    date = transfer.source.date,
                     sourceAccountId = sourceAccount.id!!,
                     targetAccountId = targetAccount.id!!,
                     sourceAmountMinor = sourceAmountMinor,
                     targetAmountMinor = targetAmountMinor,
+                    date = transfer.source.date,
                 )
-            if (existing.isNotEmpty()) {
-                skippedDuplicates++
-            } else {
-                fundsTransferRepository.save(
-                    FundsTransfer(
-                        userId = userId,
-                        sourceAccountId = sourceAccount.id!!,
-                        targetAccountId = targetAccount.id!!,
-                        sourceAmountMinor = sourceAmountMinor,
-                        targetAmountMinor = targetAmountMinor,
-                        date = transfer.source.date,
-                    ),
-                )
+                report += transfer.source.toReportEntry("IMPORTED", "Imported as transfer source.")
+                report += transfer.target.toReportEntry("IMPORTED", "Imported as transfer target.")
                 imported++
             }
+        }
+        if (transfersToImport.isNotEmpty()) {
+            fundsTransferRepository.saveAll(transfersToImport).toList()
         }
         return TransferImportResult(imported, skippedDuplicates)
     }
 
     private fun reconcileTransfers(transferRows: List<ToshlRow>): List<ReconciledToshlTransfer> {
-        val expenseTransfers = transferRows.filter { it.type == TransactionType.EXPENSE }.toMutableList()
-        val incomeTransfers = transferRows.filter { it.type == TransactionType.INCOME }.toMutableList()
         val reconciled = mutableListOf<ReconciledToshlTransfer>()
+        val transferGroups = transferRows.groupBy { TransferMatchKey(it.date, it.mainCurrency, it.mainAmountMinor) }
 
-        val expenseIterator = expenseTransfers.iterator()
-        while (expenseIterator.hasNext()) {
-            val expense = expenseIterator.next()
-            val income = incomeTransfers.firstOrNull {
-                it.date == expense.date && it.mainCurrency == expense.mainCurrency && it.mainAmountMinor == expense.mainAmountMinor
-            } ?: continue
-            if (expense.account == income.account) {
-                continue
+        transferGroups.values.forEach { groupRows ->
+            val incomeTransfers = groupRows.filter { it.type == TransactionType.INCOME }.toMutableList()
+            groupRows.filter { it.type == TransactionType.EXPENSE }.forEach { expense ->
+                val income = incomeTransfers.firstOrNull { it.account != expense.account } ?: return@forEach
+                reconciled += ReconciledToshlTransfer(source = expense, target = income)
+                incomeTransfers.remove(income)
             }
-            reconciled += ReconciledToshlTransfer(source = expense, target = income)
-            expenseIterator.remove()
-            incomeTransfers.remove(income)
         }
 
         return reconciled
-    }
-
-    private fun findOrCreateAccount(userId: Long, name: String, currency: String): TrackingAccount {
-        trackingAccountRepository.findByUserIdOrderByName(userId)
-            .firstOrNull { it.name == name }
-            ?.let { return it }
-        val shouldBeDefault = trackingAccountRepository.countByUserId(userId) == 0L
-        return trackingAccountRepository.save(
-            TrackingAccount(
-                userId = userId,
-                name = name,
-                currency = currency,
-                initialBalanceMinor = 0,
-                isDefault = shouldBeDefault,
-            ),
-        )
-    }
-
-    private fun findOrCreateExpenseCategory(userId: Long, name: String): ExpenseCategory {
-        expenseCategoryRepository.findByUserIdOrderByName(userId)
-            .firstOrNull { it.name == name }
-            ?.let { return it }
-        return expenseCategoryRepository.save(ExpenseCategory(userId = userId, name = name))
-    }
-
-    private fun findOrCreateIncomeCategory(userId: Long, name: String): IncomeCategory {
-        incomeCategoryRepository.findByUserIdOrderByName(userId)
-            .firstOrNull { it.name == name }
-            ?.let { return it }
-        return incomeCategoryRepository.save(IncomeCategory(userId = userId, name = name))
     }
 
     private fun parseRow(header: Map<String, Int>, row: List<String>, lineNumber: Int): ToshlRow {
@@ -239,6 +273,18 @@ open class ToshlImportService(
         currency = currency,
         type = type,
         description = "Transfer row could not be matched with its opposite side.",
+    )
+
+    private fun ToshlRow.toReportEntry(status: String, reason: String) = ToshlImportReportEntry(
+        lineNumber = lineNumber,
+        date = date,
+        account = account,
+        category = category,
+        type = type,
+        amountMinor = amountMinor,
+        currency = currency,
+        status = status,
+        reason = reason,
     )
 
     private fun ToshlRow.amountForAccount(account: TrackingAccount): Long = when (account.currency) {
@@ -320,6 +366,8 @@ data class ToshlImportResult(
     val skippedDuplicateTransfers: Int,
     @field:JsonInclude(JsonInclude.Include.ALWAYS)
     val warnings: List<ToshlImportWarning>,
+    @field:JsonInclude(JsonInclude.Include.ALWAYS)
+    val report: List<ToshlImportReportEntry>,
 )
 
 data class ToshlImportWarning(
@@ -330,6 +378,18 @@ data class ToshlImportWarning(
     val currency: String,
     val type: TransactionType,
     val description: String,
+)
+
+data class ToshlImportReportEntry(
+    val lineNumber: Int,
+    val date: LocalDate,
+    val account: String,
+    val category: String,
+    val type: TransactionType,
+    val amountMinor: Long,
+    val currency: String,
+    val status: String,
+    val reason: String,
 )
 
 data class ToshlImportRequest(
@@ -347,6 +407,34 @@ private data class ToshlRow(
     val mainAmountMinor: Long,
     val mainCurrency: String,
     val notes: String?,
+)
+
+private data class ToshlImportContext(
+    val accountsByName: MutableMap<String, TrackingAccount>,
+    val expenseCategoriesByName: MutableMap<String, ExpenseCategory>,
+    val incomeCategoriesByName: MutableMap<String, IncomeCategory>,
+    val transactionKeys: MutableSet<TransactionImportKey>,
+    val transferKeys: MutableSet<TransferImportKey>,
+)
+
+private data class TransactionImportKey(
+    val type: TransactionType,
+    val date: LocalDate,
+    val amountMinor: Long,
+)
+
+private data class TransferImportKey(
+    val date: LocalDate,
+    val sourceAccountId: Long,
+    val targetAccountId: Long,
+    val sourceAmountMinor: Long,
+    val targetAmountMinor: Long,
+)
+
+private data class TransferMatchKey(
+    val date: LocalDate,
+    val mainCurrency: String,
+    val mainAmountMinor: Long,
 )
 
 private data class ReconciledToshlTransfer(

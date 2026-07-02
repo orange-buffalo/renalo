@@ -10,6 +10,18 @@ export type ToshlImportWarning = {
   description: string;
 };
 
+export type ToshlImportReportEntry = {
+  lineNumber: number;
+  date: string;
+  account: string;
+  category: string;
+  amountMinor: number;
+  currency: string;
+  type: "EXPENSE" | "INCOME";
+  status: "IMPORTED" | "SKIPPED_DUPLICATE" | "UNMATCHED_TRANSFER";
+  reason: string;
+};
+
 export type ToshlImportResult = {
   importedExpenses: number;
   importedIncomes: number;
@@ -18,6 +30,7 @@ export type ToshlImportResult = {
   importedTransfers: number;
   skippedDuplicateTransfers: number;
   warnings: ToshlImportWarning[];
+  report: ToshlImportReportEntry[];
 };
 
 export function importToshlCsv(csvContent: string) {

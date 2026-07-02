@@ -74,7 +74,64 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 0,
                   "importedTransfers": 1,
                   "skippedDuplicateTransfers": 0,
-                  "warnings": []
+                  "warnings": [],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-01",
+                      "account": "Acc1",
+                      "category": "Cat 1",
+                      "type": "EXPENSE",
+                      "amountMinor": 10400,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as expense."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-03",
+                      "account": "Acc1",
+                      "category": "Cat 2",
+                      "type": "EXPENSE",
+                      "amountMinor": 50000,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as expense."
+                    },
+                    {
+                      "lineNumber": 4,
+                      "date": "2026-06-06",
+                      "account": "Acc2",
+                      "category": "Transfer",
+                      "type": "EXPENSE",
+                      "amountMinor": 2198700,
+                      "currency": "EUR",
+                      "status": "IMPORTED",
+                      "reason": "Imported as transfer source."
+                    },
+                    {
+                      "lineNumber": 5,
+                      "date": "2026-06-06",
+                      "account": "Acc1",
+                      "category": "Transfer",
+                      "type": "INCOME",
+                      "amountMinor": 2198700,
+                      "currency": "EUR",
+                      "status": "IMPORTED",
+                      "reason": "Imported as transfer target."
+                    },
+                    {
+                      "lineNumber": 6,
+                      "date": "2026-06-22",
+                      "account": "Acc2",
+                      "category": "Cat x",
+                      "type": "INCOME",
+                      "amountMinor": 5498700,
+                      "currency": "EUR",
+                      "status": "IMPORTED",
+                      "reason": "Imported as income."
+                    }
+                  ]
                 }
             """.trimIndent(),
         )
@@ -124,7 +181,64 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 1,
                   "importedTransfers": 0,
                   "skippedDuplicateTransfers": 1,
-                  "warnings": []
+                  "warnings": [],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-01",
+                      "account": "Acc1",
+                      "category": "Cat 1",
+                      "type": "EXPENSE",
+                      "amountMinor": 10400,
+                      "currency": "AUD",
+                      "status": "SKIPPED_DUPLICATE",
+                      "reason": "Duplicate expense by date, type, and amount."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-03",
+                      "account": "Acc1",
+                      "category": "Cat 2",
+                      "type": "EXPENSE",
+                      "amountMinor": 50000,
+                      "currency": "AUD",
+                      "status": "SKIPPED_DUPLICATE",
+                      "reason": "Duplicate expense by date, type, and amount."
+                    },
+                    {
+                      "lineNumber": 4,
+                      "date": "2026-06-06",
+                      "account": "Acc2",
+                      "category": "Transfer",
+                      "type": "EXPENSE",
+                      "amountMinor": 2198700,
+                      "currency": "EUR",
+                      "status": "SKIPPED_DUPLICATE",
+                      "reason": "Duplicate transfer pair."
+                    },
+                    {
+                      "lineNumber": 5,
+                      "date": "2026-06-06",
+                      "account": "Acc1",
+                      "category": "Transfer",
+                      "type": "INCOME",
+                      "amountMinor": 2198700,
+                      "currency": "EUR",
+                      "status": "SKIPPED_DUPLICATE",
+                      "reason": "Duplicate transfer pair."
+                    },
+                    {
+                      "lineNumber": 6,
+                      "date": "2026-06-22",
+                      "account": "Acc2",
+                      "category": "Cat x",
+                      "type": "INCOME",
+                      "amountMinor": 5498700,
+                      "currency": "EUR",
+                      "status": "SKIPPED_DUPLICATE",
+                      "reason": "Duplicate income by date, type, and amount."
+                    }
+                  ]
                 }
             """.trimIndent(),
         )
@@ -169,6 +283,19 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                       "type": "EXPENSE",
                       "description": "Transfer row could not be matched with its opposite side."
                     }
+                  ],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-06",
+                      "account": "Acc2",
+                      "category": "Transfer",
+                      "type": "EXPENSE",
+                      "amountMinor": 10000,
+                      "currency": "EUR",
+                      "status": "UNMATCHED_TRANSFER",
+                      "reason": "Transfer row could not be matched with its opposite side."
+                    }
                   ]
                 }
             """.trimIndent(),
@@ -176,6 +303,88 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         trackingAccountRepository.findByUserIdOrderByName(alice.id!!).map { it.name }.shouldContainExactly("Main")
         fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).shouldBe(emptyList())
         transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE).shouldBe(emptyList())
+    }
+
+    @Test
+    fun matchesTransferAgainstDifferentAccountWhenSameAccountCandidateAppearsFirst() {
+        val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Acc1", "AUD", isDefault = true)
+        saveAccount(alice, "Acc2", "AUD", isDefault = false)
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    6/6/26,Acc1,Transfer,,100.00,0,AUD,100.00,AUD,
+                    6/6/26,Acc1,Transfer,,0,100.00,AUD,100.00,AUD,
+                    6/6/26,Acc2,Transfer,,0,100.00,AUD,100.00,AUD,
+                """.trimIndent(),
+            ),
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "importedExpenses": 0,
+                  "importedIncomes": 0,
+                  "skippedDuplicateExpenses": 0,
+                  "skippedDuplicateIncomes": 0,
+                  "importedTransfers": 1,
+                  "skippedDuplicateTransfers": 0,
+                  "warnings": [
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-06",
+                      "account": "Acc1",
+                      "amountMinor": 10000,
+                      "currency": "AUD",
+                      "type": "INCOME",
+                      "description": "Transfer row could not be matched with its opposite side."
+                    }
+                  ],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-06",
+                      "account": "Acc1",
+                      "category": "Transfer",
+                      "type": "EXPENSE",
+                      "amountMinor": 10000,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as transfer source."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-06",
+                      "account": "Acc1",
+                      "category": "Transfer",
+                      "type": "INCOME",
+                      "amountMinor": 10000,
+                      "currency": "AUD",
+                      "status": "UNMATCHED_TRANSFER",
+                      "reason": "Transfer row could not be matched with its opposite side."
+                    },
+                    {
+                      "lineNumber": 4,
+                      "date": "2026-06-06",
+                      "account": "Acc2",
+                      "category": "Transfer",
+                      "type": "INCOME",
+                      "amountMinor": 10000,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as transfer target."
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+        fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).single().targetAccountId
+            .shouldBe(trackingAccountRepository.findByUserIdOrderByName(alice.id!!).single { it.name == "Acc2" }.id)
     }
 
     @Test

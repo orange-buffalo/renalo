@@ -77,6 +77,21 @@ export function SettingsPage() {
     }
   };
 
+  const handleDownloadToshlReport = () => {
+    if (!toshlResult) {
+      return;
+    }
+    const reportCsv = buildToshlReportCsv(toshlResult);
+    const reportUrl = URL.createObjectURL(
+      new Blob([reportCsv], { type: "text/csv;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = reportUrl;
+    link.download = "toshl-import-processing-report.csv";
+    link.click();
+    URL.revokeObjectURL(reportUrl);
+  };
+
   useEffect(() => {
     let isActive = true;
     setAccountsError(undefined);
@@ -432,6 +447,13 @@ export function SettingsPage() {
                   and skipped {toshlResult.skippedDuplicateTransfers} duplicate
                   transfers.
                 </p>
+                <Button
+                  color="secondary"
+                  size="sm"
+                  onPress={handleDownloadToshlReport}
+                >
+                  Get processing report
+                </Button>
               </Alert>
             )}
 
@@ -484,4 +506,39 @@ export function SettingsPage() {
       </Tabs>
     </PageLayout>
   );
+}
+
+function buildToshlReportCsv(result: ToshlImportResult) {
+  const rows = [
+    [
+      "Line number",
+      "Date",
+      "Account",
+      "Category",
+      "Type",
+      "Amount",
+      "Currency",
+      "Status",
+      "Reason",
+    ],
+    ...result.report.map((entry) => [
+      entry.lineNumber.toString(),
+      entry.date,
+      entry.account,
+      entry.category,
+      entry.type.toLowerCase(),
+      formatMoney(entry.amountMinor, entry.currency),
+      entry.currency,
+      entry.status,
+      entry.reason,
+    ]),
+  ];
+  return rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+}
+
+function escapeCsvValue(value: string) {
+  if (![",", '"', "\n", "\r"].some((char) => value.includes(char))) {
+    return value;
+  }
+  return `"${value.replaceAll('"', '""')}"`;
 }
