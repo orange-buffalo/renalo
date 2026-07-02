@@ -32,6 +32,7 @@ class DashboardService(
         transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, TransactionType.INCOME)
             .forEach { transaction ->
                 summaries[transaction.trackingAccountId]?.apply {
+                    recordActivity(transaction.date)
                     if (!transaction.date.isAfter(today)) {
                         totalBalanceMinor += transaction.amountMinor
                     }
@@ -44,6 +45,7 @@ class DashboardService(
         transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, TransactionType.EXPENSE)
             .forEach { transaction ->
                 summaries[transaction.trackingAccountId]?.apply {
+                    recordActivity(transaction.date)
                     if (!transaction.date.isAfter(today)) {
                         totalBalanceMinor -= transaction.amountMinor
                     }
@@ -56,6 +58,7 @@ class DashboardService(
         fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
             .forEach { transfer ->
                 summaries[transfer.sourceAccountId]?.apply {
+                    recordActivity(transfer.date)
                     if (!transfer.date.isAfter(today)) {
                         totalBalanceMinor -= transfer.sourceAmountMinor
                     }
@@ -64,6 +67,7 @@ class DashboardService(
                     }
                 }
                 summaries[transfer.targetAccountId]?.apply {
+                    recordActivity(transfer.date)
                     if (!transfer.date.isAfter(today)) {
                         totalBalanceMinor += transfer.targetAmountMinor
                     }
@@ -73,7 +77,12 @@ class DashboardService(
                 }
             }
 
-        return summaries.values.map { it.toResponse() }
+        return summaries.values
+            .sortedWith(
+                compareByDescending<MutableAccountDashboardSummary> { it.lastRecordDate ?: LocalDate.MIN }
+                    .thenBy { it.account.name },
+            )
+            .map { it.toResponse() }
     }
 }
 
@@ -84,7 +93,14 @@ private data class MutableAccountDashboardSummary(
     var totalBalanceMinor: Long,
     var currentMonthInflowMinor: Long = 0,
     var currentMonthOutflowMinor: Long = 0,
+    var lastRecordDate: LocalDate? = null,
 ) {
+    fun recordActivity(date: LocalDate) {
+        if (lastRecordDate == null || date.isAfter(lastRecordDate)) {
+            lastRecordDate = date
+        }
+    }
+
     fun toResponse() = AccountDashboardSummary(
         accountId = account.id ?: error("Tracking account must be persisted before dashboard summary can be returned"),
         accountName = account.name,

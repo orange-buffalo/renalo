@@ -167,60 +167,17 @@ input {
 
 .dashboard-account-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
 }
 
 .dashboard-account-card {
-  position: relative;
-  overflow: hidden;
-  min-height: 260px;
-  border: 1px solid rgb(255 255 255 / 35%);
-  border-radius: 24px;
-  background:
-    radial-gradient(
-      circle at 92% 8%,
-      rgb(255 255 255 / 32%) 0 12%,
-      transparent 30%
-    ),
-    linear-gradient(135deg, #0f766e 0%, #1570ef 48%, #7f56d9 100%);
-  box-shadow: 0 20px 42px rgb(16 24 40 / 16%);
-  color: #fff;
-}
-
-.dashboard-account-card::before {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      110deg,
-      transparent 0 42%,
-      rgb(255 255 255 / 12%) 42% 56%,
-      transparent 56%
-    ),
-    radial-gradient(circle at 8% 92%, rgb(255 255 255 / 18%), transparent 34%);
-  content: "";
-}
-
-.dashboard-account-card-glow {
-  position: absolute;
-  right: -42px;
-  bottom: -64px;
-  width: 190px;
-  height: 190px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 16%);
-  filter: blur(2px);
-}
-
-.dashboard-account-card-content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  min-height: 260px;
-  flex-direction: column;
-  justify-content: space-between;
+  display: grid;
+  gap: 24px;
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
   padding: 24px;
+  background: #fcfcfd;
 }
 
 .dashboard-account-card-header {
@@ -229,7 +186,6 @@ input {
 }
 
 .dashboard-account-card h2,
-.dashboard-account-label,
 .dashboard-account-balance-label,
 .dashboard-account-balance {
   margin: 0;
@@ -241,16 +197,16 @@ input {
   line-height: 1.35;
 }
 
-.dashboard-account-label,
 .dashboard-account-balance-label {
-  color: rgb(255 255 255 / 74%);
+  color: #667085;
   font-size: 0.875rem;
   font-weight: 500;
 }
 
 .dashboard-account-balance {
   margin-top: 8px;
-  font-size: clamp(2rem, 5vw, 3rem);
+  color: #101828;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1;
@@ -259,44 +215,40 @@ input {
 .dashboard-money-flow-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .dashboard-money-flow {
   display: grid;
-  gap: 6px;
-  border: 1px solid rgb(255 255 255 / 20%);
-  border-radius: 16px;
-  padding: 14px;
-  background: rgb(12 17 29 / 24%);
-  backdrop-filter: blur(10px);
+  align-content: start;
+  gap: 8px;
 }
 
 .dashboard-money-flow span {
-  color: rgb(255 255 255 / 76%);
+  color: #667085;
   font-size: 0.875rem;
 }
 
 .dashboard-money-flow strong {
+  width: fit-content;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 3px 10px;
   font-size: 1.125rem;
+  font-weight: 700;
   line-height: 1.2;
 }
 
-.dashboard-money-flow small {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 3px 9px;
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 600;
+.dashboard-money-flow--positive strong {
+  border-color: #abefc6;
+  background: #ecfdf3;
+  color: #067647;
 }
 
-.dashboard-money-flow--positive small {
-  background: rgb(23 178 106 / 58%);
-}
-
-.dashboard-money-flow--negative small {
-  background: rgb(240 68 56 / 58%);
+.dashboard-money-flow--negative strong {
+  border-color: #fecdca;
+  background: #fef3f2;
+  color: #b42318;
 }
 
 .dashboard-loading-panel,
@@ -1847,6 +1799,12 @@ input {
   }
 }
 
+@media (max-width: 900px) {
+  .dashboard-account-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 520px) {
   body {
     overflow-x: hidden;
@@ -1956,8 +1914,7 @@ input {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-account-card-content {
-    min-height: 240px;
+  .dashboard-account-card {
     padding: 20px;
   }
 

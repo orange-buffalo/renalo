@@ -65,6 +65,8 @@ class DashboardApiTest : IntegrationTestSupport() {
         val bob = saveUser("bob", UserType.USER)
         val main = saveAccount(alice, "Main", "AUD", 10_000, isDefault = true)
         val savings = saveAccount(alice, "Savings", "AUD", 50_000)
+        val oldAccount = saveAccount(alice, "Old", "AUD", 1_000)
+        val dormant = saveAccount(alice, "Dormant", "AUD", 777)
         val hidden = saveAccount(bob, "Hidden", "AUD", 999_999, isDefault = true)
         val hiddenSavings = saveAccount(bob, "Hidden savings", "AUD", 999_999)
         val expenseCategory = saveExpenseCategory(alice, "General")
@@ -78,6 +80,7 @@ class DashboardApiTest : IntegrationTestSupport() {
         saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE, 4_000)
         saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE.minusMonths(1), 1_000)
         saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE.plusDays(1), 88_000)
+        saveTransaction(alice, oldAccount, expenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE.minusMonths(1), 200)
         saveTransaction(bob, hidden, bobIncomeCategory, TransactionType.INCOME, TestTimeProvider.DEFAULT_DATE, 777_777)
         saveTransaction(bob, hidden, bobExpenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE, 111_111)
 
@@ -106,6 +109,22 @@ class DashboardApiTest : IntegrationTestSupport() {
                     "currency": "AUD",
                     "totalBalanceMinor": 55000,
                     "currentMonthInflowMinor": 7000,
+                    "currentMonthOutflowMinor": 0
+                  },
+                  {
+                    "accountId": ${oldAccount.id},
+                    "accountName": "Old",
+                    "currency": "AUD",
+                    "totalBalanceMinor": 800,
+                    "currentMonthInflowMinor": 0,
+                    "currentMonthOutflowMinor": 0
+                  },
+                  {
+                    "accountId": ${dormant.id},
+                    "accountName": "Dormant",
+                    "currency": "AUD",
+                    "totalBalanceMinor": 777,
+                    "currentMonthInflowMinor": 0,
                     "currentMonthOutflowMinor": 0
                   }
                 ]

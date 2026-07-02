@@ -61,6 +61,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", 10_000, isDefault = true)
         val savings = saveAccount(alice, "Savings", 50_000)
+        saveAccount(alice, "Cash", 12_300)
         val groceries = saveExpenseCategory(alice, "Groceries")
         val salary = saveIncomeCategory(alice, "Salary")
         saveTransaction(alice, main, salary, TransactionType.INCOME, TestTimeProvider.DEFAULT_DATE, 20_000)
@@ -72,9 +73,11 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
         page.shouldEventuallyContainDashboardCards(
-            DashboardCardText("AccountMainTotal balanceA$190.00InflowA$200.00This monthOutflowA$110.00This month"),
-            DashboardCardText("AccountSavingsTotal balanceA$570.00InflowA$70.00This monthOutflowA$0.00This month"),
+            DashboardCardText("MainTotal balanceA$190.00Inflow JuneA$200.00Outflow JuneA$110.00"),
+            DashboardCardText("SavingsTotal balanceA$570.00Inflow JuneA$70.00Outflow JuneA$0.00"),
+            DashboardCardText("CashTotal balanceA$123.00Inflow JuneA$0.00Outflow JuneA$0.00"),
         )
+        page.locator("[data-testid='dashboard-account-card']").first().scrollIntoViewIfNeeded()
     }
 
     private fun saveUser(username: String): User =

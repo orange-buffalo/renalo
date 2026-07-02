@@ -7,6 +7,10 @@ import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { formatMoney } from "@/utils/money";
 
+const currentMonthName = new Intl.DateTimeFormat(undefined, {
+  month: "long",
+}).format(new Date());
+
 export function TrackingPage() {
   const [accountSummaries, setAccountSummaries] = useState<
     AccountDashboardSummary[]
@@ -86,34 +90,30 @@ function AccountSummaryCard({ summary }: { summary: AccountDashboardSummary }) {
       className="dashboard-account-card"
       data-testid="dashboard-account-card"
     >
-      <div className="dashboard-account-card-glow" aria-hidden="true" />
-      <div className="dashboard-account-card-content">
-        <div className="dashboard-account-card-header">
-          <p className="dashboard-account-label">Account</p>
-          <h2>{summary.accountName}</h2>
-        </div>
+      <div className="dashboard-account-card-header">
+        <h2>{summary.accountName}</h2>
+      </div>
 
-        <div>
-          <p className="dashboard-account-balance-label">Total balance</p>
-          <p className="dashboard-account-balance">
-            {formatMoney(summary.totalBalanceMinor, summary.currency)}
-          </p>
-        </div>
+      <div>
+        <p className="dashboard-account-balance-label">Total balance</p>
+        <p className="dashboard-account-balance">
+          {formatMoney(summary.totalBalanceMinor, summary.currency)}
+        </p>
+      </div>
 
-        <div className="dashboard-money-flow-row">
-          <MoneyFlowMetric
-            label="Inflow"
-            amountMinor={summary.currentMonthInflowMinor}
-            currency={summary.currency}
-            tone="positive"
-          />
-          <MoneyFlowMetric
-            label="Outflow"
-            amountMinor={summary.currentMonthOutflowMinor}
-            currency={summary.currency}
-            tone="negative"
-          />
-        </div>
+      <div className="dashboard-money-flow-row">
+        <MoneyFlowMetric
+          label={`Inflow ${currentMonthName}`}
+          amountMinor={summary.currentMonthInflowMinor}
+          currency={summary.currency}
+          tone="positive"
+        />
+        <MoneyFlowMetric
+          label={`Outflow ${currentMonthName}`}
+          amountMinor={summary.currentMonthOutflowMinor}
+          currency={summary.currency}
+          tone="negative"
+        />
       </div>
     </article>
   );
@@ -134,7 +134,6 @@ function MoneyFlowMetric({
     <div className={`dashboard-money-flow dashboard-money-flow--${tone}`}>
       <span>{label}</span>
       <strong>{formatMoney(amountMinor, currency)}</strong>
-      <small>This month</small>
     </div>
   );
 }
