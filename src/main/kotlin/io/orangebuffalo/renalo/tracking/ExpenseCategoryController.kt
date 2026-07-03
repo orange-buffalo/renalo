@@ -6,6 +6,7 @@ import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
@@ -18,12 +19,15 @@ class ExpenseCategoryController(
     private val expenseCategoryService: ExpenseCategoryService,
 ) {
     @Get
-    fun listCategories(authentication: Authentication): HttpResponse<*> {
+    fun listCategories(
+        authentication: Authentication,
+        @QueryValue(defaultValue = "false") includeArchived: Boolean,
+    ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
 
         return HttpResponse.ok(
-            expenseCategoryService.listCategories(user.id!!).map { it.toResponse() },
+            expenseCategoryService.listCategories(user.id!!, includeArchived).map { it.toResponse() },
         )
     }
 
@@ -91,16 +95,38 @@ class ExpenseCategoryController(
             CategoryMergeResult.INVALID_TARGET -> HttpResponse.badRequest<Any>()
         }
     }
+
+    @Post("/{categoryId}/archive")
+    fun archiveCategory(categoryId: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val category = expenseCategoryService.archiveCategory(user.id!!, categoryId)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(category.toResponse())
+    }
+
+    @Post("/{categoryId}/unarchive")
+    fun unarchiveCategory(categoryId: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val category = expenseCategoryService.unarchiveCategory(user.id!!, categoryId)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(category.toResponse())
+    }
 }
 
 private fun ExpenseCategory.toResponse() = ExpenseCategoryResponse(
     id = id ?: error("Expense category must be persisted before it can be returned"),
     name = name,
+    archived = archived,
 )
 
 data class ExpenseCategoryResponse(
     val id: Long,
     val name: String,
+    val archived: Boolean,
 )
 
 private fun ExpenseCategoryMergeSummary.toResponse() = ExpenseCategoryMergeSummaryResponse(

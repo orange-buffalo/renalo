@@ -3,6 +3,7 @@ import { apiRequest } from "@/api/client";
 export type ExpenseCategory = {
   id: number;
   name: string;
+  archived: boolean;
 };
 
 export type SaveExpenseCategory = {
@@ -15,8 +16,13 @@ export type ExpenseCategoryMergeSummary = {
   targetCategories: ExpenseCategory[];
 };
 
-export function fetchExpenseCategories() {
-  return apiRequest<ExpenseCategory[]>("/api/tracking/expense-categories");
+export function fetchExpenseCategories(options?: {
+  includeArchived?: boolean;
+}) {
+  const query = options?.includeArchived ? "?includeArchived=true" : "";
+  return apiRequest<ExpenseCategory[]>(
+    `/api/tracking/expense-categories${query}`,
+  );
 }
 
 export function fetchExpenseCategory(categoryId: number) {
@@ -64,5 +70,19 @@ export function mergeExpenseCategory(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetCategoryId }),
     },
+  );
+}
+
+export function archiveExpenseCategory(categoryId: number) {
+  return apiRequest<ExpenseCategory>(
+    `/api/tracking/expense-categories/${categoryId}/archive`,
+    { method: "POST" },
+  );
+}
+
+export function unarchiveExpenseCategory(categoryId: number) {
+  return apiRequest<ExpenseCategory>(
+    `/api/tracking/expense-categories/${categoryId}/unarchive`,
+    { method: "POST" },
   );
 }

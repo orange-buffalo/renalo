@@ -1,12 +1,6 @@
 To the agents: when requested, address one issue from this file. Once user confirms the issue solve,
 remove it from the file.
 ---
-### Archiving categories
-Implement archivation of expense and income categories following the pattern of accounts archivation,
-including hiding archived categories in the dropdowns.
-
----
-
 ### Transactional accounts adjustments.
 
 With time, a delta accumulates between the real world accounts and recorded data in the app.

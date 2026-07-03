@@ -76,11 +76,54 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
                 [
                   {
                     "id": ${groceries.id},
-                    "name": "Groceries"
+                    "name": "Groceries",
+                    "archived": false
                   },
                   {
                     "id": ${rent.id},
-                    "name": "Rent"
+                    "name": "Rent",
+                    "archived": false
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun hidesArchivedExpenseCategoriesUnlessRequested() {
+        val alice = saveUser("alice", UserType.USER)
+        val groceries = saveCategory(alice, "Groceries")
+        val oldCategory = saveCategory(alice, "Old", archived = true)
+        val token = api().login("alice", "password")
+
+        val activeResponse = api().get("/api/tracking/expense-categories", token)
+        val allResponse = api().get("/api/tracking/expense-categories?includeArchived=true", token)
+
+        activeResponse.statusCode().shouldBe(200)
+        activeResponse.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${groceries.id},
+                    "name": "Groceries",
+                    "archived": false
+                  }
+                ]
+            """.trimIndent(),
+        )
+        allResponse.statusCode().shouldBe(200)
+        allResponse.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${groceries.id},
+                    "name": "Groceries",
+                    "archived": false
+                  },
+                  {
+                    "id": ${oldCategory.id},
+                    "name": "Old",
+                    "archived": true
                   }
                 ]
             """.trimIndent(),
@@ -107,7 +150,8 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
             """
                 {
                   "id": ${groceries.id},
-                  "name": "Groceries"
+                  "name": "Groceries",
+                  "archived": false
                 }
             """.trimIndent(),
         )
@@ -125,7 +169,8 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
             """
                 {
                   "id": ${groceries.id},
-                  "name": "Food"
+                  "name": "Food",
+                  "archived": false
                 }
             """.trimIndent(),
         )
@@ -203,17 +248,20 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
                 {
                   "sourceCategory": {
                     "id": ${groceries.id},
-                    "name": "Groceries"
+                    "name": "Groceries",
+                    "archived": false
                   },
                   "expensesCount": 2,
                   "targetCategories": [
                     {
                       "id": ${rent.id},
-                      "name": "Rent"
+                      "name": "Rent",
+                      "archived": false
                     },
                     {
                       "id": ${travel.id},
-                      "name": "Travel"
+                      "name": "Travel",
+                      "archived": false
                     }
                   ]
                 }
@@ -276,6 +324,54 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
         ).statusCode().shouldBe(404)
     }
 
+    @Test
+    fun archivesAndUnarchivesExpenseCategories() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val groceries = saveCategory(alice, "Groceries")
+        val bobCategory = saveCategory(bob, "Bob category")
+        val token = api().login("alice", "password")
+
+        api().postJson("/api/tracking/expense-categories/${groceries.id}/archive", "{}", null).statusCode().shouldBe(401)
+        api().postJson("/api/tracking/expense-categories/${bobCategory.id}/archive", "{}", token).statusCode().shouldBe(404)
+
+        val archiveResponse = api().postJson(
+            "/api/tracking/expense-categories/${groceries.id}/archive",
+            "{}",
+            token,
+        )
+
+        archiveResponse.statusCode().shouldBe(200)
+        archiveResponse.body().shouldEqualJson(
+            """
+                {
+                  "id": ${groceries.id},
+                  "name": "Groceries",
+                  "archived": true
+                }
+            """.trimIndent(),
+        )
+        expenseCategoryRepository.findById(groceries.id!!).get().archived.shouldBe(true)
+
+        val unarchiveResponse = api().postJson(
+            "/api/tracking/expense-categories/${groceries.id}/unarchive",
+            "{}",
+            token,
+        )
+
+        unarchiveResponse.statusCode().shouldBe(200)
+        unarchiveResponse.body().shouldEqualJson(
+            """
+                {
+                  "id": ${groceries.id},
+                  "name": "Groceries",
+                  "archived": false
+                }
+            """.trimIndent(),
+        )
+        expenseCategoryRepository.findById(groceries.id!!).get().archived.shouldBe(false)
+    }
+
     private fun saveUser(username: String, type: UserType): User = userRepository.save(
         User(
             username = username,
@@ -284,10 +380,11 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
         ),
     )
 
-    private fun saveCategory(user: User, name: String): ExpenseCategory = expenseCategoryRepository.save(
+    private fun saveCategory(user: User, name: String, archived: Boolean = false): ExpenseCategory = expenseCategoryRepository.save(
         ExpenseCategory(
             userId = user.id!!,
             name = name,
+            archived = archived,
         ),
     )
 

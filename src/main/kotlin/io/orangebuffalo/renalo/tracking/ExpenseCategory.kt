@@ -11,4 +11,5 @@ data class ExpenseCategory(
     var id: Long? = null,
     val userId: Long,
     val name: String,
+    val archived: Boolean = false,
 )

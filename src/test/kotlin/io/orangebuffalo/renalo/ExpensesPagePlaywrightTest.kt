@@ -64,6 +64,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         saveAccount(alice, "Old", "AUD", isDefault = false, archived = true)
         val groceries = saveCategory(alice, "Groceries")
         val rent = saveCategory(alice, "Rent")
+        saveCategory(alice, "Old category", archived = true)
         val todayExpense = saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1234, "Milk")
         saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE.minusDays(1), 5500, null)
         val recurringRule = saveRecurringRule(alice, main, rent)
@@ -110,6 +111,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.locator("form").getByLabel("Account").click()
         assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Main").setExact(true))).isVisible()
         assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Old").setExact(true))).not().isVisible()
+        page.keyboard().press("Escape")
+        page.locator("form").getByLabel("Category").click()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Rent").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Old category").setExact(true))).not().isVisible()
         page.keyboard().press("Escape")
         selectOption(page, "Category", "Rent")
         page.locator("input[name='amount']").fill("42")
@@ -736,10 +741,11 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ),
         )
 
-    private fun saveCategory(user: User, name: String): ExpenseCategory = expenseCategoryRepository.save(
+    private fun saveCategory(user: User, name: String, archived: Boolean = false): ExpenseCategory = expenseCategoryRepository.save(
         ExpenseCategory(
             userId = user.id!!,
             name = name,
+            archived = archived,
         ),
     )
 

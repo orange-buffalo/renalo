@@ -6,6 +6,7 @@ import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
@@ -18,12 +19,15 @@ class IncomeCategoryController(
     private val incomeCategoryService: IncomeCategoryService,
 ) {
     @Get
-    fun listCategories(authentication: Authentication): HttpResponse<*> {
+    fun listCategories(
+        authentication: Authentication,
+        @QueryValue(defaultValue = "false") includeArchived: Boolean,
+    ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
 
         return HttpResponse.ok(
-            incomeCategoryService.listCategories(user.id!!).map { it.toResponse() },
+            incomeCategoryService.listCategories(user.id!!, includeArchived).map { it.toResponse() },
         )
     }
 
@@ -91,16 +95,38 @@ class IncomeCategoryController(
             CategoryMergeResult.INVALID_TARGET -> HttpResponse.badRequest<Any>()
         }
     }
+
+    @Post("/{categoryId}/archive")
+    fun archiveCategory(categoryId: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val category = incomeCategoryService.archiveCategory(user.id!!, categoryId)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(category.toResponse())
+    }
+
+    @Post("/{categoryId}/unarchive")
+    fun unarchiveCategory(categoryId: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val category = incomeCategoryService.unarchiveCategory(user.id!!, categoryId)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(category.toResponse())
+    }
 }
 
 private fun IncomeCategory.toResponse() = IncomeCategoryResponse(
     id = id ?: error("Income category must be persisted before it can be returned"),
     name = name,
+    archived = archived,
 )
 
 data class IncomeCategoryResponse(
     val id: Long,
     val name: String,
+    val archived: Boolean,
 )
 
 private fun IncomeCategoryMergeSummary.toResponse() = IncomeCategoryMergeSummaryResponse(

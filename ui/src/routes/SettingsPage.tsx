@@ -2,13 +2,17 @@ import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
+  archiveExpenseCategory,
   type ExpenseCategory,
   fetchExpenseCategories,
+  unarchiveExpenseCategory,
 } from "@/api/expenseCategories";
 import { importToshlCsv, type ToshlImportResult } from "@/api/imports";
 import {
+  archiveIncomeCategory,
   fetchIncomeCategories,
   type IncomeCategory,
+  unarchiveIncomeCategory,
 } from "@/api/incomeCategories";
 import {
   archiveTrackingAccount,
@@ -62,8 +66,15 @@ export function SettingsPage() {
   const [isImportingToshl, setIsImportingToshl] = useState(false);
   const [confirmingArchiveAccount, setConfirmingArchiveAccount] =
     useState<TrackingAccount>();
+  const [confirmingArchiveCategory, setConfirmingArchiveCategory] = useState<
+    | { kind: "expense"; category: ExpenseCategory }
+    | { kind: "income"; category: IncomeCategory }
+  >();
   const [updatingArchiveAccountId, setUpdatingArchiveAccountId] =
     useState<number>();
+  const [updatingArchiveCategory, setUpdatingArchiveCategory] = useState<
+    { kind: "expense" | "income"; id: number } | undefined
+  >();
 
   const handleToshlImport = async () => {
     if (!toshlFile) {
@@ -146,6 +157,98 @@ export function SettingsPage() {
     }
   };
 
+  const handleArchiveCategoryConfirmed = async () => {
+    if (!confirmingArchiveCategory) {
+      return;
+    }
+
+    setUpdatingArchiveCategory({
+      kind: confirmingArchiveCategory.kind,
+      id: confirmingArchiveCategory.category.id,
+    });
+    if (confirmingArchiveCategory.kind === "expense") {
+      setExpenseCategoriesError(undefined);
+      try {
+        const archivedCategory = await archiveExpenseCategory(
+          confirmingArchiveCategory.category.id,
+        );
+        setExpenseCategories((currentCategories) =>
+          currentCategories?.map((category) =>
+            category.id === archivedCategory.id ? archivedCategory : category,
+          ),
+        );
+        setConfirmingArchiveCategory(undefined);
+      } catch {
+        setExpenseCategoriesError(
+          "Expense category could not be archived. Try again in a moment.",
+        );
+      } finally {
+        setUpdatingArchiveCategory(undefined);
+      }
+    } else {
+      setIncomeCategoriesError(undefined);
+      try {
+        const archivedCategory = await archiveIncomeCategory(
+          confirmingArchiveCategory.category.id,
+        );
+        setIncomeCategories((currentCategories) =>
+          currentCategories?.map((category) =>
+            category.id === archivedCategory.id ? archivedCategory : category,
+          ),
+        );
+        setConfirmingArchiveCategory(undefined);
+      } catch {
+        setIncomeCategoriesError(
+          "Income category could not be archived. Try again in a moment.",
+        );
+      } finally {
+        setUpdatingArchiveCategory(undefined);
+      }
+    }
+  };
+
+  const handleUnarchiveExpenseCategory = async (category: ExpenseCategory) => {
+    setUpdatingArchiveCategory({ kind: "expense", id: category.id });
+    setExpenseCategoriesError(undefined);
+    try {
+      const unarchivedCategory = await unarchiveExpenseCategory(category.id);
+      setExpenseCategories((currentCategories) =>
+        currentCategories?.map((currentCategory) =>
+          currentCategory.id === unarchivedCategory.id
+            ? unarchivedCategory
+            : currentCategory,
+        ),
+      );
+    } catch {
+      setExpenseCategoriesError(
+        "Expense category could not be unarchived. Try again in a moment.",
+      );
+    } finally {
+      setUpdatingArchiveCategory(undefined);
+    }
+  };
+
+  const handleUnarchiveIncomeCategory = async (category: IncomeCategory) => {
+    setUpdatingArchiveCategory({ kind: "income", id: category.id });
+    setIncomeCategoriesError(undefined);
+    try {
+      const unarchivedCategory = await unarchiveIncomeCategory(category.id);
+      setIncomeCategories((currentCategories) =>
+        currentCategories?.map((currentCategory) =>
+          currentCategory.id === unarchivedCategory.id
+            ? unarchivedCategory
+            : currentCategory,
+        ),
+      );
+    } catch {
+      setIncomeCategoriesError(
+        "Income category could not be unarchived. Try again in a moment.",
+      );
+    } finally {
+      setUpdatingArchiveCategory(undefined);
+    }
+  };
+
   useEffect(() => {
     let isActive = true;
     setAccountsError(undefined);
@@ -165,7 +268,7 @@ export function SettingsPage() {
           );
         }
       });
-    fetchExpenseCategories()
+    fetchExpenseCategories({ includeArchived: true })
       .then((nextCategories) => {
         if (isActive) {
           setExpenseCategories(nextCategories);
@@ -178,7 +281,7 @@ export function SettingsPage() {
           );
         }
       });
-    fetchIncomeCategories()
+    fetchIncomeCategories({ includeArchived: true })
       .then((nextCategories) => {
         if (isActive) {
           setIncomeCategories(nextCategories);
@@ -375,6 +478,7 @@ export function SettingsPage() {
               <Table aria-label="Expense categories" size="sm">
                 <Table.Header>
                   <Table.Head id="name" label="Name" isRowHeader />
+                  <Table.Head id="status" label="Status" />
                   <Table.Head
                     id="actions"
                     label="Actions"
@@ -390,9 +494,41 @@ export function SettingsPage() {
                       data-testid={`expense-category-row-${category.id}`}
                     >
                       <Table.Cell>{category.name}</Table.Cell>
+                      <Table.Cell mobileLabel="Status">
+                        <BadgeWithDot
+                          color={category.archived ? "gray" : "success"}
+                          size="sm"
+                        >
+                          {category.archived ? "Archived" : "Active"}
+                        </BadgeWithDot>
+                      </Table.Cell>
                       <Table.Cell mobileRole="actions">
                         <TableRowActions>
-                          {expenseCategories.length > 1 && (
+                          <TableArchiveAction
+                            label={
+                              category.archived
+                                ? `Unarchive ${category.name}`
+                                : `Archive ${category.name}`
+                            }
+                            isLoading={
+                              updatingArchiveCategory?.kind === "expense" &&
+                              updatingArchiveCategory.id === category.id
+                            }
+                            onPress={() => {
+                              if (category.archived) {
+                                handleUnarchiveExpenseCategory(category);
+                              } else {
+                                setConfirmingArchiveCategory({
+                                  kind: "expense",
+                                  category,
+                                });
+                              }
+                            }}
+                          />
+                          {hasCategoryMergeTarget(
+                            category,
+                            expenseCategories,
+                          ) && (
                             <TableMergeAction
                               label={`Merge ${category.name}`}
                               onPress={() =>
@@ -447,6 +583,7 @@ export function SettingsPage() {
               <Table aria-label="Income categories" size="sm">
                 <Table.Header>
                   <Table.Head id="name" label="Name" isRowHeader />
+                  <Table.Head id="status" label="Status" />
                   <Table.Head
                     id="actions"
                     label="Actions"
@@ -462,9 +599,41 @@ export function SettingsPage() {
                       data-testid={`income-category-row-${category.id}`}
                     >
                       <Table.Cell>{category.name}</Table.Cell>
+                      <Table.Cell mobileLabel="Status">
+                        <BadgeWithDot
+                          color={category.archived ? "gray" : "success"}
+                          size="sm"
+                        >
+                          {category.archived ? "Archived" : "Active"}
+                        </BadgeWithDot>
+                      </Table.Cell>
                       <Table.Cell mobileRole="actions">
                         <TableRowActions>
-                          {incomeCategories.length > 1 && (
+                          <TableArchiveAction
+                            label={
+                              category.archived
+                                ? `Unarchive ${category.name}`
+                                : `Archive ${category.name}`
+                            }
+                            isLoading={
+                              updatingArchiveCategory?.kind === "income" &&
+                              updatingArchiveCategory.id === category.id
+                            }
+                            onPress={() => {
+                              if (category.archived) {
+                                handleUnarchiveIncomeCategory(category);
+                              } else {
+                                setConfirmingArchiveCategory({
+                                  kind: "income",
+                                  category,
+                                });
+                              }
+                            }}
+                          />
+                          {hasCategoryMergeTarget(
+                            category,
+                            incomeCategories,
+                          ) && (
                             <TableMergeAction
                               label={`Merge ${category.name}`}
                               onPress={() =>
@@ -610,7 +779,29 @@ export function SettingsPage() {
         onCancel={() => setConfirmingArchiveAccount(undefined)}
         onConfirm={handleArchiveAccountConfirmed}
       />
+      <ConfirmationDialog
+        isOpen={Boolean(confirmingArchiveCategory)}
+        title="Archive category?"
+        description={
+          confirmingArchiveCategory
+            ? `${confirmingArchiveCategory.category.name} will be hidden from transaction forms and filters. Existing transactions remain linked to it and you can unarchive the category later.`
+            : ""
+        }
+        confirmLabel="Archive category"
+        isConfirming={Boolean(updatingArchiveCategory)}
+        onCancel={() => setConfirmingArchiveCategory(undefined)}
+        onConfirm={handleArchiveCategoryConfirmed}
+      />
     </PageLayout>
+  );
+}
+
+function hasCategoryMergeTarget<
+  TCategory extends { id: number; archived: boolean },
+>(category: TCategory, categories: TCategory[]) {
+  return categories.some(
+    (candidateCategory) =>
+      candidateCategory.id !== category.id && !candidateCategory.archived,
   );
 }
 

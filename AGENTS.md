@@ -29,6 +29,7 @@
 - User-edited generated expenses use `recurringLocked = true`; scheduled generation must preserve locked rows unless an explicit scoped edit/delete targets them.
 - A regular user must always have at least one `TrackingAccount`; new and migrated users get a default `Main` account in `AUD` with zero initial balance.
 - Income and expense categories are regular-user-bound; new and migrated users get default `General` income and expense categories.
+- Archived income and expense categories remain visible in Settings when explicitly requested but must be excluded from transaction category dropdowns and transaction category filters.
 - Exactly one `TrackingAccount` per regular user must have `isDefault = true`; changing the default means nominating another account, not unchecking the current default.
 - Archived `TrackingAccount` rows remain visible in Settings when explicitly requested but must be excluded from dashboard summaries, transaction account dropdowns, and transaction account filters.
 - Money is stored in integer minor units for the account currency, for example `12345` for `USD 123.45`; respect each ISO currency's default fraction digits when formatting/parsing.

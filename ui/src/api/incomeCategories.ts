@@ -3,6 +3,7 @@ import { apiRequest } from "@/api/client";
 export type IncomeCategory = {
   id: number;
   name: string;
+  archived: boolean;
 };
 
 export type SaveIncomeCategory = {
@@ -15,8 +16,11 @@ export type IncomeCategoryMergeSummary = {
   targetCategories: IncomeCategory[];
 };
 
-export function fetchIncomeCategories() {
-  return apiRequest<IncomeCategory[]>("/api/tracking/income-categories");
+export function fetchIncomeCategories(options?: { includeArchived?: boolean }) {
+  const query = options?.includeArchived ? "?includeArchived=true" : "";
+  return apiRequest<IncomeCategory[]>(
+    `/api/tracking/income-categories${query}`,
+  );
 }
 
 export function fetchIncomeCategory(categoryId: number) {
@@ -64,5 +68,19 @@ export function mergeIncomeCategory(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetCategoryId }),
     },
+  );
+}
+
+export function archiveIncomeCategory(categoryId: number) {
+  return apiRequest<IncomeCategory>(
+    `/api/tracking/income-categories/${categoryId}/archive`,
+    { method: "POST" },
+  );
+}
+
+export function unarchiveIncomeCategory(categoryId: number) {
+  return apiRequest<IncomeCategory>(
+    `/api/tracking/income-categories/${categoryId}/unarchive`,
+    { method: "POST" },
   );
 }

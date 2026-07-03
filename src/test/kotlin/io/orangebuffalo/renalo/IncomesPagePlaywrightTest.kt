@@ -66,6 +66,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         saveAccount(alice, "Savings", "EUR", isDefault = false)
         val salary = saveCategory(alice, "Salary")
         val bonus = saveCategory(alice, "Bonus")
+        val oldCategory = saveCategory(alice, "Old category", archived = true)
         val todayIncome = saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 123400, "Pay")
         saveIncome(alice, main, bonus, TestTimeProvider.DEFAULT_DATE.minusDays(1), 25000, null)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
@@ -224,12 +225,14 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         val archived = saveAccount(alice, "Old", "AUD", isDefault = false, archived = true)
         val salary = saveCategory(alice, "Salary")
         val bonus = saveCategory(alice, "Bonus")
+        val oldCategory = saveCategory(alice, "Old category", archived = true)
         val groceries = saveExpenseCategory(alice, "Groceries")
         saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 123400, "Monthly consulting pay")
         saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 200000, "Monthly payroll")
         saveIncome(alice, savings, salary, TestTimeProvider.DEFAULT_DATE, 300000, "Monthly consulting savings")
         saveIncome(alice, archived, salary, TestTimeProvider.DEFAULT_DATE, 500000, "Monthly consulting old")
         saveIncome(alice, main, bonus, TestTimeProvider.DEFAULT_DATE, 400000, "Monthly consulting bonus")
+        saveIncome(alice, main, oldCategory, TestTimeProvider.DEFAULT_DATE, 600000, "Monthly consulting old category")
         saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1200, "Monthly consulting supplies")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
@@ -238,7 +241,13 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         openMoreFilters(page)
         val filtersDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
         assertThat(filtersDialog.getByText("Old")).not().isVisible()
-        selectMoreFilterOption(page, "Income category", "Salary")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Choose income category")).click()
+        assertThat(page.locator(".transaction-filter-option").filter(Locator.FilterOptions().setHasText("Salary"))).isVisible()
+        assertThat(page.locator(".transaction-filter-option").filter(Locator.FilterOptions().setHasText("Old category"))).not().isVisible()
+        page.locator(".transaction-filter-option")
+            .filter(Locator.FilterOptions().setHasText("Salary"))
+            .click()
+        page.keyboard().press("Escape")
         selectMoreFilterOption(page, "Account", "Main")
         page.getByLabel("Notes").fill("monthly consulting")
 
@@ -312,10 +321,11 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             ),
         )
 
-    private fun saveCategory(user: User, name: String): IncomeCategory = incomeCategoryRepository.save(
+    private fun saveCategory(user: User, name: String, archived: Boolean = false): IncomeCategory = incomeCategoryRepository.save(
         IncomeCategory(
             userId = user.id!!,
             name = name,
+            archived = archived,
         ),
     )
 

@@ -8,6 +8,8 @@ import io.micronaut.data.repository.CrudRepository
 interface ExpenseCategoryRepository : CrudRepository<ExpenseCategory, Long> {
     fun findByUserIdOrderByName(userId: Long): List<ExpenseCategory>
 
+    fun findByUserIdAndArchivedFalseOrderByName(userId: Long): List<ExpenseCategory>
+
     fun findByIdAndUserId(id: Long, userId: Long): ExpenseCategory?
 
     fun deleteByIdAndUserId(id: Long, userId: Long)

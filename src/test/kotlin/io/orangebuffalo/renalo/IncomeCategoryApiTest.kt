@@ -76,11 +76,54 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
                 [
                   {
                     "id": ${interest.id},
-                    "name": "Interest"
+                    "name": "Interest",
+                    "archived": false
                   },
                   {
                     "id": ${salary.id},
-                    "name": "Salary"
+                    "name": "Salary",
+                    "archived": false
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun hidesArchivedIncomeCategoriesUnlessRequested() {
+        val alice = saveUser("alice", UserType.USER)
+        val salary = saveCategory(alice, "Salary")
+        val oldCategory = saveCategory(alice, "Old", archived = true)
+        val token = api().login("alice", "password")
+
+        val activeResponse = api().get("/api/tracking/income-categories", token)
+        val allResponse = api().get("/api/tracking/income-categories?includeArchived=true", token)
+
+        activeResponse.statusCode().shouldBe(200)
+        activeResponse.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${salary.id},
+                    "name": "Salary",
+                    "archived": false
+                  }
+                ]
+            """.trimIndent(),
+        )
+        allResponse.statusCode().shouldBe(200)
+        allResponse.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${oldCategory.id},
+                    "name": "Old",
+                    "archived": true
+                  },
+                  {
+                    "id": ${salary.id},
+                    "name": "Salary",
+                    "archived": false
                   }
                 ]
             """.trimIndent(),
@@ -107,7 +150,8 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
             """
                 {
                   "id": ${salary.id},
-                  "name": "Salary"
+                  "name": "Salary",
+                  "archived": false
                 }
             """.trimIndent(),
         )
@@ -125,7 +169,8 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
             """
                 {
                   "id": ${salary.id},
-                  "name": "Payroll"
+                  "name": "Payroll",
+                  "archived": false
                 }
             """.trimIndent(),
         )
@@ -203,17 +248,20 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
                 {
                   "sourceCategory": {
                     "id": ${salary.id},
-                    "name": "Salary"
+                    "name": "Salary",
+                    "archived": false
                   },
                   "incomesCount": 2,
                   "targetCategories": [
                     {
                       "id": ${bonus.id},
-                      "name": "Bonus"
+                      "name": "Bonus",
+                      "archived": false
                     },
                     {
                       "id": ${interest.id},
-                      "name": "Interest"
+                      "name": "Interest",
+                      "archived": false
                     }
                   ]
                 }
@@ -276,6 +324,54 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
         ).statusCode().shouldBe(404)
     }
 
+    @Test
+    fun archivesAndUnarchivesIncomeCategories() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val salary = saveCategory(alice, "Salary")
+        val bobCategory = saveCategory(bob, "Bob category")
+        val token = api().login("alice", "password")
+
+        api().postJson("/api/tracking/income-categories/${salary.id}/archive", "{}", null).statusCode().shouldBe(401)
+        api().postJson("/api/tracking/income-categories/${bobCategory.id}/archive", "{}", token).statusCode().shouldBe(404)
+
+        val archiveResponse = api().postJson(
+            "/api/tracking/income-categories/${salary.id}/archive",
+            "{}",
+            token,
+        )
+
+        archiveResponse.statusCode().shouldBe(200)
+        archiveResponse.body().shouldEqualJson(
+            """
+                {
+                  "id": ${salary.id},
+                  "name": "Salary",
+                  "archived": true
+                }
+            """.trimIndent(),
+        )
+        incomeCategoryRepository.findById(salary.id!!).get().archived.shouldBe(true)
+
+        val unarchiveResponse = api().postJson(
+            "/api/tracking/income-categories/${salary.id}/unarchive",
+            "{}",
+            token,
+        )
+
+        unarchiveResponse.statusCode().shouldBe(200)
+        unarchiveResponse.body().shouldEqualJson(
+            """
+                {
+                  "id": ${salary.id},
+                  "name": "Salary",
+                  "archived": false
+                }
+            """.trimIndent(),
+        )
+        incomeCategoryRepository.findById(salary.id!!).get().archived.shouldBe(false)
+    }
+
     private fun saveUser(username: String, type: UserType): User = userRepository.save(
         User(
             username = username,
@@ -284,10 +380,11 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
         ),
     )
 
-    private fun saveCategory(user: User, name: String): IncomeCategory = incomeCategoryRepository.save(
+    private fun saveCategory(user: User, name: String, archived: Boolean = false): IncomeCategory = incomeCategoryRepository.save(
         IncomeCategory(
             userId = user.id!!,
             name = name,
+            archived = archived,
         ),
     )
 

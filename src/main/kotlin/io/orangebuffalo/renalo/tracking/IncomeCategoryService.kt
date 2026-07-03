@@ -21,8 +21,12 @@ open class IncomeCategoryService(
         )
     }
 
-    fun listCategories(userId: Long): List<IncomeCategory> =
-        incomeCategoryRepository.findByUserIdOrderByName(userId)
+    fun listCategories(userId: Long, includeArchived: Boolean): List<IncomeCategory> =
+        if (includeArchived) {
+            incomeCategoryRepository.findByUserIdOrderByName(userId)
+        } else {
+            incomeCategoryRepository.findByUserIdAndArchivedFalseOrderByName(userId)
+        }
 
     fun findCategory(userId: Long, categoryId: Long): IncomeCategory? =
         incomeCategoryRepository.findByIdAndUserId(categoryId, userId)
@@ -37,6 +41,7 @@ open class IncomeCategoryService(
             IncomeCategory(
                 userId = userId,
                 name = name,
+                archived = false,
             ),
         )
     }
@@ -52,10 +57,24 @@ open class IncomeCategoryService(
         return incomeCategoryRepository.update(category.copy(name = name))
     }
 
+    fun archiveCategory(userId: Long, categoryId: Long): IncomeCategory? {
+        val category = incomeCategoryRepository.findByIdAndUserId(categoryId, userId)
+            ?: return null
+
+        return incomeCategoryRepository.update(category.copy(archived = true))
+    }
+
+    fun unarchiveCategory(userId: Long, categoryId: Long): IncomeCategory? {
+        val category = incomeCategoryRepository.findByIdAndUserId(categoryId, userId)
+            ?: return null
+
+        return incomeCategoryRepository.update(category.copy(archived = false))
+    }
+
     fun getMergeSummary(userId: Long, categoryId: Long): IncomeCategoryMergeSummary? {
         val sourceCategory = incomeCategoryRepository.findByIdAndUserId(categoryId, userId)
             ?: return null
-        val targetCategories = incomeCategoryRepository.findByUserIdOrderByName(userId)
+        val targetCategories = incomeCategoryRepository.findByUserIdAndArchivedFalseOrderByName(userId)
             .filter { it.id != categoryId }
 
         return IncomeCategoryMergeSummary(
@@ -76,8 +95,11 @@ open class IncomeCategoryService(
         if (sourceCategoryId == request.targetCategoryId) {
             return CategoryMergeResult.INVALID_TARGET
         }
-        incomeCategoryRepository.findByIdAndUserId(request.targetCategoryId, userId)
+        val targetCategory = incomeCategoryRepository.findByIdAndUserId(request.targetCategoryId, userId)
             ?: return CategoryMergeResult.INVALID_TARGET
+        if (targetCategory.archived) {
+            return CategoryMergeResult.INVALID_TARGET
+        }
 
         transactionRepository.reassignCategory(
             userId = userId,

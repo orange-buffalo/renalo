@@ -1,0 +1,5 @@
+ALTER TABLE expense_categories
+    ADD COLUMN archived BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE income_categories
+    ADD COLUMN archived BOOLEAN NOT NULL DEFAULT FALSE;

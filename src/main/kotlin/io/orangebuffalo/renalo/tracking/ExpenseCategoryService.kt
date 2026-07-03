@@ -21,8 +21,12 @@ open class ExpenseCategoryService(
         )
     }
 
-    fun listCategories(userId: Long): List<ExpenseCategory> =
-        expenseCategoryRepository.findByUserIdOrderByName(userId)
+    fun listCategories(userId: Long, includeArchived: Boolean): List<ExpenseCategory> =
+        if (includeArchived) {
+            expenseCategoryRepository.findByUserIdOrderByName(userId)
+        } else {
+            expenseCategoryRepository.findByUserIdAndArchivedFalseOrderByName(userId)
+        }
 
     fun findCategory(userId: Long, categoryId: Long): ExpenseCategory? =
         expenseCategoryRepository.findByIdAndUserId(categoryId, userId)
@@ -37,6 +41,7 @@ open class ExpenseCategoryService(
             ExpenseCategory(
                 userId = userId,
                 name = name,
+                archived = false,
             ),
         )
     }
@@ -52,10 +57,24 @@ open class ExpenseCategoryService(
         return expenseCategoryRepository.update(category.copy(name = name))
     }
 
+    fun archiveCategory(userId: Long, categoryId: Long): ExpenseCategory? {
+        val category = expenseCategoryRepository.findByIdAndUserId(categoryId, userId)
+            ?: return null
+
+        return expenseCategoryRepository.update(category.copy(archived = true))
+    }
+
+    fun unarchiveCategory(userId: Long, categoryId: Long): ExpenseCategory? {
+        val category = expenseCategoryRepository.findByIdAndUserId(categoryId, userId)
+            ?: return null
+
+        return expenseCategoryRepository.update(category.copy(archived = false))
+    }
+
     fun getMergeSummary(userId: Long, categoryId: Long): ExpenseCategoryMergeSummary? {
         val sourceCategory = expenseCategoryRepository.findByIdAndUserId(categoryId, userId)
             ?: return null
-        val targetCategories = expenseCategoryRepository.findByUserIdOrderByName(userId)
+        val targetCategories = expenseCategoryRepository.findByUserIdAndArchivedFalseOrderByName(userId)
             .filter { it.id != categoryId }
 
         return ExpenseCategoryMergeSummary(
@@ -76,8 +95,11 @@ open class ExpenseCategoryService(
         if (sourceCategoryId == request.targetCategoryId) {
             return CategoryMergeResult.INVALID_TARGET
         }
-        expenseCategoryRepository.findByIdAndUserId(request.targetCategoryId, userId)
+        val targetCategory = expenseCategoryRepository.findByIdAndUserId(request.targetCategoryId, userId)
             ?: return CategoryMergeResult.INVALID_TARGET
+        if (targetCategory.archived) {
+            return CategoryMergeResult.INVALID_TARGET
+        }
 
         transactionRepository.reassignCategory(
             userId = userId,
