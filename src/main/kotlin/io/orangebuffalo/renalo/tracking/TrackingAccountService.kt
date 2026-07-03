@@ -27,8 +27,12 @@ open class TrackingAccountService(
         )
     }
 
-    fun listAccounts(userId: Long): List<TrackingAccount> =
-        trackingAccountRepository.findByUserIdOrderByName(userId)
+    fun listAccounts(userId: Long, includeArchived: Boolean): List<TrackingAccount> =
+        if (includeArchived) {
+            trackingAccountRepository.findByUserIdOrderByName(userId)
+        } else {
+            trackingAccountRepository.findByUserIdAndArchivedFalseOrderByName(userId)
+        }
 
     fun findAccount(userId: Long, accountId: Long): TrackingAccount? =
         trackingAccountRepository.findByIdAndUserId(accountId, userId)
@@ -76,6 +80,7 @@ open class TrackingAccountService(
                 currency = currency,
                 initialBalanceMinor = request.initialBalanceMinor,
                 isDefault = shouldBeDefault,
+                archived = false,
             ),
         )
     }
@@ -103,6 +108,22 @@ open class TrackingAccountService(
                 isDefault = shouldBeDefault,
             ),
         )
+    }
+
+    @Transactional
+    open fun archiveAccount(userId: Long, accountId: Long): TrackingAccount? {
+        val account = trackingAccountRepository.findByIdAndUserId(accountId, userId)
+            ?: return null
+
+        return trackingAccountRepository.update(account.copy(archived = true))
+    }
+
+    @Transactional
+    open fun unarchiveAccount(userId: Long, accountId: Long): TrackingAccount? {
+        val account = trackingAccountRepository.findByIdAndUserId(accountId, userId)
+            ?: return null
+
+        return trackingAccountRepository.update(account.copy(archived = false))
     }
 
     @Transactional

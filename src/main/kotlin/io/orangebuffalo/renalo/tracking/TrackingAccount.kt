@@ -14,4 +14,5 @@ data class TrackingAccount(
     val currency: String,
     val initialBalanceMinor: Long,
     val isDefault: Boolean,
+    val archived: Boolean = false,
 )

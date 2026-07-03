@@ -61,6 +61,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         saveAccount(alice, "Travel", "EUR", isDefault = false)
+        saveAccount(alice, "Old", "AUD", isDefault = false, archived = true)
         val groceries = saveCategory(alice, "Groceries")
         val rent = saveCategory(alice, "Rent")
         val todayExpense = saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1234, "Milk")
@@ -106,6 +107,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add expense")).click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        page.locator("form").getByLabel("Account").click()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Main").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Old").setExact(true))).not().isVisible()
+        page.keyboard().press("Escape")
         selectOption(page, "Category", "Rent")
         page.locator("input[name='amount']").fill("42")
         page.getByLabel("Notes").fill("Weekly rent")
@@ -713,7 +718,13 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         ),
     )
 
-    private fun saveAccount(user: User, name: String, currency: String, isDefault: Boolean): TrackingAccount =
+    private fun saveAccount(
+        user: User,
+        name: String,
+        currency: String,
+        isDefault: Boolean,
+        archived: Boolean = false,
+    ): TrackingAccount =
         trackingAccountRepository.save(
             TrackingAccount(
                 userId = user.id!!,
@@ -721,6 +732,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
                 currency = currency,
                 initialBalanceMinor = 0,
                 isDefault = isDefault,
+                archived = archived,
             ),
         )
 

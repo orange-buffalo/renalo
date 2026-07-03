@@ -221,12 +221,14 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         val savings = saveAccount(alice, "Savings", "AUD", isDefault = false)
+        val archived = saveAccount(alice, "Old", "AUD", isDefault = false, archived = true)
         val salary = saveCategory(alice, "Salary")
         val bonus = saveCategory(alice, "Bonus")
         val groceries = saveExpenseCategory(alice, "Groceries")
         saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 123400, "Monthly consulting pay")
         saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 200000, "Monthly payroll")
         saveIncome(alice, savings, salary, TestTimeProvider.DEFAULT_DATE, 300000, "Monthly consulting savings")
+        saveIncome(alice, archived, salary, TestTimeProvider.DEFAULT_DATE, 500000, "Monthly consulting old")
         saveIncome(alice, main, bonus, TestTimeProvider.DEFAULT_DATE, 400000, "Monthly consulting bonus")
         saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1200, "Monthly consulting supplies")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
@@ -234,6 +236,8 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/incomes")
 
         openMoreFilters(page)
+        val filtersDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
+        assertThat(filtersDialog.getByText("Old")).not().isVisible()
         selectMoreFilterOption(page, "Income category", "Salary")
         selectMoreFilterOption(page, "Account", "Main")
         page.getByLabel("Notes").fill("monthly consulting")
@@ -290,7 +294,13 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         ),
     )
 
-    private fun saveAccount(user: User, name: String, currency: String, isDefault: Boolean): TrackingAccount =
+    private fun saveAccount(
+        user: User,
+        name: String,
+        currency: String,
+        isDefault: Boolean,
+        archived: Boolean = false,
+    ): TrackingAccount =
         trackingAccountRepository.save(
             TrackingAccount(
                 userId = user.id!!,
@@ -298,6 +308,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
                 currency = currency,
                 initialBalanceMinor = 0,
                 isDefault = isDefault,
+                archived = archived,
             ),
         )
 

@@ -9,6 +9,8 @@ import io.micronaut.data.repository.CrudRepository
 interface TrackingAccountRepository : CrudRepository<TrackingAccount, Long> {
     fun findByUserIdOrderByName(userId: Long): List<TrackingAccount>
 
+    fun findByUserIdAndArchivedFalseOrderByName(userId: Long): List<TrackingAccount>
+
     fun findByIdAndUserId(id: Long, userId: Long): TrackingAccount?
 
     fun countByUserId(userId: Long): Long

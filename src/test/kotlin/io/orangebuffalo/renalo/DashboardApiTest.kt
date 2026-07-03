@@ -67,6 +67,7 @@ class DashboardApiTest : IntegrationTestSupport() {
         val savings = saveAccount(alice, "Savings", "AUD", 50_000)
         val oldAccount = saveAccount(alice, "Old", "AUD", 1_000)
         val dormant = saveAccount(alice, "Dormant", "AUD", 777)
+        val archived = saveAccount(alice, "Archived", "AUD", 9_999, archived = true)
         val hidden = saveAccount(bob, "Hidden", "AUD", 999_999, isDefault = true)
         val hiddenSavings = saveAccount(bob, "Hidden savings", "AUD", 999_999)
         val expenseCategory = saveExpenseCategory(alice, "General")
@@ -81,6 +82,7 @@ class DashboardApiTest : IntegrationTestSupport() {
         saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE.minusMonths(1), 1_000)
         saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE.plusDays(1), 88_000)
         saveTransaction(alice, oldAccount, expenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE.minusMonths(1), 200)
+        saveTransaction(alice, archived, incomeCategory, TransactionType.INCOME, TestTimeProvider.DEFAULT_DATE, 50_000)
         saveTransaction(bob, hidden, bobIncomeCategory, TransactionType.INCOME, TestTimeProvider.DEFAULT_DATE, 777_777)
         saveTransaction(bob, hidden, bobExpenseCategory, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE, 111_111)
 
@@ -141,6 +143,7 @@ class DashboardApiTest : IntegrationTestSupport() {
         currency: String,
         initialBalanceMinor: Long,
         isDefault: Boolean = false,
+        archived: Boolean = false,
     ): TrackingAccount = trackingAccountRepository.save(
         TrackingAccount(
             userId = user.id!!,
@@ -148,6 +151,7 @@ class DashboardApiTest : IntegrationTestSupport() {
             currency = currency,
             initialBalanceMinor = initialBalanceMinor,
             isDefault = isDefault,
+            archived = archived,
         ),
     )
 

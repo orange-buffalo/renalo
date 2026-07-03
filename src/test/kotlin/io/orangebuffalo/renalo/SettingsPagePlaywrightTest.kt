@@ -75,8 +75,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts")).click()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
-            AccountRow("Main", "AUD", "A$0.00", "Default", "merge edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "merge edit"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "Active", "archive merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge edit"),
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add new account")).click()
@@ -91,9 +91,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         cash.initialBalanceMinor.shouldBe(4200)
         cash.isDefault.shouldBe(false)
         page.shouldEventuallyContainRows(
-            AccountRow("Cash", "AUD", "A$42.00", "No", "merge edit"),
-            AccountRow("Main", "AUD", "A$0.00", "Default", "merge edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "merge edit"),
+            AccountRow("Cash", "AUD", "A$42.00", "No", "Active", "archive merge edit"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "Active", "archive merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge edit"),
         )
 
         page.locator("[data-testid='account-row-${main.id}']")
@@ -113,9 +113,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         trackingAccountRepository.findById(main.id!!).get().name.shouldBe("Everyday")
         page.shouldEventuallyContainRows(
-            AccountRow("Cash", "AUD", "A$42.00", "No", "merge edit"),
-            AccountRow("Everyday", "AUD", "A$0.00", "Default", "merge edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "merge edit"),
+            AccountRow("Cash", "AUD", "A$42.00", "No", "Active", "archive merge edit"),
+            AccountRow("Everyday", "AUD", "A$0.00", "Default", "Active", "archive merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge edit"),
         )
     }
 
@@ -131,8 +131,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
-            AccountRow("Main", "AUD", "A$0.00", "Default", "merge edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "merge edit"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "Active", "archive merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge edit"),
         )
 
         val mainCard = page.locator("[data-testid='account-row-${main.id}']")
@@ -148,6 +148,37 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(mainCard.getByText("A$0.00")).isVisible()
         assertThat(mainCard.getByText("Default")).isVisible()
         assertThat(mainCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Main"))).isVisible()
+    }
+
+    @Test
+    fun archivesAndUnarchivesTrackingAccountFromSettingsPage(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        saveAccount(alice, "Savings", "EUR", 12345, isDefault = false)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/settings")
+
+        val mainRow = page.locator("[data-testid='account-row-${main.id}']")
+        mainRow.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Archive Main")).click()
+        val dialog = page.getByRole(AriaRole.DIALOG)
+        assertThat(dialog.getByText("Archive account?")).isVisible()
+        assertThat(dialog.getByText("Main will be hidden from dashboards, transaction forms, and account filters.")).isVisible()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Archive account")).click()
+
+        page.shouldEventuallyContainRows(
+            AccountRow("Main", "AUD", "A$0.00", "Default", "Archived", "archive merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge edit"),
+        )
+        trackingAccountRepository.findById(main.id!!).get().archived.shouldBe(true)
+
+        mainRow.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Unarchive Main")).click()
+
+        page.shouldEventuallyContainRows(
+            AccountRow("Main", "AUD", "A$0.00", "Default", "Active", "archive merge edit"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge edit"),
+        )
+        trackingAccountRepository.findById(main.id!!).get().archived.shouldBe(false)
     }
 
     @Test
@@ -545,7 +576,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
                 currency = cells.getOrElse(1) { "" },
                 initialBalance = cells.getOrElse(2) { "" },
                 default = cells.getOrElse(3) { "" },
-                action = cells.getOrElse(4) { "" },
+                status = cells.getOrElse(4) { "" },
+                action = cells.getOrElse(5) { "" },
             )
         }
     }
@@ -622,6 +654,7 @@ private data class AccountRow(
     val currency: String,
     val initialBalance: String,
     val default: String,
+    val status: String,
     val action: String,
 )
 

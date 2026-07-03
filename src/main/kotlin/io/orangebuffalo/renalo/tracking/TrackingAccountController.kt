@@ -6,6 +6,7 @@ import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.QueryValue
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
@@ -18,12 +19,15 @@ class TrackingAccountController(
     private val trackingAccountService: TrackingAccountService,
 ) {
     @Get
-    fun listAccounts(authentication: Authentication): HttpResponse<*> {
+    fun listAccounts(
+        authentication: Authentication,
+        @QueryValue(defaultValue = "false") includeArchived: Boolean,
+    ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
 
         return HttpResponse.ok(
-            trackingAccountService.listAccounts(user.id!!).map { it.toResponse() },
+            trackingAccountService.listAccounts(user.id!!, includeArchived).map { it.toResponse() },
         )
     }
 
@@ -91,6 +95,26 @@ class TrackingAccountController(
             TrackingAccountMergeResult.INVALID_TARGET -> HttpResponse.badRequest<Any>()
         }
     }
+
+    @Post("/{accountId}/archive")
+    fun archiveAccount(accountId: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val account = trackingAccountService.archiveAccount(user.id!!, accountId)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(account.toResponse())
+    }
+
+    @Post("/{accountId}/unarchive")
+    fun unarchiveAccount(accountId: Long, authentication: Authentication): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val account = trackingAccountService.unarchiveAccount(user.id!!, accountId)
+            ?: return HttpResponse.notFound<Any>()
+
+        return HttpResponse.ok(account.toResponse())
+    }
 }
 
 private fun TrackingAccount.toResponse() = TrackingAccountResponse(
@@ -99,6 +123,7 @@ private fun TrackingAccount.toResponse() = TrackingAccountResponse(
     currency = currency,
     initialBalanceMinor = initialBalanceMinor,
     isDefault = isDefault,
+    archived = archived,
 )
 
 data class TrackingAccountResponse(
@@ -107,6 +132,7 @@ data class TrackingAccountResponse(
     val currency: String,
     val initialBalanceMinor: Long,
     val isDefault: Boolean,
+    val archived: Boolean,
 )
 
 private fun TrackingAccountMergeSummary.toResponse() = TrackingAccountMergeSummaryResponse(

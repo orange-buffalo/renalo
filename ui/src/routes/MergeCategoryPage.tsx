@@ -290,11 +290,7 @@ function TargetCategoryDropdown({
         >
           <span className="tracking-account-currency-value">
             <span>{selectedCategory?.name ?? "Choose a category"}</span>
-            <span>
-              {categories.length > 0
-                ? "Same type only"
-                : "No categories available"}
-            </span>
+            {categories.length === 0 && <span>No categories available</span>}
           </span>
           <ChevronDown
             aria-hidden="true"

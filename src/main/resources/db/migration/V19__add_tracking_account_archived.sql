@@ -1,0 +1,2 @@
+ALTER TABLE tracking_accounts
+    ADD COLUMN archived BOOLEAN NOT NULL DEFAULT FALSE;

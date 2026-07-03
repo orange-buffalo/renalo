@@ -14,7 +14,7 @@ class DashboardService(
     private val timeProvider: TimeProvider,
 ) {
     fun getAccountSummaries(userId: Long): List<AccountDashboardSummary> {
-        val accounts = trackingAccountRepository.findByUserIdOrderByName(userId)
+        val accounts = trackingAccountRepository.findByUserIdAndArchivedFalseOrderByName(userId)
         if (accounts.isEmpty()) {
             return emptyList()
         }

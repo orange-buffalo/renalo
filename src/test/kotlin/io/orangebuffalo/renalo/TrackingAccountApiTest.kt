@@ -86,18 +86,116 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                     "name": "Main",
                     "currency": "AUD",
                     "initialBalanceMinor": 0,
-                    "isDefault": true
+                    "isDefault": true,
+                    "archived": false
                   },
                   {
                     "id": ${aliceSavings.id},
                     "name": "Savings",
                     "currency": "EUR",
                     "initialBalanceMinor": 12345,
-                    "isDefault": false
+                    "isDefault": false,
+                    "archived": false
                   }
                 ]
             """.trimIndent(),
         )
+    }
+
+    @Test
+    fun hidesArchivedAccountsUnlessRequested() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        val archived = saveAccount(alice, "Old", "AUD", 123, isDefault = false, archived = true)
+        val token = api().login("alice", "password")
+
+        val activeResponse = api().get("/api/tracking/accounts", token)
+        val allResponse = api().get("/api/tracking/accounts?includeArchived=true", token)
+
+        activeResponse.statusCode().shouldBe(200)
+        activeResponse.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${main.id},
+                    "name": "Main",
+                    "currency": "AUD",
+                    "initialBalanceMinor": 0,
+                    "isDefault": true,
+                    "archived": false
+                  }
+                ]
+            """.trimIndent(),
+        )
+        allResponse.statusCode().shouldBe(200)
+        allResponse.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "id": ${main.id},
+                    "name": "Main",
+                    "currency": "AUD",
+                    "initialBalanceMinor": 0,
+                    "isDefault": true,
+                    "archived": false
+                  },
+                  {
+                    "id": ${archived.id},
+                    "name": "Old",
+                    "currency": "AUD",
+                    "initialBalanceMinor": 123,
+                    "isDefault": false,
+                    "archived": true
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun archivesAndUnarchivesTrackingAccounts() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        val bob = saveUser("bob", UserType.USER)
+        val bobAccount = saveAccount(bob, "Bob", "AUD", 0, isDefault = true)
+        val token = api().login("alice", "password")
+
+        api().post("/api/tracking/accounts/${main.id}/archive", null).statusCode().shouldBe(401)
+        api().post("/api/tracking/accounts/${bobAccount.id}/archive", token).statusCode().shouldBe(404)
+
+        val archivedResponse = api().post("/api/tracking/accounts/${main.id}/archive", token)
+
+        archivedResponse.statusCode().shouldBe(200)
+        archivedResponse.body().shouldEqualJson(
+            """
+                {
+                  "id": ${main.id},
+                  "name": "Main",
+                  "currency": "AUD",
+                  "initialBalanceMinor": 0,
+                  "isDefault": true,
+                  "archived": true
+                }
+            """.trimIndent(),
+        )
+        trackingAccountRepository.findById(main.id!!).get().archived.shouldBe(true)
+
+        val unarchivedResponse = api().post("/api/tracking/accounts/${main.id}/unarchive", token)
+
+        unarchivedResponse.statusCode().shouldBe(200)
+        unarchivedResponse.body().shouldEqualJson(
+            """
+                {
+                  "id": ${main.id},
+                  "name": "Main",
+                  "currency": "AUD",
+                  "initialBalanceMinor": 0,
+                  "isDefault": true,
+                  "archived": false
+                }
+            """.trimIndent(),
+        )
+        trackingAccountRepository.findById(main.id!!).get().archived.shouldBe(false)
     }
 
     @Test
@@ -122,7 +220,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                   "name": "Savings",
                   "currency": "EUR",
                   "initialBalanceMinor": 12345,
-                  "isDefault": false
+                  "isDefault": false,
+                  "archived": false
                 }
             """.trimIndent(),
         )
@@ -150,7 +249,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                   "name": "Everyday",
                   "currency": "USD",
                   "initialBalanceMinor": 550,
-                  "isDefault": true
+                  "isDefault": true,
+                  "archived": false
                 }
             """.trimIndent(),
         )
@@ -179,7 +279,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                   "name": "Main",
                   "currency": "AUD",
                   "initialBalanceMinor": 0,
-                  "isDefault": true
+                  "isDefault": true,
+                  "archived": false
                 }
             """.trimIndent(),
         )
@@ -244,7 +345,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                     "name": "Main",
                     "currency": "AUD",
                     "initialBalanceMinor": 100,
-                    "isDefault": true
+                    "isDefault": true,
+                    "archived": false
                   },
                   "expensesCount": 1,
                   "incomesCount": 1,
@@ -255,14 +357,16 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                       "name": "External",
                       "currency": "AUD",
                       "initialBalanceMinor": 0,
-                      "isDefault": false
+                      "isDefault": false,
+                      "archived": false
                     },
                     {
                       "id": ${savings.id},
                       "name": "Savings",
                       "currency": "AUD",
                       "initialBalanceMinor": 500,
-                      "isDefault": false
+                      "isDefault": false,
+                      "archived": false
                     }
                   ]
                 }
@@ -373,6 +477,7 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
         currency: String,
         initialBalanceMinor: Long,
         isDefault: Boolean,
+        archived: Boolean = false,
     ): TrackingAccount = trackingAccountRepository.save(
         TrackingAccount(
             userId = user.id!!,
@@ -380,6 +485,7 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
             currency = currency,
             initialBalanceMinor = initialBalanceMinor,
             isDefault = isDefault,
+            archived = archived,
         ),
     )
 

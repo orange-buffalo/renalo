@@ -11,13 +11,17 @@ import {
   type IncomeCategory,
 } from "@/api/incomeCategories";
 import {
+  archiveTrackingAccount,
   fetchTrackingAccounts,
   type TrackingAccount,
+  unarchiveTrackingAccount,
 } from "@/api/trackingAccounts";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
 import { TableLoadingState } from "@/components/TableLoadingState";
 import {
+  TableArchiveAction,
   TableEditAction,
   TableMergeAction,
   TableMobileDetailsAction,
@@ -56,6 +60,10 @@ export function SettingsPage() {
   const [incomeCategoriesError, setIncomeCategoriesError] = useState<string>();
   const [toshlImportError, setToshlImportError] = useState<string>();
   const [isImportingToshl, setIsImportingToshl] = useState(false);
+  const [confirmingArchiveAccount, setConfirmingArchiveAccount] =
+    useState<TrackingAccount>();
+  const [updatingArchiveAccountId, setUpdatingArchiveAccountId] =
+    useState<number>();
 
   const handleToshlImport = async () => {
     if (!toshlFile) {
@@ -93,13 +101,58 @@ export function SettingsPage() {
     URL.revokeObjectURL(reportUrl);
   };
 
+  const handleArchiveAccountConfirmed = async () => {
+    if (!confirmingArchiveAccount) {
+      return;
+    }
+
+    setUpdatingArchiveAccountId(confirmingArchiveAccount.id);
+    setAccountsError(undefined);
+    try {
+      const archivedAccount = await archiveTrackingAccount(
+        confirmingArchiveAccount.id,
+      );
+      setAccounts((currentAccounts) =>
+        currentAccounts?.map((account) =>
+          account.id === archivedAccount.id ? archivedAccount : account,
+        ),
+      );
+      setConfirmingArchiveAccount(undefined);
+    } catch {
+      setAccountsError("Account could not be archived. Try again in a moment.");
+    } finally {
+      setUpdatingArchiveAccountId(undefined);
+    }
+  };
+
+  const handleUnarchiveAccount = async (account: TrackingAccount) => {
+    setUpdatingArchiveAccountId(account.id);
+    setAccountsError(undefined);
+    try {
+      const unarchivedAccount = await unarchiveTrackingAccount(account.id);
+      setAccounts((currentAccounts) =>
+        currentAccounts?.map((currentAccount) =>
+          currentAccount.id === unarchivedAccount.id
+            ? unarchivedAccount
+            : currentAccount,
+        ),
+      );
+    } catch {
+      setAccountsError(
+        "Account could not be unarchived. Try again in a moment.",
+      );
+    } finally {
+      setUpdatingArchiveAccountId(undefined);
+    }
+  };
+
   useEffect(() => {
     let isActive = true;
     setAccountsError(undefined);
     setExpenseCategoriesError(undefined);
     setIncomeCategoriesError(undefined);
 
-    fetchTrackingAccounts()
+    fetchTrackingAccounts({ includeArchived: true })
       .then((nextAccounts) => {
         if (isActive) {
           setAccounts(nextAccounts);
@@ -214,6 +267,7 @@ export function SettingsPage() {
                   <Table.Head id="currency" label="Currency" />
                   <Table.Head id="initialBalance" label="Initial balance" />
                   <Table.Head id="default" label="Default" />
+                  <Table.Head id="status" label="Status" />
                   <Table.Head
                     id="actions"
                     label="Actions"
@@ -244,10 +298,33 @@ export function SettingsPage() {
                           {account.isDefault ? "Default" : "No"}
                         </BadgeWithDot>
                       </Table.Cell>
+                      <Table.Cell mobileLabel="Status">
+                        <BadgeWithDot
+                          color={account.archived ? "gray" : "success"}
+                          size="sm"
+                        >
+                          {account.archived ? "Archived" : "Active"}
+                        </BadgeWithDot>
+                      </Table.Cell>
                       <Table.Cell mobileRole="actions">
                         <TableRowActions>
                           <TableMobileDetailsAction
                             label={`Show ${account.name} details`}
+                          />
+                          <TableArchiveAction
+                            label={
+                              account.archived
+                                ? `Unarchive ${account.name}`
+                                : `Archive ${account.name}`
+                            }
+                            isLoading={updatingArchiveAccountId === account.id}
+                            onPress={() => {
+                              if (account.archived) {
+                                handleUnarchiveAccount(account);
+                              } else {
+                                setConfirmingArchiveAccount(account);
+                              }
+                            }}
                           />
                           <TableMergeAction
                             label={`Merge ${account.name}`}
@@ -520,6 +597,19 @@ export function SettingsPage() {
           </section>
         </Tabs.Panel>
       </Tabs>
+      <ConfirmationDialog
+        isOpen={Boolean(confirmingArchiveAccount)}
+        title="Archive account?"
+        description={
+          confirmingArchiveAccount
+            ? `${confirmingArchiveAccount.name} will be hidden from dashboards, transaction forms, and account filters. Existing transactions and transfers remain linked to it and you can unarchive the account later.`
+            : ""
+        }
+        confirmLabel="Archive account"
+        isConfirming={Boolean(updatingArchiveAccountId)}
+        onCancel={() => setConfirmingArchiveAccount(undefined)}
+        onConfirm={handleArchiveAccountConfirmed}
+      />
     </PageLayout>
   );
 }

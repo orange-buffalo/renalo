@@ -6,6 +6,7 @@ export type TrackingAccount = {
   currency: string;
   initialBalanceMinor: number;
   isDefault: boolean;
+  archived: boolean;
 };
 
 export type SaveTrackingAccount = {
@@ -23,8 +24,15 @@ export type TrackingAccountMergeSummary = {
   targetAccounts: TrackingAccount[];
 };
 
-export function fetchTrackingAccounts() {
-  return apiRequest<TrackingAccount[]>("/api/tracking/accounts");
+export function fetchTrackingAccounts(options?: { includeArchived?: boolean }) {
+  const params = new URLSearchParams();
+  if (options?.includeArchived) {
+    params.set("includeArchived", "true");
+  }
+  const query = params.toString();
+  return apiRequest<TrackingAccount[]>(
+    `/api/tracking/accounts${query ? `?${query}` : ""}`,
+  );
 }
 
 export function fetchTrackingAccount(accountId: number) {
@@ -65,4 +73,18 @@ export function mergeTrackingAccount(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ targetAccountId }),
   });
+}
+
+export function archiveTrackingAccount(accountId: number) {
+  return apiRequest<TrackingAccount>(
+    `/api/tracking/accounts/${accountId}/archive`,
+    { method: "POST" },
+  );
+}
+
+export function unarchiveTrackingAccount(accountId: number) {
+  return apiRequest<TrackingAccount>(
+    `/api/tracking/accounts/${accountId}/unarchive`,
+    { method: "POST" },
+  );
 }

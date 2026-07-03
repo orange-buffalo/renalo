@@ -1,4 +1,4 @@
-import { Edit02, Eye, GitMerge, Trash01 } from "@untitledui/icons";
+import { Archive, Edit02, Eye, GitMerge, Trash01 } from "@untitledui/icons";
 import type { ComponentProps, ReactNode } from "react";
 import { Table } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -32,6 +32,12 @@ type TableViewActionProps = {
 type TableMergeActionProps = {
   label: string;
   onPress: () => void;
+};
+
+type TableArchiveActionProps = {
+  label: string;
+  onPress: () => void;
+  isLoading?: boolean;
 };
 
 export function TableRowActions({ children }: TableRowActionsProps) {
@@ -80,6 +86,23 @@ export function TableMergeAction({ label, onPress }: TableMergeActionProps) {
   );
 }
 
+export function TableArchiveAction({
+  label,
+  onPress,
+  isLoading,
+}: TableArchiveActionProps) {
+  return (
+    <Button
+      aria-label={label}
+      color="tertiary"
+      size="sm"
+      iconLeading={ArchiveActionIcon}
+      isLoading={isLoading}
+      onPress={onPress}
+    />
+  );
+}
+
 export function TableDeleteAction({
   label,
   onPress,
@@ -116,4 +139,8 @@ function ViewActionIcon(props: ComponentProps<typeof Eye>) {
 
 function MergeActionIcon(props: ComponentProps<typeof GitMerge>) {
   return <GitMerge {...props} data-action-icon="merge" aria-hidden="true" />;
+}
+
+function ArchiveActionIcon(props: ComponentProps<typeof Archive>) {
+  return <Archive {...props} data-action-icon="archive" aria-hidden="true" />;
 }
