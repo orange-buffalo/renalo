@@ -219,8 +219,8 @@ export function AccountAdjustmentsPage() {
           ) : (
             <Table aria-label="Account adjustments" size="sm">
               <Table.Header>
-                <Table.Head id="date" label="Date" isRowHeader />
-                <Table.Head id="amount" label="Amount" />
+                <Table.Head id="amount" label="Amount" isRowHeader />
+                <Table.Head id="date" label="Date" />
                 <Table.Head
                   id="actions"
                   label="Actions"
@@ -236,9 +236,6 @@ export function AccountAdjustmentsPage() {
                     data-testid={`adjustment-row-${adjustment.id}`}
                   >
                     <Table.Cell>
-                      {formatDateDisplay(adjustment.createdAt)}
-                    </Table.Cell>
-                    <Table.Cell>
                       <span
                         className={
                           adjustment.adjustmentAmountMinor >= 0
@@ -251,6 +248,9 @@ export function AccountAdjustmentsPage() {
                           data.currency,
                         )}
                       </span>
+                    </Table.Cell>
+                    <Table.Cell>
+                      {formatDateDisplay(adjustment.createdAt)}
                     </Table.Cell>
                     <Table.Cell mobileRole="actions">
                       <div className="table-row-actions">

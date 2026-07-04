@@ -1,24 +1,5 @@
 To the agents: when requested, address one issue from this file. Once user confirms the issue solve,
 remove it from the file.
----
-### Transactional accounts adjustments.
-
-With time, a delta accumulates between the real world accounts and recorded data in the app.
-To allow for a nice alignemnt, we want to adjust the accounts without fake incomes/expenses.
-
-Add an action to the accounts overview table. We need to think about a name. Reconciliation? Adjusments? Reality check?
-Maybe there is an industry standard for that?
-When clicked, a new page should be open. The page should display a list of all previously recorded adjustments.
-Above the table, there should be a form to add a new adjustment, probably in our standard section panel.
-The form should have two inputs: adjustment amount (zero by default) and target balance (current total balance like 
-shown on dashboard). Changing any of them by a user should automatically update the other.
-On save, a new entry in the adjustments to be created with the adjustment amount. Adjustment can be positive or negative,
-but not zero.
-
-Update dashboard total balance calculation (as well as the one used on this form) to take all adjustments into account.
-
-The adjustments table should allow to remove an adjustment with confirmation. No editing support.
----
 ### Toshl import reconciliation
 Update Toshl import to treat "Reconciliation" category records as reconciliation/adjustments records in our model. If expense value in the CSV is provided, adjustments is negative; if income value is provided - positive. Use the actual currency value, not the "In main currency".
 
