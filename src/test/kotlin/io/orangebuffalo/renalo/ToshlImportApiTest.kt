@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.tracking.AccountAdjustmentRepository
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.FundsTransferRepository
 import io.orangebuffalo.renalo.tracking.IncomeCategoryRepository
@@ -19,6 +20,7 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -43,6 +45,9 @@ class ToshlImportApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var fundsTransferRepository: FundsTransferRepository
+
+    @Inject
+    lateinit var accountAdjustmentRepository: AccountAdjustmentRepository
 
     @Test
     fun requiresRegularUserForToshlImport() {
@@ -74,6 +79,8 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 0,
                   "importedTransfers": 1,
                   "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 0,
+                  "skippedDuplicateAdjustments": 0,
                   "warnings": [],
                   "report": [
                     {
@@ -181,6 +188,8 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 1,
                   "importedTransfers": 0,
                   "skippedDuplicateTransfers": 1,
+                  "importedAdjustments": 0,
+                  "skippedDuplicateAdjustments": 0,
                   "warnings": [],
                   "report": [
                     {
@@ -275,6 +284,8 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 0,
                   "importedTransfers": 0,
                   "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 0,
+                  "skippedDuplicateAdjustments": 0,
                   "warnings": [],
                   "report": [
                     {
@@ -347,6 +358,8 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 0,
                   "importedTransfers": 0,
                   "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 0,
+                  "skippedDuplicateAdjustments": 0,
                   "warnings": [
                     {
                       "lineNumber": 2,
@@ -408,6 +421,8 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 0,
                   "importedTransfers": 1,
                   "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 0,
+                  "skippedDuplicateAdjustments": 0,
                   "warnings": [
                     {
                       "lineNumber": 3,
@@ -490,6 +505,8 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 0,
                   "importedTransfers": 1,
                   "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 0,
+                  "skippedDuplicateAdjustments": 0,
                   "warnings": [],
                   "report": [
                     {
@@ -577,6 +594,8 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                   "skippedDuplicateIncomes": 0,
                   "importedTransfers": 0,
                   "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 0,
+                  "skippedDuplicateAdjustments": 0,
                   "warnings": [
                     {
                       "lineNumber": 2,
@@ -654,6 +673,195 @@ class ToshlImportApiTest : IntegrationTestSupport() {
             ),
             token,
         ).statusCode().shouldBe(400)
+    }
+
+    @Test
+    fun importsToshlReconciliationRowsAsAdjustments() {
+        val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Wallet", "AUD", isDefault = true)
+        val token = api().login("alice", "password")
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,Wallet,Reconciliation,,50.00,0,AUD,50.00,AUD,Payment fees
+                    5/6/26,Wallet,Reconciliation,,0,100.00,AUD,100.00,AUD,Bank error refund
+                """.trimIndent(),
+            ),
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "importedExpenses": 0,
+                  "importedIncomes": 0,
+                  "skippedDuplicateExpenses": 0,
+                  "skippedDuplicateIncomes": 0,
+                  "importedTransfers": 0,
+                  "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 2,
+                  "skippedDuplicateAdjustments": 0,
+                  "warnings": [],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-01",
+                      "account": "Wallet",
+                      "category": "Reconciliation",
+                      "type": "EXPENSE",
+                      "amountMinor": 5000,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as adjustment."
+                    },
+                    {
+                      "lineNumber": 3,
+                      "date": "2026-06-05",
+                      "account": "Wallet",
+                      "category": "Reconciliation",
+                      "type": "INCOME",
+                      "amountMinor": 10000,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as adjustment."
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        val adjustments = accountAdjustmentRepository.findByUserId(alice.id!!)
+            .sortedBy { it.id }
+        adjustments.size.shouldBe(2)
+        adjustments[0].adjustmentAmountMinor.shouldBe(-5_000L)
+        adjustments[0].trackingAccountId.shouldBe(
+            trackingAccountRepository.findByUserIdOrderByName(alice.id!!).single().id,
+        )
+        adjustments[0].metadata.shouldBe(mapOf("source" to "toshl"))
+        adjustments[0].date.shouldBe(LocalDate.of(2026, 6, 1))
+        adjustments[1].adjustmentAmountMinor.shouldBe(10_000L)
+        adjustments[1].trackingAccountId.shouldBe(
+            trackingAccountRepository.findByUserIdOrderByName(alice.id!!).single().id,
+        )
+        adjustments[1].metadata.shouldBe(mapOf("source" to "toshl"))
+        adjustments[1].date.shouldBe(LocalDate.of(2026, 6, 5))
+    }
+
+    @Test
+    fun skipsDuplicateReconciliationRowsWhenImportedAgain() {
+        val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Wallet", "AUD", isDefault = true)
+        val token = api().login("alice", "password")
+        api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,Wallet,Reconciliation,,50.00,0,AUD,50.00,AUD,Payment fees
+                """.trimIndent(),
+            ),
+            token,
+        ).statusCode().shouldBe(200)
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,Wallet,Reconciliation,,50.00,0,AUD,50.00,AUD,Payment fees
+                """.trimIndent(),
+            ),
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "importedExpenses": 0,
+                  "importedIncomes": 0,
+                  "skippedDuplicateExpenses": 0,
+                  "skippedDuplicateIncomes": 0,
+                  "importedTransfers": 0,
+                  "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 0,
+                  "skippedDuplicateAdjustments": 1,
+                  "warnings": [],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-01",
+                      "account": "Wallet",
+                      "category": "Reconciliation",
+                      "type": "EXPENSE",
+                      "amountMinor": 5000,
+                      "currency": "AUD",
+                      "status": "SKIPPED_DUPLICATE",
+                      "reason": "Duplicate adjustment by account and amount."
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        accountAdjustmentRepository.findByUserId(alice.id!!).size.shouldBe(1)
+    }
+
+    @Test
+    fun createsMissingAccountForReconciliationRow() {
+        val alice = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,New account,Reconciliation,,100.00,0,AUD,100.00,AUD,
+                """.trimIndent(),
+            ),
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "importedExpenses": 0,
+                  "importedIncomes": 0,
+                  "skippedDuplicateExpenses": 0,
+                  "skippedDuplicateIncomes": 0,
+                  "importedTransfers": 0,
+                  "skippedDuplicateTransfers": 0,
+                  "importedAdjustments": 1,
+                  "skippedDuplicateAdjustments": 0,
+                  "warnings": [],
+                  "report": [
+                    {
+                      "lineNumber": 2,
+                      "date": "2026-06-01",
+                      "account": "New account",
+                      "category": "Reconciliation",
+                      "type": "EXPENSE",
+                      "amountMinor": 10000,
+                      "currency": "AUD",
+                      "status": "IMPORTED",
+                      "reason": "Imported as adjustment."
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        trackingAccountRepository.findByUserIdOrderByName(alice.id!!).map { it.name }.shouldContainExactly("New account")
+        val adjustment = accountAdjustmentRepository.findByUserId(alice.id!!).single()
+        adjustment.adjustmentAmountMinor.shouldBe(-10_000L)
+        adjustment.metadata.shouldBe(mapOf("source" to "toshl"))
+        adjustment.date.shouldBe(LocalDate.of(2026, 6, 1))
     }
 
     private fun saveUser(username: String, type: UserType): User = userRepository.save(

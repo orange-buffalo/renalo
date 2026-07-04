@@ -250,7 +250,7 @@ export function AccountAdjustmentsPage() {
                       </span>
                     </Table.Cell>
                     <Table.Cell>
-                      {formatDateDisplay(adjustment.createdAt)}
+                      {formatDateDisplay(adjustment.date)}
                     </Table.Cell>
                     <Table.Cell mobileRole="actions">
                       <div className="table-row-actions">

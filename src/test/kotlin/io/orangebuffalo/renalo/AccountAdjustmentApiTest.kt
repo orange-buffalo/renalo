@@ -99,11 +99,13 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
                     {
                       "id": ${adj2.id!!},
                       "adjustmentAmountMinor": -500,
+                      "date": "${adj2.date}",
                       "createdAt": "${createdAtFormatter.format(adj2.createdAt!!)}"
                     },
                     {
                       "id": ${adj1.id},
                       "adjustmentAmountMinor": 1500,
+                      "date": "${adj1.date}",
                       "createdAt": "${createdAtFormatter.format(adj1.createdAt!!)}"
                     }
                   ]
@@ -184,6 +186,7 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
                     {
                       "id": ${saved.single().id},
                       "adjustmentAmountMinor": -3500,
+                      "date": "${saved.single().date}",
                       "createdAt": "${createdAtFormatter.format(saved.single().createdAt!!)}"
                     }
                   ]
@@ -321,11 +324,13 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
         user: User,
         account: TrackingAccount,
         amountMinor: Long,
+        date: LocalDate = TestTimeProvider.DEFAULT_DATE,
     ): AccountAdjustment = accountAdjustmentRepository.save(
         AccountAdjustment(
             userId = user.id!!,
             trackingAccountId = account.id!!,
             adjustmentAmountMinor = amountMinor,
+            date = date,
         ),
     )
 

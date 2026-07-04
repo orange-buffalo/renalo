@@ -3,8 +3,11 @@ package io.orangebuffalo.renalo.tracking
 import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.micronaut.transaction.annotation.Transactional
+import io.orangebuffalo.renalo.time.TimeProvider
 import jakarta.inject.Singleton
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 @Singleton
 open class AccountAdjustmentService(
@@ -12,6 +15,7 @@ open class AccountAdjustmentService(
     private val trackingAccountRepository: TrackingAccountRepository,
     private val transactionRepository: TransactionRepository,
     private val fundsTransferRepository: FundsTransferRepository,
+    private val timeProvider: TimeProvider,
 ) {
     open fun getAdjustmentsWithBalance(userId: Long, trackingAccountId: Long): AccountAdjustmentsData? {
         val account = trackingAccountRepository.findByIdAndUserId(trackingAccountId, userId)
@@ -47,6 +51,7 @@ open class AccountAdjustmentService(
                 userId = userId,
                 trackingAccountId = account.id ?: return CreateAdjustmentResult.AccountNotFound,
                 adjustmentAmountMinor = amountMinor,
+                date = LocalDate.ofInstant(timeProvider.now(), ZoneOffset.UTC),
             ),
         )
 
@@ -89,6 +94,7 @@ open class AccountAdjustmentService(
     private fun AccountAdjustment.toResponse() = AccountAdjustmentResponse(
         id = id ?: error("Account adjustment must be persisted before it can be returned"),
         adjustmentAmountMinor = adjustmentAmountMinor,
+        date = date,
         createdAt = createdAt ?: error("Account adjustment must have a creation timestamp"),
     )
 }
@@ -106,6 +112,8 @@ data class AccountAdjustmentsData(
 data class AccountAdjustmentResponse(
     val id: Long,
     val adjustmentAmountMinor: Long,
+    @field:JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    val date: LocalDate,
     @field:JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     val createdAt: Instant,
 )

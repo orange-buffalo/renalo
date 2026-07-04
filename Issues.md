@@ -1,9 +1,5 @@
 To the agents: when requested, address one issue from this file. Once user confirms the issue solve,
 remove it from the file.
-### Toshl import reconciliation
-Update Toshl import to treat "Reconciliation" category records as reconciliation/adjustments records in our model. If expense value in the CSV is provided, adjustments is negative; if income value is provided - positive. Use the actual currency value, not the "In main currency".
-
----
 
 ### Improve logging
 When app is started, it logs debug entries, which is annoying and too much. Set the default level to info.
