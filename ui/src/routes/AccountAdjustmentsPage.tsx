@@ -239,8 +239,8 @@ export function AccountAdjustmentsPage() {
                       <span
                         className={
                           adjustment.adjustmentAmountMinor >= 0
-                            ? "text-green-600"
-                            : "text-red-600"
+                            ? "text-utility-green-500"
+                            : "text-utility-red-500"
                         }
                       >
                         {formatMoney(

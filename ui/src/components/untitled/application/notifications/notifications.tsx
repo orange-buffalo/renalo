@@ -10,13 +10,13 @@ const toneStyles: Record<
   { icon: string; ringInner: string; ringOuter: string }
 > = {
   success: {
-    icon: "text-[#17b26a]",
-    ringInner: "ring-[#dcfae6]",
-    ringOuter: "ring-[#ecfdf3]",
+    icon: "text-[#12b76a]",
+    ringInner: "ring-[#a6f4c5]",
+    ringOuter: "ring-[#ecfdf5]",
   },
   info: {
-    icon: "text-[#2e90fa]",
-    ringInner: "ring-[#d1e9ff]",
+    icon: "text-[#53b1fd]",
+    ringInner: "ring-[#b2ddff]",
     ringOuter: "ring-[#eff8ff]",
   },
 };
@@ -56,7 +56,7 @@ export function showNotification({
   toast.custom(
     (toastId) => (
       <div
-        className="flex w-full gap-4 rounded-2xl border border-[#d5d7da] bg-white p-5 pr-4 shadow-lg"
+        className="flex w-full gap-4 rounded-2xl border border-[#d8dce5] bg-white p-5 pr-4 shadow-lg"
         role="status"
       >
         <span
@@ -75,9 +75,9 @@ export function showNotification({
           </span>
         </span>
         <div className="grid min-w-0 flex-1 gap-2">
-          <p className="m-0 text-lg font-semibold text-[#181d27]">{title}</p>
+          <p className="m-0 text-lg font-semibold text-[#1d2029]">{title}</p>
           {description && (
-            <p className="m-0 text-base leading-6 text-[#414651]">
+            <p className="m-0 text-base leading-6 text-[#364054]">
               {description}
             </p>
           )}
@@ -85,7 +85,7 @@ export function showNotification({
         <button
           type="button"
           aria-label="Dismiss notification"
-          className="-m-1 size-8 shrink-0 rounded-lg p-1.5 text-[#a4a7ae] transition hover:bg-[#fafafa] hover:text-[#717680]"
+          className="-m-1 size-8 shrink-0 rounded-lg p-1.5 text-[#9aa5b8] transition hover:bg-[#f7f8fa] hover:text-[#4f5d74]"
           onClick={() => toast.dismiss(toastId)}
         >
           <XClose className="size-5" />

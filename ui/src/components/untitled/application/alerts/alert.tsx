@@ -19,19 +19,19 @@ const toneStyles: Record<
     ringOuter: "ring-[#fef3f2]",
   },
   success: {
-    icon: "text-[#17b26a]",
-    ringInner: "ring-[#dcfae6]",
-    ringOuter: "ring-[#ecfdf3]",
+    icon: "text-[#12b76a]",
+    ringInner: "ring-[#a6f4c5]",
+    ringOuter: "ring-[#ecfdf5]",
   },
   brand: {
-    icon: "text-[#2e90fa]",
-    ringInner: "ring-[#d1e9ff]",
-    ringOuter: "ring-[#eff8ff]",
+    icon: "text-[#6941c6]",
+    ringInner: "ring-[#c4b0f7]",
+    ringOuter: "ring-[#f5eeff]",
   },
   gray: {
-    icon: "text-[#717680]",
-    ringInner: "ring-[#e9eaeb]",
-    ringOuter: "ring-[#fafafa]",
+    icon: "text-[#6c7a92]",
+    ringInner: "ring-[#d8dce5]",
+    ringOuter: "ring-[#f7f8fa]",
   },
 };
 
@@ -52,7 +52,7 @@ export function Alert({
     <div
       role="alert"
       className={cx(
-        "flex gap-5 rounded-2xl border border-[#d5d7da] bg-white p-5 shadow-xs",
+        "flex gap-5 rounded-2xl border border-[#d8dce5] bg-white p-5 shadow-xs",
         className,
       )}
     >
@@ -72,9 +72,9 @@ export function Alert({
         </span>
       </span>
       <div className="grid min-w-0 flex-1 gap-1 text-base">
-        <p className="m-0 font-semibold text-[#414651]">{title}</p>
+        <p className="m-0 font-semibold text-[#364054]">{title}</p>
         {children && (
-          <div className="grid gap-3 text-[#414651] [&_p]:m-0">{children}</div>
+          <div className="grid gap-3 text-[#364054] [&_p]:m-0">{children}</div>
         )}
       </div>
     </div>
