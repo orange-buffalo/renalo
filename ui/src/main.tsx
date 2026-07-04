@@ -6,6 +6,7 @@ import { AppStateProvider, useAppState } from "./AppState.tsx";
 import type { UserType } from "./api/auth.ts";
 import { LoadingPage } from "./components/AnonymousPage.tsx";
 import { Notifications } from "./components/untitled/application/notifications/notifications.tsx";
+import { AccountAdjustmentsPage } from "./routes/AccountAdjustmentsPage.tsx";
 import { ActivateAccountPage } from "./routes/ActivateAccountPage.tsx";
 import { CreateUserPage } from "./routes/CreateUserPage.tsx";
 import { EditUserPage } from "./routes/EditUserPage.tsx";
@@ -167,6 +168,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <MergeTrackingAccountPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/accounts/:accountId/adjustments",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <AccountAdjustmentsPage />
       </ProtectedRoute>
     ),
   },

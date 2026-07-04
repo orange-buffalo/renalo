@@ -11,6 +11,7 @@ class DashboardService(
     private val trackingAccountRepository: TrackingAccountRepository,
     private val transactionRepository: TransactionRepository,
     private val fundsTransferRepository: FundsTransferRepository,
+    private val accountAdjustmentRepository: AccountAdjustmentRepository,
     private val timeProvider: TimeProvider,
 ) {
     fun getAccountSummaries(userId: Long): List<AccountDashboardSummary> {
@@ -74,6 +75,13 @@ class DashboardService(
                     if (transfer.date.isIn(currentMonth) && !transfer.date.isAfter(today)) {
                         currentMonthInflowMinor += transfer.targetAmountMinor
                     }
+                }
+            }
+
+        accountAdjustmentRepository.findByUserId(userId)
+            .forEach { adjustment ->
+                summaries[adjustment.trackingAccountId]?.apply {
+                    totalBalanceMinor += adjustment.adjustmentAmountMinor
                 }
             }
 

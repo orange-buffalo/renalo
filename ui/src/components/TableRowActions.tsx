@@ -1,4 +1,11 @@
-import { Archive, Edit02, Eye, GitMerge, Trash01 } from "@untitledui/icons";
+import {
+  Archive,
+  Edit02,
+  Eye,
+  GitMerge,
+  Scales01,
+  Trash01,
+} from "@untitledui/icons";
 import type { ComponentProps, ReactNode } from "react";
 import { Table } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -30,6 +37,11 @@ type TableViewActionProps = {
 };
 
 type TableMergeActionProps = {
+  label: string;
+  onPress: () => void;
+};
+
+type TableAdjustActionProps = {
   label: string;
   onPress: () => void;
 };
@@ -103,6 +115,18 @@ export function TableArchiveAction({
   );
 }
 
+export function TableAdjustAction({ label, onPress }: TableAdjustActionProps) {
+  return (
+    <Button
+      aria-label={label}
+      color="tertiary"
+      size="sm"
+      iconLeading={AdjustActionIcon}
+      onPress={onPress}
+    />
+  );
+}
+
 export function TableDeleteAction({
   label,
   onPress,
@@ -143,4 +167,8 @@ function MergeActionIcon(props: ComponentProps<typeof GitMerge>) {
 
 function ArchiveActionIcon(props: ComponentProps<typeof Archive>) {
   return <Archive {...props} data-action-icon="archive" aria-hidden="true" />;
+}
+
+function AdjustActionIcon(props: ComponentProps<typeof Scales01>) {
+  return <Scales01 {...props} data-action-icon="adjust" aria-hidden="true" />;
 }

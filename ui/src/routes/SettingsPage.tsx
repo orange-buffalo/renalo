@@ -25,6 +25,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
 import { TableLoadingState } from "@/components/TableLoadingState";
 import {
+  TableAdjustAction,
   TableArchiveAction,
   TableEditAction,
   TableMergeAction,
@@ -433,6 +434,14 @@ export function SettingsPage() {
                             label={`Merge ${account.name}`}
                             onPress={() =>
                               navigate(`/settings/accounts/${account.id}/merge`)
+                            }
+                          />
+                          <TableAdjustAction
+                            label={`Adjust ${account.name}`}
+                            onPress={() =>
+                              navigate(
+                                `/settings/accounts/${account.id}/adjustments`,
+                              )
                             }
                           />
                           <TableEditAction
