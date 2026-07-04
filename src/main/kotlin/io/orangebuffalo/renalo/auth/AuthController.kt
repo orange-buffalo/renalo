@@ -24,6 +24,7 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.time.Duration
 import java.util.Base64
 
 @Controller("/api")
@@ -38,6 +39,8 @@ class AuthController(
     private val timeProvider: TimeProvider,
     @Value("\${renalo.auth.remember-me-token-expiration-seconds}")
     private val rememberMeTokenExpirationSeconds: Long,
+    @Value("\${renalo.login-bruteforce-delay}")
+    private val loginBruteforceDelay: Duration,
 ) {
     @Post("/create-auth-token")
     @Secured(SecurityRule.IS_ANONYMOUS)
@@ -45,6 +48,7 @@ class AuthController(
         httpRequest: HttpRequest<*>,
         @Body request: CreateAuthTokenRequest,
     ): HttpResponse<*> {
+        Thread.sleep(loginBruteforceDelay.toMillis())
         val user = userRepository.findByUsername(request.username)
             ?: return HttpResponse.unauthorized<Any>()
 

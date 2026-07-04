@@ -2,10 +2,7 @@ To the agents: when requested, address one issue from this file. Once user confi
 remove it from the file.
 
 ---
-### Password login bruteforce protection
-Add a naive bruteforce protection to the password login flow, same as in other similar features - sleep thread for 500-1000 ms.
 
----
 ### Configure and issue refresh token when singning in with a passkey
 Add a flag to the user account - "issueRefreshTokenOnPasskeyLogin" or similar. Default to true for existing records.
 
