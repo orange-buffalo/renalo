@@ -88,6 +88,7 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
                   "accountName": "Main",
                   "currency": "AUD",
                   "currentBalanceMinor": 14000,
+                  "baseBalanceMinor": 13000,
                   "adjustments": [
                     {
                       "id": ${adjustment.id!! + 1},
@@ -170,6 +171,7 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
                   "accountName": "Main",
                   "currency": "AUD",
                   "currentBalanceMinor": 6500,
+                  "baseBalanceMinor": 10000,
                   "adjustments": [
                     {
                       "id": ${saved.single().id},

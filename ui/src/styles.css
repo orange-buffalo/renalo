@@ -1624,6 +1624,17 @@ input {
   max-width: none;
 }
 
+.adjustments-table-panel {
+  margin-top: 24px;
+  max-width: none;
+}
+
+.adjustments-back-link {
+  display: flex;
+  justify-content: flex-start;
+  padding: 16px 0 0;
+}
+
 .table-row-actions {
   display: flex;
   gap: 8px;

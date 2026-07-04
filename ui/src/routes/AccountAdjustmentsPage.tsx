@@ -1,5 +1,5 @@
-import { Scales01, Trash01 } from "@untitledui/icons";
-import { type FormEvent, useEffect, useState } from "react";
+import { Trash01 } from "@untitledui/icons";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   type AccountAdjustmentsData,
@@ -19,13 +19,14 @@ import {
   TableCard,
 } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
-import { formatMoney, parseMoneyInput } from "@/utils/money";
+import { formatMoney, formatMoneyInput, parseMoneyInput } from "@/utils/money";
 
 export function AccountAdjustmentsPage() {
   const navigate = useNavigate();
   const { accountId } = useParams();
   const [data, setData] = useState<AccountAdjustmentsData>();
   const [amount, setAmount] = useState("");
+  const [targetAmount, setTargetAmount] = useState("");
   const [error, setError] = useState<string>();
   const [amountError, setAmountError] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +44,12 @@ export function AccountAdjustmentsPage() {
       .then((loadedData) => {
         if (isActive) {
           setData(loadedData);
+          setTargetAmount(
+            formatMoneyInput(
+              loadedData.currentBalanceMinor,
+              loadedData.currency,
+            ),
+          );
           setIsLoading(false);
         }
       })
@@ -57,6 +64,43 @@ export function AccountAdjustmentsPage() {
       isActive = false;
     };
   }, [accountId]);
+
+  const handleAdjustmentChange = useCallback(
+    (nextAmount: string) => {
+      setAmount(nextAmount);
+      setAmountError(undefined);
+      if (!data) {
+        return;
+      }
+      const parsed = parseMoneyInput(nextAmount, data.currency);
+      if (parsed !== undefined) {
+        setTargetAmount(
+          formatMoneyInput(data.currentBalanceMinor + parsed, data.currency),
+        );
+      }
+    },
+    [data],
+  );
+
+  const handleTargetChange = useCallback(
+    (nextTarget: string) => {
+      setTargetAmount(nextTarget);
+      setAmountError(undefined);
+      if (!data) {
+        return;
+      }
+      const parsedTarget = parseMoneyInput(nextTarget, data.currency);
+      if (parsedTarget !== undefined) {
+        setAmount(
+          formatMoneyInput(
+            parsedTarget - data.currentBalanceMinor,
+            data.currency,
+          ),
+        );
+      }
+    },
+    [data],
+  );
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -79,9 +123,12 @@ export function AccountAdjustmentsPage() {
 
     try {
       await createAccountAdjustment(Number(accountId), adjustmentAmountMinor);
-      setAmount("");
       const updatedData = await fetchAccountAdjustments(Number(accountId));
       setData(updatedData);
+      setAmount("");
+      setTargetAmount(
+        formatMoneyInput(updatedData.currentBalanceMinor, updatedData.currency),
+      );
     } catch {
       setError("Adjustment could not be saved. Try again in a moment.");
     } finally {
@@ -100,6 +147,10 @@ export function AccountAdjustmentsPage() {
       await deleteAccountAdjustment(Number(accountId), confirmingDeleteId);
       const updatedData = await fetchAccountAdjustments(Number(accountId));
       setData(updatedData);
+      setAmount("");
+      setTargetAmount(
+        formatMoneyInput(updatedData.currentBalanceMinor, updatedData.currency),
+      );
       setConfirmingDeleteId(undefined);
     } catch {
       setError("Adjustment could not be deleted. Try again in a moment.");
@@ -133,27 +184,23 @@ export function AccountAdjustmentsPage() {
             currency={data?.currency ?? "AUD"}
             isInvalid={Boolean(amountError)}
             hint={amountError ?? "Positive for credit, negative for debit."}
-            onChange={(nextAmount) => {
-              setAmount(nextAmount);
-              setAmountError(undefined);
-            }}
+            onChange={handleAdjustmentChange}
           />
-          <div className="tracking-account-form-spacer" />
+          <MoneyInput
+            label="Target balance"
+            name="targetBalance"
+            value={targetAmount}
+            currency={data?.currency ?? "AUD"}
+            hint="Desired balance after adjustment."
+            onChange={handleTargetChange}
+          />
           <div className="tracking-account-actions">
-            <Button
-              color="tertiary"
-              size="sm"
-              onPress={() => navigate("/settings")}
-              isDisabled={isSubmitting}
-            >
-              Back to settings
-            </Button>
+            <div />
             <Button
               color="primary"
               size="sm"
               type="submit"
               isLoading={isSubmitting}
-              iconLeading={Scales01}
             >
               Add adjustment
             </Button>
@@ -162,7 +209,7 @@ export function AccountAdjustmentsPage() {
         <FormLoadingOverlay isLoading={isLoading} />
       </section>
 
-      <section className="standard-page-panel user-management-panel">
+      <section className="standard-page-panel user-management-panel adjustments-table-panel">
         <TableCard.Root size="sm">
           {!data ? (
             <TableLoadingState label="Loading adjustments" />
@@ -218,6 +265,16 @@ export function AccountAdjustmentsPage() {
             </Table>
           )}
         </TableCard.Root>
+        <div className="adjustments-back-link">
+          <Button
+            color="tertiary"
+            size="sm"
+            onPress={() => navigate("/settings")}
+            isDisabled={isSubmitting}
+          >
+            Back to settings
+          </Button>
+        </div>
       </section>
 
       <ConfirmationDialog

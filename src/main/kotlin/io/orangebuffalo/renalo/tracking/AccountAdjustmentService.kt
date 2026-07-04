@@ -26,6 +26,7 @@ open class AccountAdjustmentService(
             accountName = account.name,
             currency = account.currency,
             currentBalanceMinor = currentBalance + adjustmentSum,
+            baseBalanceMinor = currentBalance,
             adjustments = adjustments.map { it.toResponse() },
         )
     }
@@ -94,6 +95,7 @@ data class AccountAdjustmentsData(
     val accountName: String,
     val currency: String,
     val currentBalanceMinor: Long,
+    val baseBalanceMinor: Long,
     @field:JsonInclude(JsonInclude.Include.ALWAYS)
     val adjustments: List<AccountAdjustmentResponse>,
 )

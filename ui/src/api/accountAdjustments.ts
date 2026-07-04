@@ -10,6 +10,7 @@ export type AccountAdjustmentsData = {
   accountName: string;
   currency: string;
   currentBalanceMinor: number;
+  baseBalanceMinor: number;
   adjustments: AccountAdjustment[];
 };
 
