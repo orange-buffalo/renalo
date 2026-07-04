@@ -3,16 +3,6 @@ remove it from the file.
 
 ---
 
-### Configure and issue refresh token when singning in with a passkey
-Add a flag to the user account - "issueRefreshTokenOnPasskeyLogin" or similar. Default to true for existing records.
-
-Update user profile page, passkey section. If the flag is up, render an additional description message like "once signed in,
-your session will be preserved for longer time". Otherwise "once singed in,your session will be short-lived". Add a text
-button left of "create passkey": "prolongate sessions / reduce sessions" based on the flag. The button click updates the settings. Make the wording nice and clean, this are just drafts.
-
-Update the login flow for the passkeys to respect the flag and issue or clean the refresh token accordingly.
-
----
 ### Implement PWA
 
 Add PWA support to the app. Extend the profile menu in the topbar with "Install as desktop app" item to request

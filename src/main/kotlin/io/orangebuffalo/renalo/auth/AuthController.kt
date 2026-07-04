@@ -141,11 +141,7 @@ class AuthController(
     fun profile(authentication: Authentication): ProfileResponse {
         val user = userRepository.findByUsername(authentication.name)
             ?: throw IllegalStateException("Authenticated user does not exist")
-        return ProfileResponse(
-            username = user.username,
-            type = user.type,
-            passwordSignInDisabled = user.passwordSignInDisabled,
-        )
+        return user.toProfileResponse()
     }
 
     @Post("/profile/disable-password-sign-in")
@@ -170,6 +166,26 @@ class AuthController(
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized()
         user.passwordSignInDisabled = false
+        userRepository.update(user)
+        return HttpResponse.ok(user.toProfileResponse())
+    }
+
+    @Post("/profile/disable-passkey-refresh-token")
+    @Secured(UserRoles.USER, UserRoles.ADMIN)
+    fun disablePasskeyRefreshToken(authentication: Authentication): HttpResponse<ProfileResponse> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized()
+        user.issueRefreshTokenOnPasskeyLogin = false
+        userRepository.update(user)
+        return HttpResponse.ok(user.toProfileResponse())
+    }
+
+    @Post("/profile/enable-passkey-refresh-token")
+    @Secured(UserRoles.USER, UserRoles.ADMIN)
+    fun enablePasskeyRefreshToken(authentication: Authentication): HttpResponse<ProfileResponse> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized()
+        user.issueRefreshTokenOnPasskeyLogin = true
         userRepository.update(user)
         return HttpResponse.ok(user.toProfileResponse())
     }
@@ -260,6 +276,7 @@ class AuthController(
         username = username,
         type = type,
         passwordSignInDisabled = passwordSignInDisabled,
+        issueRefreshTokenOnPasskeyLogin = issueRefreshTokenOnPasskeyLogin,
     )
 
     companion object {
@@ -292,6 +309,7 @@ data class ProfileResponse(
     val username: String,
     val type: UserType,
     val passwordSignInDisabled: Boolean,
+    val issueRefreshTokenOnPasskeyLogin: Boolean,
 )
 
 data class ChangePasswordRequest(

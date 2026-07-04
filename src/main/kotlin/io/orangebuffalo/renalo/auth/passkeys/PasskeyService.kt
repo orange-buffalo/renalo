@@ -169,7 +169,7 @@ class PasskeyService(
         )
     }
 
-    fun finishAuthentication(request: FinishPasskeyAuthenticationRequest): PasskeyAuthTokenResponse {
+    fun finishAuthentication(request: FinishPasskeyAuthenticationRequest): PasskeyAuthenticationResult {
         val challenge = requireChallenge(request.requestId, PasskeyChallengeType.AUTHENTICATION)
         val assertionResult = relyingParty.finishAssertion(
             FinishAssertionOptions.builder()
@@ -196,7 +196,12 @@ class PasskeyService(
         passkeyCredentialRepository.update(credential)
         passkeyChallengeRepository.deleteByRequestId(challenge.requestId)
 
-        return PasskeyAuthTokenResponse(accessTokenService.issueAccessToken(user.username, user.type))
+        val accessToken = accessTokenService.issueAccessToken(user.username, user.type)
+        return PasskeyAuthenticationResult(
+            token = accessToken,
+            userId = user.id ?: throw PasskeyOperationException("Persisted user is missing id"),
+            issueRefreshToken = user.issueRefreshTokenOnPasskeyLogin,
+        )
     }
 
     private fun requireActiveUser(username: String): User {
@@ -299,6 +304,12 @@ data class FinishPasskeyAuthenticationRequest(
 
 data class PasskeyAuthTokenResponse(
     val token: String,
+)
+
+data class PasskeyAuthenticationResult(
+    val token: String,
+    val userId: Long,
+    val issueRefreshToken: Boolean,
 )
 
 data class PasskeyResponse(

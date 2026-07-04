@@ -18,6 +18,7 @@ export type Profile = {
   username: string;
   type: UserType;
   passwordSignInDisabled: boolean;
+  issueRefreshTokenOnPasskeyLogin: boolean;
 };
 
 export type Passkey = {
@@ -119,6 +120,18 @@ export async function disablePasswordSignIn() {
 
 export async function enablePasswordSignIn() {
   return apiRequest<Profile>("/api/profile/enable-password-sign-in", {
+    method: "POST",
+  });
+}
+
+export async function disablePasskeyRefreshToken() {
+  return apiRequest<Profile>("/api/profile/disable-passkey-refresh-token", {
+    method: "POST",
+  });
+}
+
+export async function enablePasskeyRefreshToken() {
+  return apiRequest<Profile>("/api/profile/enable-passkey-refresh-token", {
     method: "POST",
   });
 }

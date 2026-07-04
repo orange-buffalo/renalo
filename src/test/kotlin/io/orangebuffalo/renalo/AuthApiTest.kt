@@ -126,7 +126,8 @@ class AuthApiTest : IntegrationTestSupport() {
                 {
                   "username": "alice",
                   "type": "USER",
-                  "passwordSignInDisabled": false
+                  "passwordSignInDisabled": false,
+                  "issueRefreshTokenOnPasskeyLogin": true
                 }
             """.trimIndent(),
         )
@@ -190,7 +191,8 @@ class AuthApiTest : IntegrationTestSupport() {
                 {
                   "username": "alice",
                   "type": "USER",
-                  "passwordSignInDisabled": true
+                  "passwordSignInDisabled": true,
+                  "issueRefreshTokenOnPasskeyLogin": true
                 }
             """.trimIndent(),
         )
@@ -204,7 +206,8 @@ class AuthApiTest : IntegrationTestSupport() {
                 {
                   "username": "alice",
                   "type": "USER",
-                  "passwordSignInDisabled": false
+                  "passwordSignInDisabled": false,
+                  "issueRefreshTokenOnPasskeyLogin": true
                 }
             """.trimIndent(),
         )
@@ -285,7 +288,8 @@ class AuthApiTest : IntegrationTestSupport() {
                 {
                   "username": "alice",
                   "type": "USER",
-                  "passwordSignInDisabled": false
+                  "passwordSignInDisabled": false,
+                  "issueRefreshTokenOnPasskeyLogin": true
                 }
             """.trimIndent(),
         )
@@ -435,7 +439,8 @@ class AuthApiTest : IntegrationTestSupport() {
                 {
                   "username": "alice",
                   "type": "USER",
-                  "passwordSignInDisabled": false
+                  "passwordSignInDisabled": false,
+                  "issueRefreshTokenOnPasskeyLogin": true
                 }
             """.trimIndent(),
         )
@@ -458,7 +463,8 @@ class AuthApiTest : IntegrationTestSupport() {
                 {
                   "username": "alice",
                   "type": "USER",
-                  "passwordSignInDisabled": false
+                  "passwordSignInDisabled": false,
+                  "issueRefreshTokenOnPasskeyLogin": true
                 }
             """.trimIndent(),
         )

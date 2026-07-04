@@ -1813,6 +1813,19 @@ input {
   gap: 24px;
 }
 
+.profile-passkeys-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.profile-passkeys-session-hint {
+  margin: 8px 0 0;
+  color: #667085;
+  font-size: 0.875rem;
+}
+
 .profile-passkeys-muted {
   margin: 0;
   color: #667085;

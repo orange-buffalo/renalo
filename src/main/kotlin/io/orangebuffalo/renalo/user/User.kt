@@ -14,4 +14,5 @@ data class User(
     var type: UserType,
     var active: Boolean = true,
     var passwordSignInDisabled: Boolean = false,
+    var issueRefreshTokenOnPasskeyLogin: Boolean = true,
 )

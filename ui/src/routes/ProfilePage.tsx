@@ -7,7 +7,9 @@ import {
   changePassword,
   createSignInLink,
   deletePasskey,
+  disablePasskeyRefreshToken,
   disablePasswordSignIn,
+  enablePasskeyRefreshToken,
   enablePasswordSignIn,
   fetchPasskeys,
   type Passkey,
@@ -45,6 +47,8 @@ export function ProfilePage() {
   const [isDisablePasswordDialogOpen, setIsDisablePasswordDialogOpen] =
     useState(false);
   const [isUpdatingPasswordSignIn, setIsUpdatingPasswordSignIn] =
+    useState(false);
+  const [isUpdatingPasskeyRefreshToken, setIsUpdatingPasskeyRefreshToken] =
     useState(false);
 
   const showPasskeySetupPrompt =
@@ -201,6 +205,25 @@ export function ProfilePage() {
       );
     } finally {
       setIsCreatingSignInLink(false);
+    }
+  }
+
+  async function handleTogglePasskeyRefreshToken() {
+    setIsUpdatingPasskeyRefreshToken(true);
+    try {
+      const issueRefreshToken = Boolean(
+        profile?.issueRefreshTokenOnPasskeyLogin,
+      );
+      const updatedProfile = issueRefreshToken
+        ? await disablePasskeyRefreshToken()
+        : await enablePasskeyRefreshToken();
+      setProfile(updatedProfile);
+    } catch {
+      showNotification({
+        title: "Session settings could not be updated. Try again in a moment.",
+      });
+    } finally {
+      setIsUpdatingPasskeyRefreshToken(false);
     }
   }
 
@@ -468,16 +491,36 @@ export function ProfilePage() {
             <p>
               Use this device's secure sign-in method instead of a password.
             </p>
+            {profile && (
+              <p className="profile-passkeys-session-hint">
+                {profile.issueRefreshTokenOnPasskeyLogin
+                  ? "Once signed in, your session stays active for longer."
+                  : "Once signed in, your session will be short-lived."}
+              </p>
+            )}
           </div>
-          <Button
-            color="primary"
-            size="sm"
-            type="button"
-            isLoading={isAddingPasskey}
-            onClick={handleAddPasskey}
-          >
-            Add passkey
-          </Button>
+          <div className="profile-passkeys-actions">
+            <Button
+              color="link-gray"
+              size="sm"
+              type="button"
+              isLoading={isUpdatingPasskeyRefreshToken}
+              onClick={handleTogglePasskeyRefreshToken}
+            >
+              {profile?.issueRefreshTokenOnPasskeyLogin
+                ? "Reduce session duration"
+                : "Extend session duration"}
+            </Button>
+            <Button
+              color="primary"
+              size="sm"
+              type="button"
+              isLoading={isAddingPasskey}
+              onClick={handleAddPasskey}
+            >
+              Add passkey
+            </Button>
+          </div>
         </div>
 
         {showPasskeySetupPrompt && (
