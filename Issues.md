@@ -1,11 +1,6 @@
 To the agents: when requested, address one issue from this file. Once user confirms the issue solve,
 remove it from the file.
 
-### Improve logging
-When app is started, it logs debug entries, which is annoying and too much. Set the default level to info.
-Update all API endoints to log an info entry on start and finish. Ideally should be done with a generic interceptor/filter,
-not with custom code each time. Should log current user name, endpoint path, result code.
-
 ---
 ### Password login bruteforce protection
 Add a naive bruteforce protection to the password login flow, same as in other similar features - sleep thread for 500-1000 ms.
