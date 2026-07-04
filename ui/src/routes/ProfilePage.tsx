@@ -501,7 +501,7 @@ export function ProfilePage() {
           </div>
           <div className="profile-passkeys-actions">
             <Button
-              color="link-gray"
+              color="tertiary"
               size="sm"
               type="button"
               isLoading={isUpdatingPasskeyRefreshToken}

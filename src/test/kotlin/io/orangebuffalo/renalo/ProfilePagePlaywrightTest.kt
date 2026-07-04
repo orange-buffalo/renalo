@@ -87,6 +87,96 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun togglesPasskeyRefreshTokenSetting(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+
+        page.navigate(server.url.toString() + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        page.navigate(server.url.toString() + "/profile")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Passkeys"))).isVisible()
+
+        assertThat(page.getByText("Once signed in, your session stays active for longer.")).isVisible()
+        assertThat(
+            page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Reduce session duration")),
+        ).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Reduce session duration")).click()
+        assertThat(page.getByText("Once signed in, your session will be short-lived.")).isVisible()
+        assertThat(
+            page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Extend session duration")),
+        ).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Extend session duration")).click()
+        assertThat(page.getByText("Once signed in, your session stays active for longer.")).isVisible()
+        assertThat(
+            page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Reduce session duration")),
+        ).isVisible()
+    }
+
+    @Test
+    fun doesNotIssueRememberMeCookieWhenPasskeyRefreshTokenIsDisabled(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        installVirtualAuthenticator(page)
+        val baseUrl = "http://localhost:${server.port}"
+
+        page.navigate(baseUrl + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        page.navigate(baseUrl + "/profile")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Passkeys"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add passkey")).click()
+        assertThat(page.getByText("Chrome on Linux")).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Reduce session duration")).click()
+        assertThat(page.getByText("Once signed in, your session will be short-lived.")).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign out")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in with passkey")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        val cookies = page.context().cookies()
+        cookies.any { it.name == "renalo.rememberMe" }.shouldBe(false)
+    }
+
+    @Test
+    fun issuesRememberMeCookieWhenPasskeyRefreshTokenIsEnabled(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        installVirtualAuthenticator(page)
+        val baseUrl = "http://localhost:${server.port}"
+
+        page.navigate(baseUrl + "/")
+        page.getByLabel("Username").fill("alice")
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        page.navigate(baseUrl + "/profile")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Passkeys"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add passkey")).click()
+        assertThat(page.getByText("Chrome on Linux")).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign out")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in with passkey")).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        val cookies = page.context().cookies()
+        cookies.any { it.name == "renalo.rememberMe" }.shouldBe(true)
+    }
+
+    @Test
     fun registersAndUsesPasskey(page: Page) {
         saveUser("alice", "password", UserType.USER)
         installVirtualAuthenticator(page)
