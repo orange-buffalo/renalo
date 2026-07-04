@@ -1,8 +1,10 @@
 package io.orangebuffalo.renalo.tracking
 
+import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Singleton
+import java.time.Instant
 
 @Singleton
 open class AccountAdjustmentService(
@@ -87,6 +89,7 @@ open class AccountAdjustmentService(
     private fun AccountAdjustment.toResponse() = AccountAdjustmentResponse(
         id = id ?: error("Account adjustment must be persisted before it can be returned"),
         adjustmentAmountMinor = adjustmentAmountMinor,
+        createdAt = createdAt ?: error("Account adjustment must have a creation timestamp"),
     )
 }
 
@@ -103,6 +106,8 @@ data class AccountAdjustmentsData(
 data class AccountAdjustmentResponse(
     val id: Long,
     val adjustmentAmountMinor: Long,
+    @field:JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+    val createdAt: Instant,
 )
 
 data class CreateAdjustmentRequest(

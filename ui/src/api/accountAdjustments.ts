@@ -3,6 +3,7 @@ import { apiRequest } from "@/api/client";
 export type AccountAdjustment = {
   id: number;
   adjustmentAmountMinor: number;
+  createdAt: string;
 };
 
 export type AccountAdjustmentsData = {

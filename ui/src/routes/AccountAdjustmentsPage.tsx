@@ -19,6 +19,7 @@ import {
   TableCard,
 } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
+import { formatDateDisplay } from "@/utils/date";
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "@/utils/money";
 
 export function AccountAdjustmentsPage() {
@@ -218,7 +219,8 @@ export function AccountAdjustmentsPage() {
           ) : (
             <Table aria-label="Account adjustments" size="sm">
               <Table.Header>
-                <Table.Head id="amount" label="Amount" isRowHeader />
+                <Table.Head id="date" label="Date" isRowHeader />
+                <Table.Head id="amount" label="Amount" />
                 <Table.Head
                   id="actions"
                   label="Actions"
@@ -233,6 +235,9 @@ export function AccountAdjustmentsPage() {
                     key={adjustment.id}
                     data-testid={`adjustment-row-${adjustment.id}`}
                   >
+                    <Table.Cell>
+                      {formatDateDisplay(adjustment.createdAt)}
+                    </Table.Cell>
                     <Table.Cell>
                       <span
                         className={

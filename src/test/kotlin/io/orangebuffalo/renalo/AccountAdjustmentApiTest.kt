@@ -25,10 +25,16 @@ import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
 class AccountAdjustmentApiTest : IntegrationTestSupport() {
+    companion object {
+        private val createdAtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
+    }
+
     @Inject
     lateinit var userRepository: UserRepository
 
@@ -72,8 +78,8 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
         val incomeCategory = saveIncomeCategory(alice)
         saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, 5_000)
         saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, 2_000)
-        val adjustment = saveAdjustment(alice, main, 1_500)
-        saveAdjustment(alice, main, -500)
+        val adj1 = saveAdjustment(alice, main, 1_500)
+        val adj2 = saveAdjustment(alice, main, -500)
 
         val response = api().get(
             "/api/tracking/accounts/${main.id}/adjustments",
@@ -91,12 +97,14 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
                   "baseBalanceMinor": 13000,
                   "adjustments": [
                     {
-                      "id": ${adjustment.id!! + 1},
-                      "adjustmentAmountMinor": -500
+                      "id": ${adj2.id!!},
+                      "adjustmentAmountMinor": -500,
+                      "createdAt": "${createdAtFormatter.format(adj2.createdAt!!)}"
                     },
                     {
-                      "id": ${adjustment.id},
-                      "adjustmentAmountMinor": 1500
+                      "id": ${adj1.id},
+                      "adjustmentAmountMinor": 1500,
+                      "createdAt": "${createdAtFormatter.format(adj1.createdAt!!)}"
                     }
                   ]
                 }
@@ -175,7 +183,8 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
                   "adjustments": [
                     {
                       "id": ${saved.single().id},
-                      "adjustmentAmountMinor": -3500
+                      "adjustmentAmountMinor": -3500,
+                      "createdAt": "${createdAtFormatter.format(saved.single().createdAt!!)}"
                     }
                   ]
                 }
