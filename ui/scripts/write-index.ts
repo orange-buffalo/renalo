@@ -24,6 +24,30 @@ if (!script) {
 const logoUrl = await fingerprintLogo("logo.svg");
 const logoExtendedUrl = await fingerprintLogo("logo-extended.svg");
 
+const manifestContent = JSON.stringify({
+  name: "Renalo",
+  short_name: "Renalo",
+  start_url: "/",
+  display: "standalone",
+  background_color: "#ffffff",
+  theme_color: "#555f9f",
+  icons: [
+    {
+      src: logoUrl,
+      sizes: "any",
+      type: "image/svg+xml",
+      purpose: "any",
+    },
+  ],
+});
+
+const manifestFingerprint = createHash("sha256")
+  .update(manifestContent)
+  .digest("hex")
+  .slice(0, 8);
+const manifestName = `manifest-${manifestFingerprint}.json`;
+await writeFile(join(assetsDir, manifestName), manifestContent);
+
 const loaderStyle = `<style>
   #app-loader {
     position: fixed;
@@ -66,6 +90,10 @@ await writeFile(
     .replace("{{logoExtendedUrl}}", logoExtendedUrl)
     .replace("{{loaderStyle}}", loaderStyle)
     .replace("{{loaderHtml}}", loaderHtml(logoExtendedUrl))
+    .replace(
+      "{{manifest}}",
+      `<link rel="manifest" href="/assets/${manifestName}" />`,
+    )
     .replace(
       "{{styles}}",
       stylesheet

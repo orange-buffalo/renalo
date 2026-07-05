@@ -264,6 +264,10 @@ const router = createBrowserRouter([
   },
 ]);
 
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js");
+}
+
 const root = document.getElementById("root");
 
 if (!root) {

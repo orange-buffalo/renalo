@@ -1,6 +1,7 @@
 import {
   BarChartSquare02,
   CreditCard02,
+  DownloadCloud01,
   LogOut01,
   Settings01,
   SwitchHorizontal01,
@@ -8,7 +9,7 @@ import {
   User01,
   Users01,
 } from "@untitledui/icons";
-import type { MouseEvent, ReactNode } from "react";
+import { type MouseEvent, type ReactNode, useEffect, useState } from "react";
 import { Button as AriaButton } from "react-aria-components";
 import { useLocation, useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
@@ -54,6 +55,36 @@ export function PageLayout({
     setProfile(undefined);
     setSettings(undefined);
     navigate("/", { replace: true });
+  }
+
+  const [installPrompt, setInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    function handleBeforeInstallPrompt(event: Event) {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    }
+
+    globalThis.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt,
+    );
+    return () => {
+      globalThis.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
+    };
+  }, []);
+
+  async function handleInstallApp() {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const result = await installPrompt.userChoice;
+    if (result.outcome === "accepted") {
+      setInstallPrompt(null);
+    }
   }
 
   return (
@@ -131,6 +162,14 @@ export function PageLayout({
                         navigate("/profile");
                       }}
                     />
+                    {installPrompt && (
+                      <Dropdown.Item
+                        label="Install as desktop app"
+                        icon={DownloadCloud01}
+                        selectionIndicator="none"
+                        onAction={handleInstallApp}
+                      />
+                    )}
                   </Dropdown.Menu>
                   <Dropdown.Separator />
                   <div className="standard-page-account-menu-footer">

@@ -7,6 +7,7 @@
     <meta name="logo-url" content="{{logoUrl}}" />
     <meta name="logo-extended-url" content="{{logoExtendedUrl}}" />
     {{favicon}}
+    {{manifest}}
     {{styles}}
     {{loaderStyle}}
   </head>

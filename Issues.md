@@ -3,12 +3,6 @@ remove it from the file.
 
 ---
 
-### Implement PWA
-
-Add PWA support to the app. Extend the profile menu in the topbar with "Install as desktop app" item to request
-browser to start installation.
-
----
 ### Persist accounts selection
 On all forms where transactional accounts are selected, persist the input selection in local storage,
 and restore the last selected value on form load. This also includes pages with multiple accounts -
