@@ -303,6 +303,12 @@ input {
   color: #853629;
 }
 
+.dashboard-loading-panel {
+  display: grid;
+  place-items: center;
+  padding: 50px 24px;
+}
+
 .dashboard-loading-panel,
 .dashboard-empty-panel {
   color: #626872;

@@ -5,6 +5,7 @@ import {
 } from "@/api/dashboard";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
+import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
 import { formatMoney } from "@/utils/money";
 
 const currentMonthName = new Intl.DateTimeFormat(undefined, {
@@ -58,8 +59,13 @@ export function TrackingPage() {
       )}
 
       {isLoading && (
-        <section className="standard-page-panel dashboard-loading-panel">
-          Loading dashboard...
+        <section
+          className="standard-page-panel dashboard-loading-panel"
+          role="status"
+          aria-busy="true"
+          aria-label="Loading dashboard"
+        >
+          <LoadingIndicator size="md" />
         </section>
       )}
 

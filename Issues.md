@@ -11,9 +11,6 @@ Preserve the selection of "remeber me" and value of "username" on the singin pag
 local store.
 
 ---
-### Dashboard loading state
-When dashboard data is being loaded, ugly text message is displayed. Replace with loading indicator we use for forms. Render it centered horizontally; with some margin on top and bottom (e.g. 50px).
 
----
 ### Reduce page header spacing
 On desktop, the page header has a huge spacing after the topbar. Reduce it by roughly 70%.
