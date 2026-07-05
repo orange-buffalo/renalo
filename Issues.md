@@ -29,12 +29,7 @@ On create forms, do not select the first category by default. The selection must
 Update money input default value in all forms - must be empty, not 0 as today.
 
 ---
-### Improve Topbar
-1. Expenses, incomes and transfers have the same icons in the topbar. Fix it by having distinct icons for each menu item.
-2. Toolbar menu items have broken tooltips (not renderd properly). Remove them completely.
-3. Align topbar items centrally on both mobile and desktop. As before, render only icons on mobile, but with labels on desktop.
 
----
 ### Create a logo and favicon
 Create a nice logo and favicon based on the app functionality. Provide user with 3 options and iterate until user is happy.
 Then integrate into the app.

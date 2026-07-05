@@ -3,6 +3,8 @@ import {
   CreditCard02,
   LogOut01,
   Settings01,
+  SwitchHorizontal01,
+  TrendUp02,
   User01,
   Users01,
 } from "@untitledui/icons";
@@ -16,6 +18,7 @@ import type { NavItemType } from "@/components/untitled/application/app-navigati
 import { Avatar } from "@/components/untitled/base/avatar/avatar";
 import { AvatarLabelGroup } from "@/components/untitled/base/avatar/avatar-label-group";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
+import { logoUrl } from "@/utils/logo";
 
 type PageLayoutProps = {
   title: string;
@@ -65,10 +68,7 @@ export function PageLayout({
               handleNavigate(event, defaultRouteFor(profile?.type))
             }
           >
-            <span className="standard-page-logo" aria-hidden="true">
-              R
-            </span>
-            <span className="standard-page-brand-text">Renalo</span>
+            <img src={logoUrl()} alt="" className="standard-page-logo" />
           </a>
 
           <nav
@@ -83,7 +83,6 @@ export function PageLayout({
                     href={item.href}
                     icon={item.icon}
                     label={item.label}
-                    tooltipPlacement="bottom"
                     className="standard-page-topbar-nav-link"
                     onClick={(event) => handleNavigate(event, item.href)}
                   >
@@ -210,12 +209,12 @@ function getNavigationItems(userType?: UserType): NavItemType[] {
     {
       label: "Incomes",
       href: "/incomes",
-      icon: CreditCard02,
+      icon: TrendUp02,
     },
     {
       label: "Transfers",
       href: "/transfers",
-      icon: CreditCard02,
+      icon: SwitchHorizontal01,
     },
     {
       label: "Settings",

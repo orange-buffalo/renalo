@@ -5,6 +5,7 @@
       "**",
       "!dist",
       "!node_modules",
+      "!src/assets",
       "!src/components/untitled",
       "!src/utils/is-react-component.ts"
     ]

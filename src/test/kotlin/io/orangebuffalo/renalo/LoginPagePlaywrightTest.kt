@@ -130,7 +130,6 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
             page.evaluate("setTimeout(() => { window.location.href = '/tracking'; }, 0)")
 
             try {
-                assertThat(page.getByText("Renalo")).isVisible()
                 assertThat(page.getByText("Loading your workspace...")).isVisible()
             } finally {
                 releaseProfileRequest.countDown()

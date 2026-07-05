@@ -784,14 +784,8 @@ input {
 }
 
 .loading-logo {
-  display: grid;
   width: 40px;
   height: 40px;
-  place-items: center;
-  border-radius: 14px;
-  color: #ffffff;
-  background: #555f9f;
-  box-shadow: 0 12px 28px rgba(71, 89, 233, 0.28);
 }
 
 .loading-card p {
@@ -1449,14 +1443,15 @@ input {
 }
 
 .standard-page-topbar-inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   width: 100%;
   max-width: var(--standard-page-content-width);
   min-width: 0;
   height: 64px;
   align-items: center;
   gap: 16px;
-  padding: 0 32px;
+  padding: 0;
 }
 
 .standard-page-brand {
@@ -1478,6 +1473,7 @@ input {
 
 .standard-page-topbar-nav {
   min-width: 0;
+  justify-self: center;
 }
 
 .standard-page-topbar-nav ul {
@@ -1494,13 +1490,8 @@ input {
 }
 
 .standard-page-logo {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 12px;
-  color: #ffffff;
-  background: #555f9f;
+  width: 50px;
+  height: 50px;
 }
 
 .standard-page-topbar-actions {
@@ -1991,15 +1982,14 @@ input {
     gap: 0;
   }
 
-  .standard-page-brand-text,
   .standard-page-topbar-nav-label,
   .standard-page-account-labels {
     display: none;
   }
 
   .standard-page-logo {
-    width: 36px;
-    height: 36px;
+    width: 50px;
+    height: 50px;
   }
 
   .standard-page-topbar-nav {
