@@ -9,29 +9,29 @@ const toneStyles: Record<
   { icon: string; ringInner: string; ringOuter: string }
 > = {
   warning: {
-    icon: "text-[#dc6803]",
-    ringInner: "ring-[#fef0c7]",
-    ringOuter: "ring-[#fffaeb]",
+    icon: "text-utility-yellow-500",
+    ringInner: "ring-utility-yellow-200",
+    ringOuter: "ring-utility-yellow-50",
   },
   error: {
-    icon: "text-[#f04438]",
-    ringInner: "ring-[#fee4e2]",
-    ringOuter: "ring-[#fef3f2]",
+    icon: "text-fg-error-secondary",
+    ringInner: "ring-utility-red-200",
+    ringOuter: "ring-utility-red-50",
   },
   success: {
-    icon: "text-[#12b76a]",
-    ringInner: "ring-[#a6f4c5]",
-    ringOuter: "ring-[#ecfdf5]",
+    icon: "text-utility-green-500",
+    ringInner: "ring-utility-green-200",
+    ringOuter: "ring-utility-green-50",
   },
   brand: {
-    icon: "text-[#6941c6]",
-    ringInner: "ring-[#c4b0f7]",
-    ringOuter: "ring-[#f5eeff]",
+    icon: "text-utility-brand-500",
+    ringInner: "ring-utility-brand-200",
+    ringOuter: "ring-utility-brand-50",
   },
   gray: {
-    icon: "text-[#6c7a92]",
-    ringInner: "ring-[#d8dce5]",
-    ringOuter: "ring-[#f7f8fa]",
+    icon: "text-utility-slate-500",
+    ringInner: "ring-utility-slate-200",
+    ringOuter: "ring-utility-slate-50",
   },
 };
 
@@ -52,7 +52,7 @@ export function Alert({
     <div
       role="alert"
       className={cx(
-        "flex gap-5 rounded-2xl border border-[#d8dce5] bg-white p-5 shadow-xs",
+        "flex gap-5 rounded-2xl border border-border-secondary bg-white p-5 shadow-xs",
         className,
       )}
     >
@@ -72,9 +72,9 @@ export function Alert({
         </span>
       </span>
       <div className="grid min-w-0 flex-1 gap-1 text-base">
-        <p className="m-0 font-semibold text-[#364054]">{title}</p>
+        <p className="m-0 font-semibold text-secondary">{title}</p>
         {children && (
-          <div className="grid gap-3 text-[#364054] [&_p]:m-0">{children}</div>
+          <div className="grid gap-3 text-secondary [&_p]:m-0">{children}</div>
         )}
       </div>
     </div>
