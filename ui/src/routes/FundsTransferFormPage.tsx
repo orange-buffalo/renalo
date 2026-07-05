@@ -44,8 +44,8 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
   const [date, setDate] = useState<CalendarDate | null>(
     dateToCalendarDate(new Date()),
   );
-  const [sourceAmount, setSourceAmount] = useState(formatMoneyInput(0, "AUD"));
-  const [targetAmount, setTargetAmount] = useState(formatMoneyInput(0, "AUD"));
+  const [sourceAmount, setSourceAmount] = useState("");
+  const [targetAmount, setTargetAmount] = useState("");
   const [exchangeRate, setExchangeRate] = useState("");
   const [error, setError] = useState<string>();
   const [sourceAccountError, setSourceAccountError] = useState<string>();
@@ -109,13 +109,8 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
             currentAccountId ?? preselectedTarget?.id ?? fallbackTarget?.id,
         );
         if (!isEditing && defaultAccount) {
-          setSourceAmount(formatMoneyInput(0, defaultAccount.currency));
-          setTargetAmount(
-            formatMoneyInput(
-              0,
-              fallbackTarget?.currency ?? defaultAccount.currency,
-            ),
-          );
+          setSourceAmount("");
+          setTargetAmount("");
         }
         setIsLoadingOptions(false);
       })
@@ -190,9 +185,13 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
     const nextAccount = accounts?.find(
       (account) => account.id === nextAccountId,
     );
-    const parsedAmount = parseMoneyInput(sourceAmount, sourceCurrency) ?? 0;
     const nextSourceCurrency = nextAccount?.currency ?? sourceCurrency;
-    const nextSourceAmount = formatMoneyInput(parsedAmount, nextSourceCurrency);
+    const nextSourceAmount = sourceAmount
+      ? formatMoneyInput(
+          parseMoneyInput(sourceAmount, sourceCurrency) ?? 0,
+          nextSourceCurrency,
+        )
+      : "";
     setSourceAccountId(nextAccountId);
     storeAccountId("renalo.transfer.sourceAccountId", nextAccountId);
     setSourceAmount(nextSourceAmount);
@@ -213,9 +212,13 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
     const nextAccount = accounts?.find(
       (account) => account.id === nextAccountId,
     );
-    const parsedAmount = parseMoneyInput(targetAmount, targetCurrency) ?? 0;
     const nextTargetCurrency = nextAccount?.currency ?? targetCurrency;
-    const nextTargetAmount = formatMoneyInput(parsedAmount, nextTargetCurrency);
+    const nextTargetAmount = targetAmount
+      ? formatMoneyInput(
+          parseMoneyInput(targetAmount, targetCurrency) ?? 0,
+          nextTargetCurrency,
+        )
+      : "";
     setTargetAccountId(nextAccountId);
     storeAccountId("renalo.transfer.targetAccountId", nextAccountId);
     setTargetAmount(nextTargetAmount);

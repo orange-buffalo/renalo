@@ -45,7 +45,7 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
   const [currency, setCurrency] = useState("AUD");
   const [loadedCurrency, setLoadedCurrency] = useState<string>();
   const [currencySearch, setCurrencySearch] = useState("");
-  const [amount, setAmount] = useState(formatMoneyInput(0, "AUD"));
+  const [amount, setAmount] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [error, setError] = useState<string>();
   const [nameError, setNameError] = useState<string>();
@@ -92,10 +92,12 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
   }, [accountId, isEditing]);
 
   function handleCurrencyChange(nextCurrency: string) {
-    const parsed = parseMoneyInput(amount, currency) ?? 0;
     setCurrency(nextCurrency);
     setCurrencySearch("");
-    setAmount(formatMoneyInput(parsed, nextCurrency));
+    if (amount) {
+      const parsed = parseMoneyInput(amount, currency) ?? 0;
+      setAmount(formatMoneyInput(parsed, nextCurrency));
+    }
   }
 
   const selectedCurrency = currencyOptions.find(

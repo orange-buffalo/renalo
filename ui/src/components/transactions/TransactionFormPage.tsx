@@ -149,7 +149,7 @@ export function TransactionFormPage({
   const [loadedTransaction, setLoadedTransaction] = useState<Transaction>();
   const [recurringEditScope, setRecurringEditScope] =
     useState<RecurringEditScope>("THIS_OCCURRENCE_ONLY");
-  const [amount, setAmount] = useState(formatMoneyInput(0, "AUD"));
+  const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string>();
   const [accountError, setAccountError] = useState<string>();
@@ -194,7 +194,7 @@ export function TransactionFormPage({
           (currentAccountId) => currentAccountId ?? defaultAccount?.id,
         );
         if (!isEditing && defaultAccount) {
-          setAmount(formatMoneyInput(0, defaultAccount.currency));
+          setAmount("");
         }
         setCategoryId((currentCategoryId) => currentCategoryId ?? undefined);
         setIsLoadingOptions(false);
@@ -256,8 +256,14 @@ export function TransactionFormPage({
     storeAccountId(config.accountStorageKey, nextAccountId);
     setAccountError(undefined);
     if (nextAccount) {
-      const parsedAmount = parseMoneyInput(amount, previousCurrency) ?? 0;
-      setAmount(formatMoneyInput(parsedAmount, nextAccount.currency));
+      setAmount(
+        amount
+          ? formatMoneyInput(
+              parseMoneyInput(amount, previousCurrency) ?? 0,
+              nextAccount.currency,
+            )
+          : "",
+      );
     }
   }
 
