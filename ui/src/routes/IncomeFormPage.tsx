@@ -9,6 +9,7 @@ const incomeTransactionFormConfig: TransactionFormConfig = {
   api: incomeTransactionApi,
   routeBasePath: "/incomes",
   storageKey: "renalo.incomes.lastRecurrenceConfiguration",
+  accountStorageKey: "renalo.incomes.defaultAccountId",
   categoryLabel: "Income category",
   categoryPlaceholder: "Choose income category",
   categoryError: "Choose an income category.",

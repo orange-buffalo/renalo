@@ -2,15 +2,6 @@ To the agents: when requested, address one issue from this file. Once user confi
 remove it from the file.
 
 ---
-
-### Persist accounts selection
-On all forms where transactional accounts are selected, persist the input selection in local storage,
-and restore the last selected value on form load. This also includes pages with multiple accounts -
-each to be saved independently.
-
-If persisted account is not available (either no value stored or acocunt no longer exists), use the default account.
-
----
 ### Update categories selection
 On all forms where categories are selected in dropdowns (create/edit forms, filters, etc.),
 show the categories in the order of usage. Derive the usage from the linked transactions.

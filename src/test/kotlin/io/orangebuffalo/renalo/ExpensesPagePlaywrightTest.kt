@@ -797,6 +797,30 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ),
         )
 
+    @Test
+    fun persistsSelectedExpenseAccountBetweenNavigations(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val travel = saveAccount(alice, "Travel", "EUR", isDefault = false)
+        saveCategory(alice, "Groceries")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        assertThat(page.getByLabel("Account").last()).containsText("Main")
+
+        page.getByLabel("Account").last().click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Travel").setExact(true)).click()
+        assertThat(page.getByLabel("Account").last()).containsText("Travel")
+
+        page.navigate(server.url.toString() + "/expenses")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        assertThat(page.getByLabel("Account").last()).containsText("Travel")
+    }
+
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
         page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()

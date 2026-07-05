@@ -9,6 +9,7 @@ const expenseTransactionFormConfig: TransactionFormConfig = {
   api: expenseTransactionApi,
   routeBasePath: "/expenses",
   storageKey: "renalo.expenses.lastRecurrenceConfiguration",
+  accountStorageKey: "renalo.expenses.defaultAccountId",
   categoryLabel: "Category",
   categoryPlaceholder: "Choose category",
   categoryError: "Choose a category.",

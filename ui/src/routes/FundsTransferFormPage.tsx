@@ -20,6 +20,7 @@ import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 import { Label } from "@/components/untitled/base/input/label";
 import { Select } from "@/components/untitled/base/select/select";
+import { loadStoredAccountId, storeAccountId } from "@/utils/accountSelection";
 import {
   currencyFractionDigits,
   formatMoneyInput,
@@ -79,17 +80,33 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
           return;
         }
         setAccounts(loadedAccounts);
+        const storedSourceId = loadStoredAccountId(
+          "renalo.transfer.sourceAccountId",
+        );
+        const storedTargetId = loadStoredAccountId(
+          "renalo.transfer.targetAccountId",
+        );
+        const preselectedSource =
+          storedSourceId !== undefined
+            ? loadedAccounts.find((a) => a.id === storedSourceId)
+            : undefined;
+        const preselectedTarget =
+          storedTargetId !== undefined
+            ? loadedAccounts.find((a) => a.id === storedTargetId)
+            : undefined;
         const defaultAccount =
           loadedAccounts.find((account) => account.isDefault) ??
           loadedAccounts[0];
         const fallbackTarget = loadedAccounts.find(
-          (account) => account.id !== defaultAccount?.id,
+          (account) => account.id !== (preselectedSource ?? defaultAccount)?.id,
         );
         setSourceAccountId(
-          (currentAccountId) => currentAccountId ?? defaultAccount?.id,
+          (currentAccountId) =>
+            currentAccountId ?? preselectedSource?.id ?? defaultAccount?.id,
         );
         setTargetAccountId(
-          (currentAccountId) => currentAccountId ?? fallbackTarget?.id,
+          (currentAccountId) =>
+            currentAccountId ?? preselectedTarget?.id ?? fallbackTarget?.id,
         );
         if (!isEditing && defaultAccount) {
           setSourceAmount(formatMoneyInput(0, defaultAccount.currency));
@@ -177,6 +194,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
     const nextSourceCurrency = nextAccount?.currency ?? sourceCurrency;
     const nextSourceAmount = formatMoneyInput(parsedAmount, nextSourceCurrency);
     setSourceAccountId(nextAccountId);
+    storeAccountId("renalo.transfer.sourceAccountId", nextAccountId);
     setSourceAmount(nextSourceAmount);
     syncExchangeRateFromAmounts(
       nextSourceAmount,
@@ -199,6 +217,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
     const nextTargetCurrency = nextAccount?.currency ?? targetCurrency;
     const nextTargetAmount = formatMoneyInput(parsedAmount, nextTargetCurrency);
     setTargetAccountId(nextAccountId);
+    storeAccountId("renalo.transfer.targetAccountId", nextAccountId);
     setTargetAmount(nextTargetAmount);
     syncExchangeRateFromAmounts(
       sourceAmount,

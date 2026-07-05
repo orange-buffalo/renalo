@@ -398,6 +398,30 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.keyboard().press("Escape")
     }
 
+    @Test
+    fun persistsSelectedIncomeAccountBetweenNavigations(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "EUR", isDefault = false)
+        saveCategory(alice, "Salary")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
+        assertThat(page.getByLabel("Account").last()).containsText("Main")
+
+        page.getByLabel("Account").last().click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Savings").setExact(true)).click()
+        assertThat(page.getByLabel("Account").last()).containsText("Savings")
+
+        page.navigate(server.url.toString() + "/incomes")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Incomes"))).isVisible()
+
+        page.navigate(server.url.toString() + "/incomes/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
+        assertThat(page.getByLabel("Account").last()).containsText("Savings")
+    }
+
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
         page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()

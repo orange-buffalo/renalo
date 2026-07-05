@@ -265,6 +265,35 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         ),
     )
 
+    @Test
+    fun persistsSelectedTransferSourceAndTargetAccountsBetweenNavigations(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", isDefault = false)
+        val travel = saveAccount(alice, "Travel", "EUR", isDefault = false)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/transfers/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add transfer"))).isVisible()
+        assertThat(page.getByLabel("Source account")).containsText("Main")
+        assertThat(page.getByLabel("Target account")).containsText("Savings")
+
+        page.getByLabel("Source account").click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Travel").setExact(true)).click()
+        page.getByLabel("Target account").click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Main").setExact(true)).click()
+        assertThat(page.getByLabel("Source account")).containsText("Travel")
+        assertThat(page.getByLabel("Target account")).containsText("Main")
+
+        page.navigate(server.url.toString() + "/transfers")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Transfers"))).isVisible()
+
+        page.navigate(server.url.toString() + "/transfers/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add transfer"))).isVisible()
+        assertThat(page.getByLabel("Source account")).containsText("Travel")
+        assertThat(page.getByLabel("Target account")).containsText("Main")
+    }
+
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
         page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()

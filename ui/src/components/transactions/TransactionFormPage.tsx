@@ -22,6 +22,7 @@ import { Button } from "@/components/untitled/base/buttons/button";
 import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Label } from "@/components/untitled/base/input/label";
 import { Select } from "@/components/untitled/base/select/select";
+import { loadStoredAccountId, storeAccountId } from "@/utils/accountSelection";
 import { formatMoneyInput, parseMoneyInput } from "@/utils/money";
 
 type RecurrenceScheduleOption =
@@ -103,6 +104,7 @@ export type TransactionFormConfig = {
   api: TransactionApiConfig;
   routeBasePath: string;
   storageKey: string;
+  accountStorageKey: string;
   categoryLabel: string;
   categoryPlaceholder: string;
   categoryError: string;
@@ -179,7 +181,13 @@ export function TransactionFormPage({
         }
         setAccounts(loadedAccounts);
         setCategories(loadedCategories);
+        const storedAccountId = loadStoredAccountId(config.accountStorageKey);
+        const preselectedAccount =
+          storedAccountId !== undefined
+            ? loadedAccounts.find((a) => a.id === storedAccountId)
+            : undefined;
         const defaultAccount =
+          preselectedAccount ??
           loadedAccounts.find((account) => account.isDefault) ??
           loadedAccounts[0];
         setTrackingAccountId(
@@ -247,6 +255,7 @@ export function TransactionFormPage({
       (account) => account.id === nextAccountId,
     );
     setTrackingAccountId(nextAccountId);
+    storeAccountId(config.accountStorageKey, nextAccountId);
     setAccountError(undefined);
     if (nextAccount) {
       const parsedAmount = parseMoneyInput(amount, previousCurrency) ?? 0;
