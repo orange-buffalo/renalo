@@ -29,15 +29,6 @@ On create forms, do not select the first category by default. The selection must
 Update money input default value in all forms - must be empty, not 0 as today.
 
 ---
-
-### Create a logo and favicon
-Create a nice logo and favicon based on the app functionality. Provide user with 3 options and iterate until user is happy.
-Then integrate into the app.
-
-Add logo to the anonymous pages like login, token activation, etc. Render it above the titel within the panel, centered
-horizontally. Make the title on those pages smaller by 20%.
-
----
 ### Preserve the "remember me" selection
 Preserve the selection of "remeber me" and value of "username" on the singin page between reloads. Store in the
 local store.
