@@ -21,7 +21,8 @@ if (!script) {
   throw new Error("Bun build did not emit a JavaScript bundle");
 }
 
-const logoUrl = await fingerprintLogo();
+const logoUrl = await fingerprintLogo("logo.svg");
+const logoExtendedUrl = await fingerprintLogo("logo-extended.svg");
 
 const loaderStyle = `<style>
   #app-loader {
@@ -62,8 +63,9 @@ await writeFile(
       `<link rel="icon" type="image/svg+xml" href="${logoUrl}" />`,
     )
     .replace("{{logoUrl}}", logoUrl)
+    .replace("{{logoExtendedUrl}}", logoExtendedUrl)
     .replace("{{loaderStyle}}", loaderStyle)
-    .replace("{{loaderHtml}}", loaderHtml(logoUrl))
+    .replace("{{loaderHtml}}", loaderHtml(logoExtendedUrl))
     .replace(
       "{{styles}}",
       stylesheet
@@ -88,11 +90,12 @@ async function fingerprintStylesheet(assetList: string[]) {
   return fingerprintedStylesheet;
 }
 
-async function fingerprintLogo() {
-  const svgPath = join(srcDir, "assets", "logo.svg");
+async function fingerprintLogo(filename: string) {
+  const svgPath = join(srcDir, "assets", filename);
   const contents = await readFile(svgPath);
   const hash = createHash("sha256").update(contents).digest("hex").slice(0, 8);
-  const fingerprintedName = `logo-${hash}.svg`;
+  const name = filename.replace(/\.svg$/, "");
+  const fingerprintedName = `${name}-${hash}.svg`;
   await copyFile(svgPath, join(assetsDir, fingerprintedName));
   return `/assets/${fingerprintedName}`;
 }

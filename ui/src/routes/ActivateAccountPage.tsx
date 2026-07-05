@@ -5,9 +5,11 @@ import {
   fetchAccountActivationStatus,
 } from "@/api/accountActivation";
 import { AnonymousPage } from "@/components/AnonymousPage";
+import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
+import { logoExtendedUrl } from "@/utils/logo";
 
 export function ActivateAccountPage() {
   const navigate = useNavigate();
@@ -90,15 +92,26 @@ export function ActivateAccountPage() {
 
   if (isLoading) {
     return (
-      <AnonymousPage ariaLabel="Loading account activation">
-        <section className="loading-card">
-          <div className="loading-brand">
-            <span className="loading-logo" aria-hidden="true">
-              R
-            </span>
-            <span>Renalo</span>
+      <AnonymousPage
+        ariaLabel="Loading account activation"
+        className="anonymous-page-shell--login"
+      >
+        <section className="login-card" aria-labelledby="activation-loading-heading">
+          <h1 id="activation-loading-heading" className="sr-only">
+            Loading account activation
+          </h1>
+          <div className="flex flex-col items-center gap-6 py-8">
+            <img
+              src={logoExtendedUrl()}
+              alt=""
+              className="size-20"
+            />
+            <LoadingIndicator
+              type="line-simple"
+              size="md"
+              label="Checking your activation link..."
+            />
           </div>
-          <p>Checking your activation link...</p>
         </section>
       </AnonymousPage>
     );

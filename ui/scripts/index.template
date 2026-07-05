@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Renalo</title>
     <meta name="logo-url" content="{{logoUrl}}" />
+    <meta name="logo-extended-url" content="{{logoExtendedUrl}}" />
     {{favicon}}
     {{styles}}
     {{loaderStyle}}
