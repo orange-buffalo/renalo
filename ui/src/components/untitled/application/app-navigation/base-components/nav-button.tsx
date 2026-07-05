@@ -22,15 +22,17 @@ interface NavButtonProps {
     className?: string;
     /** Placement of the tooltip. */
     tooltipPlacement?: "top" | "right" | "bottom" | "left";
+    /** Whether to disable the tooltip. */
+    disableTooltip?: boolean;
     /** Content to display. */
     children?: ReactNode;
 }
 
-export const NavButton = ({ current, label, href, icon: Icon, className, tooltipPlacement = "right", onClick, children }: NavButtonProps) => {
+export const NavButton = ({ current, label, href, icon: Icon, className, tooltipPlacement = "right", disableTooltip, onClick, children }: NavButtonProps) => {
     const iconOnly = !children;
 
     return (
-        <Tooltip isDisabled={!label} title={label} placement={tooltipPlacement}>
+        <Tooltip isDisabled={!label || disableTooltip} title={label} placement={tooltipPlacement}>
             <Pressable>
                 <a
                     href={href}

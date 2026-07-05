@@ -4,7 +4,6 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { AppStateProvider, useAppState } from "./AppState.tsx";
 import type { UserType } from "./api/auth.ts";
-import { LoadingPage } from "./components/AnonymousPage.tsx";
 import { Notifications } from "./components/untitled/application/notifications/notifications.tsx";
 import { AccountAdjustmentsPage } from "./routes/AccountAdjustmentsPage.tsx";
 import { ActivateAccountPage } from "./routes/ActivateAccountPage.tsx";
@@ -290,7 +289,7 @@ function ProtectedRoute({
   const { authStatus, profile } = useAppState();
 
   if (authStatus === "checking") {
-    return <LoadingPage />;
+    return null;
   }
 
   if (!profile) {

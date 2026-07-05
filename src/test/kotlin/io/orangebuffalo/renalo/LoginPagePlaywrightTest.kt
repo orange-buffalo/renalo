@@ -130,7 +130,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
             page.evaluate("setTimeout(() => { window.location.href = '/tracking'; }, 0)")
 
             try {
-                assertThat(page.getByText("Loading your workspace...")).isVisible()
+                assertThat(page.locator("#app-loader")).isVisible()
             } finally {
                 releaseProfileRequest.countDown()
             }

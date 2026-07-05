@@ -7,8 +7,10 @@
     <meta name="logo-url" content="{{logoUrl}}" />
     {{favicon}}
     {{styles}}
+    {{loaderStyle}}
   </head>
   <body>
+    {{loaderHtml}}
     <div id="root"></div>
     <script type="module" src="{{script}}"></script>
   </body>

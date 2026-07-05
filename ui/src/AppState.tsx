@@ -10,7 +10,6 @@ import {
   refreshAccessToken,
 } from "@/api/auth";
 import { fetchSystemSettings, type SystemSettings } from "@/api/system";
-import { LoadingPage } from "@/components/AnonymousPage";
 import {
   createDefaultTransactionDateFilter,
   type TransactionDateFilterValue,
@@ -39,6 +38,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       createDefaultTransactionDateFilter(new Date()),
     );
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+
+  useEffect(() => {
+    if (authStatus !== "checking") {
+      const loader = document.getElementById("app-loader");
+      if (loader) {
+        loader.classList.add("app-loader--fade-out");
+        loader.addEventListener("transitionend", () => loader.remove(), {
+          once: true,
+        });
+      }
+    }
+  }, [authStatus]);
 
   useEffect(() => {
     let isActive = true;
@@ -187,7 +198,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setTransactionDateFilter,
       }}
     >
-      {authStatus === "checking" ? <LoadingPage /> : children}
+      {children}
     </AppStateContext.Provider>
   );
 }

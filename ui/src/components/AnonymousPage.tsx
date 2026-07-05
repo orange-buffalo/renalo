@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { logoUrl } from "@/utils/logo";
 
 type AnonymousPageProps = {
   ariaLabel?: string;
@@ -19,18 +18,5 @@ export function AnonymousPage({
     >
       {children}
     </main>
-  );
-}
-
-export function LoadingPage() {
-  return (
-    <AnonymousPage ariaLabel="Loading Renalo">
-      <section className="loading-card">
-        <div className="loading-brand">
-          <img src={logoUrl()} alt="" className="loading-logo" />
-        </div>
-        <p>Loading your workspace...</p>
-      </section>
-    </AnonymousPage>
   );
 }

@@ -84,6 +84,7 @@ export function PageLayout({
                     icon={item.icon}
                     label={item.label}
                     className="standard-page-topbar-nav-link"
+                    disableTooltip
                     onClick={(event) => handleNavigate(event, item.href)}
                   >
                     <span className="standard-page-topbar-nav-label">

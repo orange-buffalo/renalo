@@ -7,8 +7,6 @@ import {
   fetchProfile,
 } from "@/api/auth";
 import { fetchSystemSettings } from "@/api/system";
-import { LoadingPage } from "@/components/AnonymousPage";
-
 export function SignInLinkPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -45,5 +43,5 @@ export function SignInLinkPage() {
     });
   }, [location.search, navigate, setProfile, setSettings]);
 
-  return <LoadingPage />;
+  return null;
 }
