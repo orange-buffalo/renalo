@@ -15,6 +15,7 @@ import { showNotification } from "@/components/untitled/application/notification
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Input } from "@/components/untitled/base/input/input";
+import { logoExtendedUrl } from "@/utils/logo";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -122,8 +123,10 @@ export function LoginPage() {
   return (
     <AnonymousPage className="anonymous-page-shell--login">
       <section className="login-card" aria-labelledby="login-heading">
-        <h1 id="login-heading">Sign in to Renalo</h1>
-        <p className="intro">Sign in to continue to your budget workspace.</p>
+        <h1 id="login-heading" className="sr-only">
+          Sign in to Renalo
+        </h1>
+        <img src={logoExtendedUrl()} alt="" className="mx-auto mb-6 size-20" />
         {sessionExpired && (
           <Alert
             tone="brand"

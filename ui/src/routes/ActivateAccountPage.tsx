@@ -5,8 +5,8 @@ import {
   fetchAccountActivationStatus,
 } from "@/api/accountActivation";
 import { AnonymousPage } from "@/components/AnonymousPage";
-import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
 import { Alert } from "@/components/untitled/application/alerts/alert";
+import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 import { logoExtendedUrl } from "@/utils/logo";
@@ -96,16 +96,15 @@ export function ActivateAccountPage() {
         ariaLabel="Loading account activation"
         className="anonymous-page-shell--login"
       >
-        <section className="login-card" aria-labelledby="activation-loading-heading">
+        <section
+          className="login-card"
+          aria-labelledby="activation-loading-heading"
+        >
           <h1 id="activation-loading-heading" className="sr-only">
             Loading account activation
           </h1>
           <div className="flex flex-col items-center gap-6 py-8">
-            <img
-              src={logoExtendedUrl()}
-              alt=""
-              className="size-20"
-            />
+            <img src={logoExtendedUrl()} alt="" className="size-20" />
             <LoadingIndicator
               type="line-simple"
               size="md"
@@ -135,11 +134,10 @@ export function ActivateAccountPage() {
   return (
     <AnonymousPage className="anonymous-page-shell--login">
       <section className="login-card" aria-labelledby="activation-heading">
-        <h1 id="activation-heading">Set your password</h1>
-        <p className="intro">
-          Create a password to activate your Renalo account and start using your
-          workspace.
-        </p>
+        <h1 id="activation-heading" className="sr-only">
+          Set your password
+        </h1>
+        <img src={logoExtendedUrl()} alt="" className="mx-auto mb-6 size-20" />
         <form className="login-form" onSubmit={handleSubmit}>
           <Input label="Username" name="username" value={username} isDisabled />
           <Input
