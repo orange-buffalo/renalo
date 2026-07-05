@@ -25,7 +25,12 @@ export function LoginPage() {
   const [passkeyError, setPasskeyError] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(
+    () => localStorage.getItem("renalo.rememberMe") === "true",
+  );
+  const [username, setUsername] = useState(
+    () => localStorage.getItem("renalo.username") ?? "",
+  );
   const sessionExpired =
     new URLSearchParams(location.search).get("sessionExpired") === "true";
   const signInLinkInvalid =
@@ -65,8 +70,9 @@ export function LoginPage() {
     setIsLoading(true);
 
     const formData = new FormData(event.currentTarget);
-    const username = String(formData.get("username") ?? "");
     const password = String(formData.get("password") ?? "");
+
+    localStorage.setItem("renalo.username", username);
 
     try {
       await createAuthToken(username, password, rememberMe);
@@ -146,7 +152,13 @@ export function LoginPage() {
           </Alert>
         )}
         <form className="login-form" onSubmit={handleSubmit}>
-          <Input label="Username" name="username" autoComplete="username" />
+          <Input
+            label="Username"
+            name="username"
+            autoComplete="username"
+            value={username}
+            onChange={setUsername}
+          />
           <Input
             label="Password"
             name="password"
@@ -159,7 +171,10 @@ export function LoginPage() {
             label="Remember me"
             name="rememberMe"
             isSelected={rememberMe}
-            onChange={setRememberMe}
+            onChange={(next) => {
+              setRememberMe(next);
+              localStorage.setItem("renalo.rememberMe", String(next));
+            }}
           />
           <Button color="primary" size="md" type="submit" isLoading={isLoading}>
             Sign in
