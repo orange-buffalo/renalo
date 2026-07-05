@@ -1581,7 +1581,7 @@ input {
   display: grid;
   width: 100%;
   min-width: 0;
-  padding: 48px;
+  padding: 14px 48px 48px;
   place-items: start center;
 }
 
