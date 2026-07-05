@@ -166,6 +166,7 @@ export function LoginPage() {
         <Button
           color="secondary"
           size="md"
+          className="w-full"
           type="button"
           isLoading={isPasskeyLoading}
           onClick={handlePasskeySignIn}

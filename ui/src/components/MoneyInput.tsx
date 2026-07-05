@@ -23,7 +23,7 @@ export function MoneyInput({
 }: MoneyInputProps) {
   return (
     <InputGroup
-      className="w-full max-w-[200px]"
+      className="w-full money-input-field"
       label={label}
       validationBehavior="aria"
       isInvalid={isInvalid}

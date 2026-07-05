@@ -140,7 +140,7 @@ export const ComboBox = ({
             <AriaComboBox
                 menuTrigger="focus"
                 {...otherProps}
-                className={(state) => cx("w-full max-w-[300px]", typeof className === "function" ? className(state) : className)}
+                className={(state) => cx("w-full", typeof className === "function" ? className(state) : className)}
             >
                 {(state) => (
                     <div className="flex flex-col gap-1.5">
