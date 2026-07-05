@@ -82,7 +82,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add income")).click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
         assertThat(page.getByText("Record earnings against an account and income category.")).isVisible()
-        selectOption(page, "Income category", "Bonus")
+        selectCategoryOption(page, "Income category", "Bonus")
         page.locator("input[name='amount']").fill("42")
         page.getByLabel("Notes").fill("Side project")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create income")).click()
@@ -101,7 +101,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Salary income"))
             .click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit income"))).isVisible()
-        selectOption(page, "Income category", "Bonus")
+        selectCategoryOption(page, "Income category", "Bonus")
         page.locator("input[name='amount']").fill("1500")
         page.getByLabel("Notes").fill("Monthly salary")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save income")).click()
@@ -137,7 +137,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/incomes/create")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
-        selectOption(page, "Income category", "Salary")
+        selectCategoryOption(page, "Income category", "Salary")
         page.locator("input[name='amount']").fill("1234")
         page.getByLabel("Notes").fill("Monthly salary")
         page.getByLabel("Recurring income").press("Space")
@@ -422,8 +422,67 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByLabel("Account").last()).containsText("Savings")
     }
 
+    @Test
+    fun showsCategoriesInUsageOrderOnIncomeForm(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val salary = saveCategory(alice, "Salary")
+        val bonus = saveCategory(alice, "Bonus")
+        val interest = saveCategory(alice, "Interest")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 1000, "Salary")
+        saveIncome(alice, main, bonus, TestTimeProvider.DEFAULT_DATE.minusDays(5), 2000, "Bonus")
+        saveIncome(alice, main, interest, TestTimeProvider.DEFAULT_DATE.minusDays(10), 3000, "Interest")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
+
+        page.getByLabel("Income category").fill("")
+        val optionOrder = page.locator("[role='option']").evaluateAll(
+            "options => options.map(o => o.textContent.trim())",
+        ) as List<String>
+        optionOrder.shouldBe(listOf("Salary", "Bonus", "Interest"))
+        page.keyboard().press("Escape")
+    }
+
+    @Test
+    fun keepsCategoryEmptyOnIncomeCreateForm(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Salary")
+        saveCategory(alice, "Bonus")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
+        assertThat(page.getByLabel("Income category")).hasValue("")
+    }
+
+    @Test
+    fun searchesCategoriesOnIncomeForm(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Salary")
+        saveCategory(alice, "Bonus")
+        saveCategory(alice, "Interest")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
+
+        page.getByLabel("Income category").fill("Bonus")
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Bonus").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Salary").setExact(true))).not().isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Interest").setExact(true))).not().isVisible()
+    }
+
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
+    }
+
+    private fun selectCategoryOption(page: Page, label: String, option: String) {
+        page.getByLabel(label).fill(option)
         page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
     }
 

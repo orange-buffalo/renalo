@@ -196,9 +196,7 @@ export function TransactionFormPage({
         if (!isEditing && defaultAccount) {
           setAmount(formatMoneyInput(0, defaultAccount.currency));
         }
-        setCategoryId(
-          (currentCategoryId) => currentCategoryId ?? loadedCategories[0]?.id,
-        );
+        setCategoryId((currentCategoryId) => currentCategoryId ?? undefined);
         setIsLoadingOptions(false);
       })
       .catch(() => {
@@ -514,9 +512,9 @@ export function TransactionFormPage({
               className="tracking-account-form-wide"
             />
           )}
-          <Select
+          <Select.ComboBox
             label={config.categoryLabel}
-            placeholder={config.categoryPlaceholder}
+            placeholder="Search categories"
             size="md"
             isRequired
             selectedKey={categoryId ? String(categoryId) : null}
@@ -532,7 +530,7 @@ export function TransactionFormPage({
             }}
           >
             {(item) => <Select.Item {...item} />}
-          </Select>
+          </Select.ComboBox>
           <MoneyInput
             label="Amount"
             name="amount"

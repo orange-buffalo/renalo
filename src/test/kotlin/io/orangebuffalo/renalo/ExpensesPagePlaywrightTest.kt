@@ -116,7 +116,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Rent").setExact(true))).isVisible()
         assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Old category").setExact(true))).not().isVisible()
         page.keyboard().press("Escape")
-        selectOption(page, "Category", "Rent")
+        selectCategoryOption(page, "Category", "Rent")
         page.locator("input[name='amount']").fill("42")
         page.getByLabel("Notes").fill("Weekly rent")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
@@ -136,7 +136,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Groceries expense"))
             .click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Edit expense"))).isVisible()
-        selectOption(page, "Category", "Rent")
+        selectCategoryOption(page, "Category", "Rent")
         page.locator("input[name='amount']").fill("19")
         page.getByLabel("Notes").fill("Lunch")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Save expense")).click()
@@ -384,7 +384,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             page.navigate(server.url.toString() + "/expenses/create")
 
             assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
-            selectOption(page, "Category", "Rent")
+            selectCategoryOption(page, "Category", "Rent")
             page.locator("input[name='amount']").fill("25")
             page.getByLabel("Notes").fill(notes)
             page.getByLabel("Recurring expense").press("Space")
@@ -407,7 +407,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/expenses/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
-        selectOption(page, "Category", "Rent")
+        selectCategoryOption(page, "Category", "Rent")
         page.locator("input[name='amount']").fill("25")
         page.getByLabel("Notes").fill("Custom membership")
         page.getByLabel("Recurring expense").press("Space")
@@ -493,7 +493,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.locator(".transaction-date-field").getByRole(AriaRole.BUTTON)).isDisabled()
         assertThat(page.getByLabel("Recurring expense")).not().isVisible()
         assertThat(page.getByLabel("Repeat")).not().isVisible()
-        selectOption(page, "Category", "Bills")
+        selectCategoryOption(page, "Category", "Bills")
         page.locator("input[name='amount']").fill("31")
         page.getByLabel("Notes").fill("Edited one")
         selectOption(page, "Edit scope", "This occurrence only")
@@ -821,8 +821,67 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByLabel("Account").last()).containsText("Travel")
     }
 
+    @Test
+    fun showsCategoriesInUsageOrderOnExpenseForm(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val groceries = saveCategory(alice, "Groceries")
+        val rent = saveCategory(alice, "Rent")
+        val utilities = saveCategory(alice, "Utilities")
+        saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE, 1000, "Rent")
+        saveExpense(alice, main, utilities, TestTimeProvider.DEFAULT_DATE.minusDays(5), 2000, "Utilities")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE.minusDays(10), 3000, "Groceries")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+
+        page.getByLabel("Category").fill("")
+        val optionOrder = page.locator("[role='option']").evaluateAll(
+            "options => options.map(o => o.textContent.trim())",
+        ) as List<String>
+        optionOrder.shouldBe(listOf("Rent", "Utilities", "Groceries"))
+        page.keyboard().press("Escape")
+    }
+
+    @Test
+    fun keepsCategoryEmptyOnCreateForm(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Groceries")
+        saveCategory(alice, "Rent")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        assertThat(page.getByLabel("Category")).hasValue("")
+    }
+
+    @Test
+    fun searchesCategoriesOnExpenseForm(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Groceries")
+        saveCategory(alice, "Rent")
+        saveCategory(alice, "Utilities")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+
+        page.getByLabel("Category").fill("Rent")
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Rent").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Groceries").setExact(true))).not().isVisible()
+        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Utilities").setExact(true))).not().isVisible()
+    }
+
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
+    }
+
+    private fun selectCategoryOption(page: Page, label: String, option: String) {
+        page.getByLabel(label).fill(option)
         page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
     }
 

@@ -21,12 +21,21 @@ open class IncomeCategoryService(
         )
     }
 
-    fun listCategories(userId: Long, includeArchived: Boolean): List<IncomeCategory> =
-        if (includeArchived) {
+    fun listCategories(userId: Long, includeArchived: Boolean): List<IncomeCategory> {
+        val categories = if (includeArchived) {
             incomeCategoryRepository.findByUserIdOrderByName(userId)
         } else {
             incomeCategoryRepository.findByUserIdAndArchivedFalseOrderByName(userId)
         }
+
+        val lastUsedDates = transactionRepository.findCategoryUsage(userId, TransactionType.INCOME)
+            .associate { it.categoryId to it.lastUsedDate }
+
+        return categories.sortedWith(
+            compareByDescending<IncomeCategory> { lastUsedDates[it.id] }
+                .thenBy { it.name },
+        )
+    }
 
     fun findCategory(userId: Long, categoryId: Long): IncomeCategory? =
         incomeCategoryRepository.findByIdAndUserId(categoryId, userId)

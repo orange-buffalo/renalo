@@ -1,10 +1,17 @@
 package io.orangebuffalo.renalo.tracking
 
+import io.micronaut.core.annotation.Introspected
 import io.micronaut.data.annotation.Query
 import io.micronaut.data.jdbc.annotation.JdbcRepository
 import io.micronaut.data.model.query.builder.sql.Dialect
 import io.micronaut.data.repository.CrudRepository
 import java.time.LocalDate
+
+@Introspected
+data class CategoryUsage(
+    val categoryId: Long,
+    val lastUsedDate: LocalDate,
+)
 
 @JdbcRepository(dialect = Dialect.POSTGRES)
 interface TransactionRepository : CrudRepository<Transaction, Long> {
@@ -63,6 +70,16 @@ interface TransactionRepository : CrudRepository<Transaction, Long> {
         sourceCategoryId: Long,
         targetCategoryId: Long,
     )
+
+    @Query(
+        """
+            SELECT category_id, MAX(date) AS last_used_date
+            FROM transactions
+            WHERE user_id = :userId AND type = :type
+            GROUP BY category_id
+        """,
+    )
+    fun findCategoryUsage(userId: Long, type: TransactionType): List<CategoryUsage>
 
     fun findByRecurringRuleIdAndRecurringInstanceDate(
         recurringRuleId: Long,

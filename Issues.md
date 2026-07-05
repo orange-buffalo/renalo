@@ -2,14 +2,6 @@ To the agents: when requested, address one issue from this file. Once user confi
 remove it from the file.
 
 ---
-### Update categories selection
-On all forms where categories are selected in dropdowns (create/edit forms, filters, etc.),
-show the categories in the order of usage. Derive the usage from the linked transactions.
-In case of the same last used date, order alphabetically. 
-
-On create forms, do not select the first category by default. The selection must be empty.
-
----
 ### Update money input default value
 Update money input default value in all forms - must be empty, not 0 as today.
 
