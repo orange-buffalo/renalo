@@ -59,7 +59,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/")
         page.getByLabel("Username").fill("alice")
         page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Password")).fill("password")
-        page.getByText("Remember me", Page.GetByTextOptions().setExact(true)).click()
+        page.locator(".login-remember-checkbox").click()
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Sign in").setExact(true)).click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
 
@@ -74,6 +74,17 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
         ) as String?
 
         refreshedToken.shouldNotBeBlank()
+    }
+
+    @Test
+    fun togglesRememberMeOnMobile(page: Page) {
+        page.setViewportSize(390, 844)
+        page.navigate(server.url.toString() + "/")
+
+        page.locator(".login-remember-checkbox").click()
+
+        val rememberMePreference = page.evaluate("localStorage.getItem('renalo.rememberMe')")
+        rememberMePreference.shouldBe("true")
     }
 
     @Test

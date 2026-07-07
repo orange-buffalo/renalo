@@ -170,6 +170,7 @@ export function LoginPage() {
             hint={passwordError}
           />
           <Checkbox
+            className="login-remember-checkbox"
             label="Remember me"
             name="rememberMe"
             isSelected={rememberMe}

@@ -84,7 +84,7 @@ export const Checkbox = ({ label, hint, size = "sm", className, ...ariaCheckboxP
             {...ariaCheckboxProps}
             className={(state) =>
                 cx(
-                    "relative flex items-start",
+                    "relative flex cursor-pointer touch-manipulation items-start",
                     state.isDisabled && "cursor-not-allowed",
                     sizes[size].root,
                     typeof className === "function" ? className(state) : className,
@@ -102,10 +102,10 @@ export const Checkbox = ({ label, hint, size = "sm", className, ...ariaCheckboxP
                         className={label || hint ? "mt-0.5" : ""}
                     />
                     {(label || hint) && (
-                        <div className={cx("inline-flex flex-col", sizes[size].textWrapper)}>
+                        <div className={cx("pointer-events-none inline-flex flex-col", sizes[size].textWrapper)}>
                             {label && <p className={cx("text-secondary select-none", sizes[size].label)}>{label}</p>}
                             {hint && (
-                                <span className={cx("text-tertiary", sizes[size].hint)} onClick={(event) => event.stopPropagation()}>
+                                <span className={cx("text-tertiary", sizes[size].hint)}>
                                     {hint}
                                 </span>
                             )}
