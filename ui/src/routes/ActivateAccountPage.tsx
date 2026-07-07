@@ -146,6 +146,7 @@ export function ActivateAccountPage() {
             type="password"
             autoComplete="new-password"
             value={password}
+            isRequired
             onChange={(nextPassword) => {
               setPassword(nextPassword);
               setPasswordError(undefined);
@@ -159,6 +160,7 @@ export function ActivateAccountPage() {
             type="password"
             autoComplete="new-password"
             value={passwordConfirmation}
+            isRequired
             onChange={(nextPasswordConfirmation) => {
               setPasswordConfirmation(nextPasswordConfirmation);
               setPasswordError(undefined);

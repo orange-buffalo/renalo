@@ -223,6 +223,7 @@ function TargetAccountDropdown({
       label="Merge into account"
       placeholder="Choose an account"
       selectedKey={selectedAccountId ? String(selectedAccountId) : undefined}
+      isRequired
       isDisabled={accounts.length === 0}
       isInvalid={isInvalid}
       hint={error}

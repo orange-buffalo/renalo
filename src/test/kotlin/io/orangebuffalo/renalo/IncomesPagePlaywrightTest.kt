@@ -128,6 +128,36 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun validatesIncomeFormRequiredFieldsAndAllowsOptionalNotes(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Salary")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes/create")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create income")).click()
+
+        assertThat(page.getByText("Choose an income category.")).isVisible()
+        assertThat(page.getByText("Enter a valid amount greater than zero.")).isVisible()
+        assertRequiredLabel(page, "Amount")
+
+        selectCategoryOption(page, "Income category", "Salary")
+        page.locator("input[name='amount']").fill("123.45")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create income")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Incomes"))).isVisible()
+        page.shouldEventuallyContainIncomeRows(
+            IncomeRow("Salary", "A$123.45", "Today", "Main", "-", "edit delete"),
+        )
+        transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.INCOME)
+            .single()
+            .notes
+            .shouldBe(null)
+    }
+
+    @Test
     fun createsRecurringIncomeFromIncomeForm(page: Page) {
         val alice = saveUser("alice")
         saveAccount(alice, "Main", "AUD", isDefault = true)
@@ -491,6 +521,15 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun dropdownOption(page: Page, option: String): Locator =
         dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
+
+    private fun assertRequiredLabel(page: Page, label: String) {
+        assertThat(
+            page.locator("label")
+                .filter(Locator.FilterOptions().setHasText(label))
+                .locator("span")
+                .filter(Locator.FilterOptions().setHasText("*")),
+        ).isVisible()
+    }
 
     private fun extractIncomeRows(page: Page): List<IncomeRow> {
         @Suppress("UNCHECKED_CAST")

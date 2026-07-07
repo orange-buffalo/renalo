@@ -439,6 +439,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
             name="sourceAmount"
             value={sourceAmount}
             currency={sourceCurrency}
+            isRequired
             isInvalid={Boolean(sourceAmountError)}
             hint={sourceAmountError}
             onChange={handleSourceAmountChange}
@@ -449,6 +450,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
               name="targetAmount"
               value={targetAmount}
               currency={targetCurrency}
+              isRequired
               isInvalid={Boolean(targetAmountError)}
               hint={targetAmountError}
               onChange={handleTargetAmountChange}
@@ -487,6 +489,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
               value={exchangeRate}
               inputMode="decimal"
               inputClassName="text-right"
+              isRequired
               isInvalid={Boolean(exchangeRateError)}
               hint={exchangeRateError}
               className="funds-transfer-rate-input"

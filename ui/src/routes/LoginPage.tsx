@@ -157,6 +157,7 @@ export function LoginPage() {
             name="username"
             autoComplete="username"
             value={username}
+            isRequired
             onChange={setUsername}
           />
           <Input
@@ -164,6 +165,7 @@ export function LoginPage() {
             name="password"
             type="password"
             autoComplete="current-password"
+            isRequired
             isInvalid={Boolean(passwordError)}
             hint={passwordError}
           />

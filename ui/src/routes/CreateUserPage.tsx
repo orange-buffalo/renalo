@@ -92,6 +92,7 @@ export function CreateUserPage() {
             label="Type"
             placeholder="Choose user type"
             selectedKey={type}
+            isRequired
             onSelectionChange={(key) => setType(key as UserType)}
             items={userTypeItems}
           />

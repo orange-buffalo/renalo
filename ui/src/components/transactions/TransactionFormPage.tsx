@@ -541,6 +541,7 @@ export function TransactionFormPage({
             name="amount"
             value={amount}
             currency={currency}
+            isRequired
             isInvalid={Boolean(amountError)}
             hint={amountError}
             onChange={(nextAmount) => {

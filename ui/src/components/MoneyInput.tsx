@@ -8,6 +8,7 @@ type MoneyInputProps = {
   value: string;
   currency: string;
   hint?: string;
+  isRequired?: boolean;
   isInvalid?: boolean;
   onChange: (value: string) => void;
 };
@@ -18,6 +19,7 @@ export function MoneyInput({
   value,
   currency,
   hint,
+  isRequired,
   isInvalid,
   onChange,
 }: MoneyInputProps) {
@@ -25,6 +27,7 @@ export function MoneyInput({
     <InputGroup
       className="w-full money-input-field"
       label={label}
+      isRequired={isRequired}
       validationBehavior="aria"
       isInvalid={isInvalid}
       hint={hint}

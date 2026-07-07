@@ -74,13 +74,25 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Change password")).click()
         assertThat(page.getByText("Enter your current password.")).isVisible()
+        assertRequiredLabel(page, "Current password")
+        assertRequiredLabel(page, "New password")
+        assertRequiredLabel(page, "Confirm new password")
 
-        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Current password").setExact(true))
-            .fill("wrong-password")
-        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("New password").setExact(true))
-            .fill("new-password")
-        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Confirm new password").setExact(true))
-            .fill("new-password")
+        page.locator("input[name='currentPassword']").fill("old-password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Change password")).click()
+
+        assertThat(page.getByText("Enter a new password.")).isVisible()
+
+        page.locator("input[name='currentPassword']").fill("old-password")
+        page.locator("input[name='newPassword']").fill("new-password")
+        page.locator("input[name='newPasswordConfirmation']").fill("different-password")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Change password")).click()
+
+        assertThat(page.getByText("Passwords must match.")).isVisible()
+
+        page.locator("input[name='currentPassword']").fill("wrong-password")
+        page.locator("input[name='newPassword']").fill("new-password")
+        page.locator("input[name='newPasswordConfirmation']").fill("new-password")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Change password")).click()
 
         assertThat(page.getByText("Current password is incorrect.")).isVisible()
@@ -305,6 +317,16 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
 
     private fun saveUser(username: String, password: String, type: UserType): User {
         return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
+    }
+
+    private fun assertRequiredLabel(page: Page, label: String) {
+        assertThat(
+            page.locator("label")
+                .filter(Locator.FilterOptions().setHasText(label))
+                .first()
+                .locator("span")
+                .filter(Locator.FilterOptions().setHasText("*")),
+        ).isVisible()
     }
 
     private fun installVirtualAuthenticator(page: Page): CDPSession {

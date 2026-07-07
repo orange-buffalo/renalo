@@ -183,6 +183,7 @@ export function AccountAdjustmentsPage() {
             name="adjustmentAmount"
             value={amount}
             currency={data?.currency ?? "AUD"}
+            isRequired
             isInvalid={Boolean(amountError)}
             hint={amountError ?? "Positive for credit, negative for debit."}
             onChange={handleAdjustmentChange}

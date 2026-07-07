@@ -135,6 +135,33 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun validatesFundsTransferRequiredFields(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveAccount(alice, "Savings", "AUD", isDefault = false)
+        saveAccount(alice, "Travel", "EUR", isDefault = false)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/transfers/create")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add transfer"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create transfer")).click()
+
+        assertThat(page.getByText("Enter a valid amount greater than zero.")).isVisible()
+        assertRequiredLabel(page, "Amount")
+
+        selectOption(page, "Target account", "Travel")
+        page.locator("input[name='sourceAmount']").fill("10")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create transfer")).click()
+
+        assertThat(page.getByText("Enter a valid target amount greater than zero.")).isVisible()
+        assertThat(page.getByText("Enter a valid exchange rate greater than zero.")).isVisible()
+        assertRequiredLabel(page, "Source amount")
+        assertRequiredLabel(page, "Target amount")
+        assertRequiredLabel(page, "Exchange rate")
+    }
+
+    @Test
     fun filtersFundsTransfersBySharedDateRange(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
@@ -304,6 +331,15 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun dropdownOption(page: Page, option: String): Locator =
         dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
+
+    private fun assertRequiredLabel(page: Page, label: String) {
+        assertThat(
+            page.locator("label")
+                .filter(Locator.FilterOptions().setHasText(label))
+                .locator("span")
+                .filter(Locator.FilterOptions().setHasText("*")),
+        ).isVisible()
+    }
 
     private fun assertDateFilterLabel(page: Page, label: String) {
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(label).setExact(true))).isVisible()

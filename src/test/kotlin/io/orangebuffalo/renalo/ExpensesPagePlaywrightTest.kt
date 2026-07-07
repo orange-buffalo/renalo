@@ -167,6 +167,36 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun validatesExpenseFormRequiredFieldsAndAllowsOptionalNotes(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Groceries")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses/create")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
+
+        assertThat(page.getByText("Choose a category.")).isVisible()
+        assertThat(page.getByText("Enter a valid amount greater than zero.")).isVisible()
+        assertRequiredLabel(page, "Amount")
+
+        selectCategoryOption(page, "Category", "Groceries")
+        page.locator("input[name='amount']").fill("12.34")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Groceries", "A$12.34", "Today", "Main", "-", "edit delete"),
+        )
+        expenseRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE)
+            .single()
+            .notes
+            .shouldBe(null)
+    }
+
+    @Test
     fun showsExpenseMobileCardsWithDateAlwaysVisibleAndDetailsExpandable(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
@@ -892,6 +922,15 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun dropdownOption(page: Page, option: String): Locator =
         dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
+
+    private fun assertRequiredLabel(page: Page, label: String) {
+        assertThat(
+            page.locator("label")
+                .filter(Locator.FilterOptions().setHasText(label))
+                .locator("span")
+                .filter(Locator.FilterOptions().setHasText("*")),
+        ).isVisible()
+    }
 
     private fun assertDateFilterLabel(page: Page, label: String) {
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(label).setExact(true))).isVisible()

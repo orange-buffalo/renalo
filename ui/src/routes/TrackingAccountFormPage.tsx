@@ -180,6 +180,7 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
             name="initialBalance"
             value={amount}
             currency={currency}
+            isRequired
             isInvalid={Boolean(amountError)}
             hint={amountError ?? "This is used for analytics."}
             onChange={(nextAmount) => {
@@ -239,6 +240,7 @@ function CurrencyDropdown({
       placeholder={currency}
       items={currencyOptions}
       selectedKey={currency}
+      isRequired
       className="searchable-dropdown-field tracking-account-currency-field"
       onSelectionChange={onCurrencyChange}
     />

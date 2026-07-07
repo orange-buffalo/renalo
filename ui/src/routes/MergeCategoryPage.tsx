@@ -288,6 +288,7 @@ function TargetCategoryDropdown({
           ? String(selectedCategory.id)
           : selectedCategoryId?.toString()
       }
+      isRequired
       isDisabled={categories.length === 0}
       isInvalid={isInvalid}
       hint={error}

@@ -753,6 +753,7 @@ export function SettingsPage() {
                 variant="dropzone"
                 buttonText="Click to upload"
                 acceptedFileTypes={[".csv", "text/csv"]}
+                isRequired
                 isDisabled={isImportingToshl}
                 onChange={(files) => {
                   setToshlFile(files?.item(0) ?? undefined);

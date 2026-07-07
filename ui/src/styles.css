@@ -437,7 +437,13 @@ input {
 }
 
 .searchable-dropdown-trigger[data-invalid="true"] {
-  box-shadow: 0 0 0 1px #f04438 inset;
+  box-shadow: 0 0 0 1px var(--ring-color-error_subtle) inset;
+}
+
+.searchable-dropdown-field .searchable-dropdown-error {
+  margin: 0;
+  color: var(--text-color-error-primary);
+  font-size: 0.875rem;
 }
 
 .searchable-dropdown-trigger[data-disabled] {
@@ -1269,6 +1275,10 @@ input {
   box-shadow: 0 0 0 1px #d4d9db inset;
 }
 
+.money-input-field:has(input[aria-invalid="true"]) .money-input-currency-addon {
+  box-shadow: 0 0 0 1px var(--ring-color-error_subtle) inset;
+}
+
 .tracking-account-default-checkbox {
   align-self: start;
   padding-top: 24px;
@@ -1320,7 +1330,7 @@ input {
 
 .tracking-account-field-error {
   margin: 0;
-  color: #d16a56;
+  color: var(--text-color-error-primary);
   font-size: 0.875rem;
 }
 

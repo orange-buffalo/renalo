@@ -110,9 +110,7 @@ export function SearchableDropdown({
           )}
         </Dropdown.Popover>
       </Dropdown.Root>
-      {isInvalid && hint && (
-        <p className="tracking-account-field-error">{hint}</p>
-      )}
+      {isInvalid && hint && <p className="searchable-dropdown-error">{hint}</p>}
     </div>
   );
 }

@@ -349,6 +349,7 @@ export function ProfilePage() {
               size="md"
               wrapperClassName="profile-password-field"
               value={currentPassword}
+              isRequired
               isInvalid={Boolean(currentPasswordError)}
               hint={currentPasswordError}
               onChange={(nextPassword) => {
@@ -366,6 +367,7 @@ export function ProfilePage() {
               size="md"
               wrapperClassName="profile-password-field"
               value={newPassword}
+              isRequired
               isInvalid={Boolean(newPasswordError)}
               hint={newPasswordError}
               onChange={(nextPassword) => {
@@ -382,6 +384,7 @@ export function ProfilePage() {
               size="md"
               wrapperClassName="profile-password-field"
               value={newPasswordConfirmation}
+              isRequired
               isInvalid={Boolean(newPasswordError)}
               onChange={(nextPasswordConfirmation) => {
                 setNewPasswordConfirmation(nextPasswordConfirmation);
