@@ -65,7 +65,7 @@ export function TransactionMoreFilters({
             <div className="transaction-more-filters-header">
               <h2>More filters</h2>
               <Button
-                color="link-gray"
+                color="text-gray"
                 size="sm"
                 onPress={() => onChange(emptyTransactionSecondaryFilters)}
                 isDisabled={activeFilterCount === 0}

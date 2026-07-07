@@ -59,7 +59,7 @@ export function FundsTransferMoreFilters({
             <div className="transaction-more-filters-header">
               <h2>More filters</h2>
               <Button
-                color="link-gray"
+                color="text-gray"
                 size="sm"
                 onPress={() => onChange(emptyFundsTransferSecondaryFilters)}
                 isDisabled={activeFilterCount === 0}

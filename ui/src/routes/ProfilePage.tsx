@@ -403,7 +403,7 @@ export function ProfilePage() {
                 }
               >
                 <Button
-                  color="link-destructive"
+                  color="text-destructive"
                   size="sm"
                   type="button"
                   isDisabled={!canDisablePasswordSignIn}

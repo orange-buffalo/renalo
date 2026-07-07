@@ -77,6 +77,20 @@ export const styles = sortCx({
                 "*:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover",
             ].join(" "),
         },
+        "text-color": {
+            root: [
+                "justify-normal rounded p-0! text-brand-secondary hover:text-brand-secondary_hover",
+                // Icon styles
+                "*:data-icon:text-fg-brand-secondary_alt hover:*:data-icon:text-fg-brand-secondary_hover",
+            ].join(" "),
+        },
+        "text-gray": {
+            root: [
+                "justify-normal rounded p-0! text-tertiary hover:text-tertiary_hover",
+                // Icon styles
+                "*:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover",
+            ].join(" "),
+        },
         "link-color": {
             root: [
                 "justify-normal rounded p-0! text-brand-secondary hover:text-brand-secondary_hover",
@@ -114,6 +128,13 @@ export const styles = sortCx({
         "tertiary-destructive": {
             root: [
                 "text-error-primary outline-error hover:bg-error-primary hover:text-error-primary_hover data-loading:bg-error-primary",
+                // Icon styles
+                "*:data-icon:text-fg-error-secondary hover:*:data-icon:text-fg-error-primary",
+            ].join(" "),
+        },
+        "text-destructive": {
+            root: [
+                "justify-normal rounded p-0! text-error-primary outline-error hover:text-error-primary_hover",
                 // Icon styles
                 "*:data-icon:text-fg-error-secondary hover:*:data-icon:text-fg-error-primary",
             ].join(" "),
@@ -188,9 +209,16 @@ export const Button: {
     const href = "href" in props ? props.href : undefined;
 
     const isIcon = (IconLeading || IconTrailing) && !children;
-    const isLinkType = ["link-gray", "link-color", "link-destructive"].includes(color);
+    const isTextType = [
+        "text-gray",
+        "text-color",
+        "text-destructive",
+        "link-gray",
+        "link-color",
+        "link-destructive",
+    ].includes(color);
 
-    noTextPadding = isLinkType || noTextPadding;
+    noTextPadding = isTextType || noTextPadding;
 
     const commonChildren = (
         <>
@@ -242,7 +270,7 @@ export const Button: {
             styles.common.root,
             styles.sizes[size].root,
             styles.colors[color].root,
-            isLinkType && styles.sizes[size].linkRoot,
+            isTextType && styles.sizes[size].linkRoot,
             (loading || (href && (disabled || loading))) && "pointer-events-none",
             // If in `loading` state, hide everything except the loading icon (and text if `showTextWhileLoading` is true).
             loading && (showTextWhileLoading ? "[&>*:not([data-icon=loading]):not([data-text])]:hidden" : "[&>*:not([data-icon=loading])]:invisible"),

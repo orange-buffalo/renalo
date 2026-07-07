@@ -248,7 +248,7 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
 
         assertThat(page.getByRole(AriaRole.ALERT)).containsText("Password sign-in is disabled")
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Enable password login"))).isVisible()
-        assertThat(page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Current password").setExact(true)))
+        assertThat(page.locator("input[name='currentPassword']"))
             .isHidden()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
@@ -265,7 +265,7 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(baseUrl + "/profile")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Remove")).click()
-        assertThat(page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Current password").setExact(true)))
+        assertThat(page.locator("input[name='currentPassword']"))
             .isVisible()
         assertThat(disablePasswordButton).isDisabled()
     }
