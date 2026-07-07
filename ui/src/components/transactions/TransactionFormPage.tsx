@@ -16,12 +16,12 @@ import {
 import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { MoneyInput } from "@/components/MoneyInput";
 import { PageLayout } from "@/components/PageLayout";
+import { SearchableDropdown } from "@/components/SearchableDropdown";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { DatePicker } from "@/components/untitled/application/date-picker/date-picker";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Label } from "@/components/untitled/base/input/label";
-import { Select } from "@/components/untitled/base/select/select";
 import { loadStoredAccountId, storeAccountId } from "@/utils/accountSelection";
 import { formatMoneyInput, parseMoneyInput } from "@/utils/money";
 
@@ -518,25 +518,24 @@ export function TransactionFormPage({
               className="tracking-account-form-wide"
             />
           )}
-          <Select.ComboBox
+          <SearchableDropdown
             label={config.categoryLabel}
-            placeholder="Search categories"
-            size="md"
+            placeholder={config.categoryPlaceholder}
             isRequired
-            selectedKey={categoryId ? String(categoryId) : null}
+            selectedKey={categoryId ? String(categoryId) : undefined}
             isInvalid={Boolean(categoryError)}
             hint={categoryError}
-            items={categories?.map((category) => ({
-              id: String(category.id),
-              label: category.name,
-            }))}
+            items={
+              categories?.map((category) => ({
+                id: String(category.id),
+                label: category.name,
+              })) ?? []
+            }
             onSelectionChange={(key) => {
               setCategoryId(Number(key));
               setCategoryError(undefined);
             }}
-          >
-            {(item) => <Select.Item {...item} />}
-          </Select.ComboBox>
+          />
           <MoneyInput
             label="Amount"
             name="amount"
@@ -572,23 +571,24 @@ export function TransactionFormPage({
               <p className="transaction-field-error">{dateError}</p>
             )}
           </div>
-          <Select
+          <SearchableDropdown
             label="Account"
             placeholder="Choose account"
-            size="md"
             isRequired
-            selectedKey={trackingAccountId ? String(trackingAccountId) : null}
+            selectedKey={
+              trackingAccountId ? String(trackingAccountId) : undefined
+            }
             isInvalid={Boolean(accountError)}
             hint={accountError}
-            items={accounts?.map((account) => ({
-              id: String(account.id),
-              label: account.name,
-              supportingText: account.currency,
-            }))}
+            items={
+              accounts?.map((account) => ({
+                id: String(account.id),
+                label: account.name,
+                supportingText: account.currency,
+              })) ?? []
+            }
             onSelectionChange={(key) => handleAccountChange(Number(key))}
-          >
-            {(item) => <Select.Item {...item} />}
-          </Select>
+          />
           <div className="transaction-notes-field">
             <Label>Notes</Label>
             <textarea
@@ -621,10 +621,9 @@ export function TransactionFormPage({
               />
               {isRecurring && (
                 <div className="transaction-recurrence-controls">
-                  <Select
+                  <SearchableDropdown
                     label="Repeat"
                     placeholder="Choose schedule"
-                    size="md"
                     selectedKey={recurrenceSchedule}
                     items={recurrenceScheduleOptions}
                     onSelectionChange={(key) =>
@@ -632,27 +631,21 @@ export function TransactionFormPage({
                         key as RecurrenceScheduleOption,
                       )
                     }
-                  >
-                    {(item) => <Select.Item {...item} />}
-                  </Select>
+                  />
                   {recurrenceSchedule === "CUSTOM" && (
                     <div className="transaction-custom-recurrence-controls">
-                      <Select
+                      <SearchableDropdown
                         label="Repeat every"
                         placeholder="Choose interval"
-                        size="md"
                         selectedKey={String(customRecurrenceFrequency)}
                         items={customFrequencyOptions}
                         onSelectionChange={(key) =>
                           handleCustomFrequencyChange(Number(key))
                         }
-                      >
-                        {(item) => <Select.Item {...item} />}
-                      </Select>
-                      <Select
+                      />
+                      <SearchableDropdown
                         label="Cadence"
                         placeholder="Choose cadence"
-                        size="md"
                         selectedKey={customRecurrenceInterval}
                         items={customIntervalOptions}
                         onSelectionChange={(key) =>
@@ -660,9 +653,7 @@ export function TransactionFormPage({
                             key as RecurrenceIntervalOption,
                           )
                         }
-                      >
-                        {(item) => <Select.Item {...item} />}
-                      </Select>
+                      />
                     </div>
                   )}
                   <div className="transaction-recurrence-end-controls">
@@ -690,10 +681,9 @@ export function TransactionFormPage({
                         </p>
                       )}
                     </div>
-                    <Select
+                    <SearchableDropdown
                       label="End after repetitions"
                       placeholder="Choose repetitions"
-                      size="md"
                       selectedKey={recurrenceRepetitions}
                       items={recurrenceRepetitionOptions}
                       onSelectionChange={(key) =>
@@ -701,9 +691,7 @@ export function TransactionFormPage({
                           key as RecurrenceRepetitionOption,
                         )
                       }
-                    >
-                      {(item) => <Select.Item {...item} />}
-                    </Select>
+                    />
                   </div>
                 </div>
               )}
@@ -727,18 +715,15 @@ export function TransactionFormPage({
                   relevant scope to change when this repeats.
                 </p>
               </div>
-              <Select
+              <SearchableDropdown
                 label="Edit scope"
                 placeholder="Choose scope"
-                size="md"
                 selectedKey={recurringEditScope}
                 items={recurringEditScopeOptions}
                 onSelectionChange={(key) =>
                   setRecurringEditScope(key as RecurringEditScope)
                 }
-              >
-                {(item) => <Select.Item {...item} />}
-              </Select>
+              />
             </div>
           )}
           {isEditing && !isEditingRecurringTransaction && (

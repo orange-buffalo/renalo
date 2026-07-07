@@ -1,6 +1,4 @@
-import { ChevronDown } from "@untitledui/icons";
 import { type FormEvent, useEffect, useState } from "react";
-import { Button as AriaButton } from "react-aria-components";
 import { useNavigate, useParams } from "react-router";
 import {
   type ExpenseCategory,
@@ -16,10 +14,9 @@ import {
 } from "@/api/incomeCategories";
 import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { PageLayout } from "@/components/PageLayout";
+import { SearchableDropdown } from "@/components/SearchableDropdown";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
-import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
-import { Label } from "@/components/untitled/base/input/label";
 
 type CategoryKind = "expense" | "income";
 type Category = ExpenseCategory | IncomeCategory;
@@ -98,7 +95,6 @@ function MergeCategoryPage({ kind }: { kind: CategoryKind }) {
   const config = categoryConfig[kind];
   const [summary, setSummary] = useState<CategoryMergeSummary>();
   const [targetCategoryId, setTargetCategoryId] = useState<number>();
-  const [isTargetDropdownOpen, setIsTargetDropdownOpen] = useState(false);
   const [error, setError] = useState<string>();
   const [targetError, setTargetError] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -211,10 +207,8 @@ function MergeCategoryPage({ kind }: { kind: CategoryKind }) {
                 categories={targetCategories}
                 selectedCategory={selectedTargetCategory}
                 selectedCategoryId={targetCategoryId}
-                isOpen={isTargetDropdownOpen}
                 isInvalid={Boolean(targetError)}
                 error={targetError}
-                onOpenChange={setIsTargetDropdownOpen}
                 onChange={(nextCategoryId) => {
                   setTargetCategoryId(nextCategoryId);
                   setTargetError(undefined);
@@ -262,10 +256,8 @@ type TargetCategoryDropdownProps = {
   categories: Category[];
   selectedCategory?: Category;
   selectedCategoryId?: number;
-  isOpen: boolean;
   isInvalid: boolean;
   error?: string;
-  onOpenChange: (isOpen: boolean) => void;
   onChange: (categoryId: number) => void;
 };
 
@@ -273,60 +265,34 @@ function TargetCategoryDropdown({
   categories,
   selectedCategory,
   selectedCategoryId,
-  isOpen,
   isInvalid,
   error,
-  onOpenChange,
   onChange,
 }: TargetCategoryDropdownProps) {
+  const categoryItems = categories.map((category) => ({
+    id: String(category.id),
+    label: category.name,
+  }));
+
   return (
-    <div className="tracking-account-currency-field account-merge-target-field">
-      <Label>Merge into category</Label>
-      <Dropdown.Root isOpen={isOpen} onOpenChange={onOpenChange}>
-        <AriaButton
-          aria-label="Merge into category"
-          className="tracking-account-currency-trigger"
-          isDisabled={categories.length === 0}
-        >
-          <span className="tracking-account-currency-value">
-            <span>{selectedCategory?.name ?? "Choose a category"}</span>
-            {categories.length === 0 && <span>No categories available</span>}
-          </span>
-          <ChevronDown
-            aria-hidden="true"
-            className="tracking-account-currency-chevron"
-          />
-        </AriaButton>
-        <Dropdown.Popover
-          placement="bottom left"
-          className="tracking-account-currency-popover"
-        >
-          <Dropdown.Menu
-            selectionMode="single"
-            selectedKeys={
-              selectedCategoryId ? [String(selectedCategoryId)] : []
-            }
-            onAction={(key) => {
-              onChange(Number(key));
-              onOpenChange(false);
-            }}
-            className="tracking-account-currency-menu"
-          >
-            {categories.map((category) => (
-              <Dropdown.Item
-                key={category.id}
-                id={String(category.id)}
-                textValue={category.name}
-              >
-                <span className="tracking-account-currency-option">
-                  <span>{category.name}</span>
-                </span>
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown.Popover>
-      </Dropdown.Root>
-      {isInvalid && <p className="tracking-account-field-error">{error}</p>}
-    </div>
+    <SearchableDropdown
+      label="Merge into category"
+      placeholder={
+        categories.length === 0
+          ? "No categories available"
+          : "Choose a category"
+      }
+      items={categoryItems}
+      selectedKey={
+        selectedCategory
+          ? String(selectedCategory.id)
+          : selectedCategoryId?.toString()
+      }
+      isDisabled={categories.length === 0}
+      isInvalid={isInvalid}
+      hint={error}
+      className="searchable-dropdown-field account-merge-target-field"
+      onSelectionChange={(key) => onChange(Number(key))}
+    />
   );
 }

@@ -241,12 +241,10 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         openMoreFilters(page)
         val filtersDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
         assertThat(filtersDialog.getByText("Old")).not().isVisible()
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Choose income category")).click()
-        assertThat(page.locator(".transaction-filter-option").filter(Locator.FilterOptions().setHasText("Salary"))).isVisible()
-        assertThat(page.locator(".transaction-filter-option").filter(Locator.FilterOptions().setHasText("Old category"))).not().isVisible()
-        page.locator(".transaction-filter-option")
-            .filter(Locator.FilterOptions().setHasText("Salary"))
-            .click()
+        filtersDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Income category").setExact(true)).click()
+        assertThat(dropdownOption(page, "Salary")).isVisible()
+        assertThat(dropdownOption(page, "Old category")).not().isVisible()
+        dropdownOption(page, "Salary").click()
         page.keyboard().press("Escape")
         selectMoreFilterOption(page, "Account", "Main")
         page.getByLabel("Notes").fill("monthly consulting")
@@ -391,10 +389,10 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     private fun selectMoreFilterOption(page: Page, label: String, option: String) {
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Choose ${label.lowercase()}")).click()
-        page.locator(".transaction-filter-option")
-            .filter(Locator.FilterOptions().setHasText(option))
+        page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(label).setExact(true))
             .click()
+        dropdownOption(page, option).click()
         page.keyboard().press("Escape")
     }
 
@@ -411,7 +409,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByLabel("Account").last()).containsText("Main")
 
         page.getByLabel("Account").last().click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Savings").setExact(true)).click()
+        dropdownOption(page, "Savings").click()
         assertThat(page.getByLabel("Account").last()).containsText("Savings")
 
         page.navigate(server.url.toString() + "/incomes")
@@ -437,8 +435,8 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/incomes/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
 
-        page.getByLabel("Income category").fill("")
-        val optionOrder = page.locator("[role='option']").evaluateAll(
+        page.getByLabel("Income category").click()
+        val optionOrder = dropdownOptions(page).evaluateAll(
             "options => options.map(o => o.textContent.trim())",
         ) as List<String>
         optionOrder.shouldBe(listOf("Salary", "Bonus", "Interest"))
@@ -455,7 +453,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/incomes/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
-        assertThat(page.getByLabel("Income category")).hasValue("")
+        assertThat(page.getByLabel("Income category")).containsText("Choose a category")
     }
 
     @Test
@@ -470,21 +468,29 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/incomes/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
 
-        page.getByLabel("Income category").fill("Bonus")
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Bonus").setExact(true))).isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Salary").setExact(true))).not().isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Interest").setExact(true))).not().isVisible()
+        page.getByLabel("Income category").click()
+        page.getByLabel("Search income category").fill("Bonus")
+        assertThat(dropdownOption(page, "Bonus")).isVisible()
+        assertThat(dropdownOption(page, "Salary")).not().isVisible()
+        assertThat(dropdownOption(page, "Interest")).not().isVisible()
     }
 
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
+        dropdownOption(page, option).click()
     }
 
     private fun selectCategoryOption(page: Page, label: String, option: String) {
-        page.getByLabel(label).fill(option)
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
+        page.getByLabel(label).click()
+        page.getByLabel("Search ${label.lowercase()}").fill(option)
+        dropdownOption(page, option).click()
     }
+
+    private fun dropdownOptions(page: Page): Locator =
+        page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
+
+    private fun dropdownOption(page: Page, option: String): Locator =
+        dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
 
     private fun extractIncomeRows(page: Page): List<IncomeRow> {
         @Suppress("UNCHECKED_CAST")

@@ -1,9 +1,4 @@
-import { ChevronDown, SearchLg } from "@untitledui/icons";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  Button as AriaButton,
-  Input as AriaInput,
-} from "react-aria-components";
+import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   createTrackingAccount,
@@ -15,12 +10,11 @@ import {
 import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { MoneyInput } from "@/components/MoneyInput";
 import { PageLayout } from "@/components/PageLayout";
+import { SearchableDropdown } from "@/components/SearchableDropdown";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
-import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Input } from "@/components/untitled/base/input/input";
-import { Label } from "@/components/untitled/base/input/label";
 import {
   formatMoneyInput,
   getCurrencyOptions,
@@ -44,7 +38,6 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("AUD");
   const [loadedCurrency, setLoadedCurrency] = useState<string>();
-  const [currencySearch, setCurrencySearch] = useState("");
   const [amount, setAmount] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [error, setError] = useState<string>();
@@ -93,28 +86,11 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
 
   function handleCurrencyChange(nextCurrency: string) {
     setCurrency(nextCurrency);
-    setCurrencySearch("");
     if (amount) {
       const parsed = parseMoneyInput(amount, currency) ?? 0;
       setAmount(formatMoneyInput(parsed, nextCurrency));
     }
   }
-
-  const selectedCurrency = currencyOptions.find(
-    (option) => option.id === currency,
-  );
-  const filteredCurrencyOptions = useMemo(() => {
-    const normalizedSearch = currencySearch.trim().toLowerCase();
-    if (!normalizedSearch) {
-      return currencyOptions;
-    }
-
-    return currencyOptions.filter((option) =>
-      `${option.label} ${option.supportingText}`
-        .toLowerCase()
-        .includes(normalizedSearch),
-    );
-  }, [currencySearch]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -197,10 +173,6 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
           />
           <CurrencyDropdown
             currency={currency}
-            selectedCurrency={selectedCurrency}
-            currencySearch={currencySearch}
-            filteredCurrencyOptions={filteredCurrencyOptions}
-            onSearchChange={setCurrencySearch}
             onCurrencyChange={handleCurrencyChange}
           />
           <MoneyInput
@@ -254,86 +226,21 @@ function TrackingAccountFormPage({ mode }: { mode: "create" | "edit" }) {
 
 type CurrencyDropdownProps = {
   currency: string;
-  selectedCurrency?: { label: string; supportingText: string };
-  currencySearch: string;
-  filteredCurrencyOptions: Array<{
-    id: string;
-    label: string;
-    supportingText: string;
-  }>;
-  onSearchChange: (search: string) => void;
   onCurrencyChange: (currency: string) => void;
 };
 
 function CurrencyDropdown({
   currency,
-  selectedCurrency,
-  currencySearch,
-  filteredCurrencyOptions,
-  onSearchChange,
   onCurrencyChange,
 }: CurrencyDropdownProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
   return (
-    <div className="tracking-account-currency-field">
-      <Label>Currency</Label>
-      <Dropdown.Root isOpen={isOpen} onOpenChange={setIsOpen}>
-        <AriaButton
-          aria-label="Currency"
-          className="tracking-account-currency-trigger"
-        >
-          <span className="tracking-account-currency-value">
-            <span>{selectedCurrency?.label ?? currency}</span>
-            <span>{selectedCurrency?.supportingText ?? currency}</span>
-          </span>
-          <ChevronDown
-            aria-hidden="true"
-            className="tracking-account-currency-chevron"
-          />
-        </AriaButton>
-        <Dropdown.Popover
-          placement="bottom left"
-          className="tracking-account-currency-popover"
-        >
-          <div className="tracking-account-currency-search-wrap">
-            <SearchLg
-              aria-hidden="true"
-              className="tracking-account-currency-search-icon"
-            />
-            <AriaInput
-              aria-label="Search currencies"
-              className="tracking-account-currency-search"
-              placeholder="Search"
-              value={currencySearch}
-              onChange={(event) => onSearchChange(event.target.value)}
-            />
-          </div>
-          <Dropdown.Separator />
-          <Dropdown.Menu
-            selectionMode="single"
-            selectedKeys={[currency]}
-            onAction={(key) => {
-              onCurrencyChange(String(key));
-              setIsOpen(false);
-            }}
-            className="tracking-account-currency-menu"
-          >
-            {filteredCurrencyOptions.map((option) => (
-              <Dropdown.Item
-                key={option.id}
-                id={option.id}
-                textValue={`${option.label} ${option.supportingText}`}
-              >
-                <span className="tracking-account-currency-option">
-                  <span>{option.label}</span>
-                  <span>{option.supportingText}</span>
-                </span>
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown.Popover>
-      </Dropdown.Root>
-    </div>
+    <SearchableDropdown
+      label="Currency"
+      placeholder={currency}
+      items={currencyOptions}
+      selectedKey={currency}
+      className="searchable-dropdown-field tracking-account-currency-field"
+      onSelectionChange={onCurrencyChange}
+    />
   );
 }

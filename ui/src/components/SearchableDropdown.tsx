@@ -1,0 +1,228 @@
+import { ChevronDown, SearchLg } from "@untitledui/icons";
+import { useMemo, useState } from "react";
+import { Button as AriaButton, type Selection } from "react-aria-components";
+import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
+import { Input } from "@/components/untitled/base/input/input";
+import { Label } from "@/components/untitled/base/input/label";
+
+export type SearchableDropdownItem = {
+  id: string;
+  label: string;
+  supportingText?: string;
+};
+
+type SearchableDropdownProps = {
+  label: string;
+  placeholder: string;
+  items: SearchableDropdownItem[];
+  selectedKey?: string | null;
+  isRequired?: boolean;
+  isDisabled?: boolean;
+  isInvalid?: boolean;
+  hint?: string;
+  searchPlaceholder?: string;
+  className?: string;
+  onSelectionChange: (key: string) => void;
+};
+
+export function SearchableDropdown({
+  label,
+  placeholder,
+  items,
+  selectedKey,
+  isRequired,
+  isDisabled,
+  isInvalid,
+  hint,
+  searchPlaceholder = "Search",
+  className,
+  onSelectionChange,
+}: SearchableDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const selectedItem = items.find((item) => item.id === selectedKey);
+  const visibleItems = useFilteredItems(items, search);
+
+  return (
+    <div className={className ?? "searchable-dropdown-field"}>
+      <Label isRequired={isRequired}>{label}</Label>
+      <Dropdown.Root
+        isOpen={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            setSearch("");
+          }
+        }}
+      >
+        <AriaButton
+          aria-label={label}
+          className="searchable-dropdown-trigger"
+          isDisabled={isDisabled}
+          data-invalid={isInvalid || undefined}
+        >
+          <span className="searchable-dropdown-value">
+            <span>{selectedItem?.label ?? placeholder}</span>
+            {selectedItem?.supportingText && (
+              <span>{selectedItem.supportingText}</span>
+            )}
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className="searchable-dropdown-chevron"
+          />
+        </AriaButton>
+        <Dropdown.Popover
+          placement="bottom left"
+          className="searchable-dropdown-popover"
+        >
+          <div className="searchable-dropdown-search-wrap">
+            <Input
+              aria-label={`Search ${label.toLowerCase()}`}
+              size="sm"
+              placeholder={searchPlaceholder}
+              icon={SearchLg}
+              value={search}
+              onChange={setSearch}
+            />
+          </div>
+          <Dropdown.Menu
+            selectionMode="single"
+            selectedKeys={selectedKey ? [selectedKey] : []}
+            onAction={(key) => {
+              onSelectionChange(String(key));
+              setIsOpen(false);
+              setSearch("");
+            }}
+            className="searchable-dropdown-menu"
+          >
+            {visibleItems.map((item) => (
+              <Dropdown.Item key={item.id} id={item.id} textValue={item.label}>
+                <span className="searchable-dropdown-option">
+                  <span>{item.label}</span>
+                  {item.supportingText && <span>{item.supportingText}</span>}
+                </span>
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+          {visibleItems.length === 0 && (
+            <p className="searchable-dropdown-empty">No matches</p>
+          )}
+        </Dropdown.Popover>
+      </Dropdown.Root>
+      {isInvalid && hint && (
+        <p className="tracking-account-field-error">{hint}</p>
+      )}
+    </div>
+  );
+}
+
+type SearchableMultiDropdownProps = {
+  label: string;
+  placeholder: string;
+  items: SearchableDropdownItem[];
+  selectedKeys: string[];
+  searchPlaceholder?: string;
+  onSelectionChange: (keys: string[]) => void;
+};
+
+export function SearchableMultiDropdown({
+  label,
+  placeholder,
+  items,
+  selectedKeys,
+  searchPlaceholder = "Search",
+  onSelectionChange,
+}: SearchableMultiDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const visibleItems = useFilteredItems(items, search);
+  const selectedKeySet = new Set(selectedKeys);
+
+  function handleSelectionChange(selection: Selection) {
+    if (selection === "all") {
+      onSelectionChange(items.map((item) => item.id));
+      return;
+    }
+    onSelectionChange(Array.from(selection).map(String));
+  }
+
+  return (
+    <div className="transaction-filter-field">
+      <span className="transaction-filter-field-label">{label}</span>
+      <Dropdown.Root
+        isOpen={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            setSearch("");
+          }
+        }}
+      >
+        <AriaButton
+          aria-label={label}
+          className="searchable-dropdown-trigger transaction-filter-select-trigger"
+        >
+          <span className="searchable-dropdown-value">
+            <span>
+              {selectedKeys.length > 0
+                ? `${selectedKeys.length} selected`
+                : placeholder}
+            </span>
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className="searchable-dropdown-chevron"
+          />
+        </AriaButton>
+        <Dropdown.Popover
+          placement="bottom left"
+          className="searchable-dropdown-popover transaction-filter-select-popover"
+        >
+          <div className="searchable-dropdown-search-wrap">
+            <Input
+              aria-label={`Search ${label.toLowerCase()}`}
+              size="sm"
+              placeholder={searchPlaceholder}
+              icon={SearchLg}
+              value={search}
+              onChange={setSearch}
+            />
+          </div>
+          <Dropdown.Menu
+            selectionMode="multiple"
+            selectedKeys={selectedKeySet}
+            onSelectionChange={handleSelectionChange}
+            className="searchable-dropdown-menu"
+          >
+            {visibleItems.map((item) => (
+              <Dropdown.Item key={item.id} id={item.id} textValue={item.label}>
+                <span className="searchable-dropdown-option">
+                  <span>{item.label}</span>
+                  {item.supportingText && <span>{item.supportingText}</span>}
+                </span>
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+          {visibleItems.length === 0 && (
+            <p className="searchable-dropdown-empty">No matches</p>
+          )}
+        </Dropdown.Popover>
+      </Dropdown.Root>
+    </div>
+  );
+}
+
+function useFilteredItems(items: SearchableDropdownItem[], search: string) {
+  const normalizedSearch = search.trim().toLowerCase();
+  return useMemo(() => {
+    if (!normalizedSearch) {
+      return items;
+    }
+    return items.filter(
+      (item) =>
+        item.label.toLowerCase().includes(normalizedSearch) ||
+        item.supportingText?.toLowerCase().includes(normalizedSearch),
+    );
+  }, [items, normalizedSearch]);
+}

@@ -1,6 +1,4 @@
-import { ChevronDown } from "@untitledui/icons";
 import { type FormEvent, useEffect, useState } from "react";
-import { Button as AriaButton } from "react-aria-components";
 import { useNavigate, useParams } from "react-router";
 import {
   fetchTrackingAccountMergeSummary,
@@ -10,10 +8,9 @@ import {
 } from "@/api/trackingAccounts";
 import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { PageLayout } from "@/components/PageLayout";
+import { SearchableDropdown } from "@/components/SearchableDropdown";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { Button } from "@/components/untitled/base/buttons/button";
-import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
-import { Label } from "@/components/untitled/base/input/label";
 import { formatMoney } from "@/utils/money";
 
 const mergeDetailsLoadError =
@@ -24,7 +21,6 @@ export function MergeTrackingAccountPage() {
   const { accountId } = useParams();
   const [summary, setSummary] = useState<TrackingAccountMergeSummary>();
   const [targetAccountId, setTargetAccountId] = useState<number>();
-  const [isTargetDropdownOpen, setIsTargetDropdownOpen] = useState(false);
   const [error, setError] = useState<string>();
   const [targetError, setTargetError] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -142,12 +138,9 @@ export function MergeTrackingAccountPage() {
               )}
               <TargetAccountDropdown
                 accounts={targetAccounts}
-                selectedAccount={selectedTargetAccount}
                 selectedAccountId={targetAccountId}
-                isOpen={isTargetDropdownOpen}
                 isInvalid={Boolean(targetError)}
                 error={targetError}
-                onOpenChange={setIsTargetDropdownOpen}
                 onChange={(nextAccountId) => {
                   setTargetAccountId(nextAccountId);
                   setTargetError(undefined);
@@ -212,76 +205,37 @@ function AccountMergeStat({ label, value }: { label: string; value: number }) {
 
 type TargetAccountDropdownProps = {
   accounts: TrackingAccount[];
-  selectedAccount?: TrackingAccount;
   selectedAccountId?: number;
-  isOpen: boolean;
   isInvalid: boolean;
   error?: string;
-  onOpenChange: (isOpen: boolean) => void;
   onChange: (accountId: number) => void;
 };
 
 function TargetAccountDropdown({
   accounts,
-  selectedAccount,
   selectedAccountId,
-  isOpen,
   isInvalid,
   error,
-  onOpenChange,
   onChange,
 }: TargetAccountDropdownProps) {
   return (
-    <div className="tracking-account-currency-field account-merge-target-field">
-      <Label>Merge into account</Label>
-      <Dropdown.Root isOpen={isOpen} onOpenChange={onOpenChange}>
-        <AriaButton
-          aria-label="Merge into account"
-          className="tracking-account-currency-trigger"
-          isDisabled={accounts.length === 0}
-        >
-          <span className="tracking-account-currency-value">
-            <span>{selectedAccount?.name ?? "Choose an account"}</span>
-            <span>{selectedAccount?.currency ?? "Same currency only"}</span>
-          </span>
-          <ChevronDown
-            aria-hidden="true"
-            className="tracking-account-currency-chevron"
-          />
-        </AriaButton>
-        <Dropdown.Popover
-          placement="bottom left"
-          className="tracking-account-currency-popover"
-        >
-          <Dropdown.Menu
-            selectionMode="single"
-            selectedKeys={selectedAccountId ? [String(selectedAccountId)] : []}
-            onAction={(key) => {
-              onChange(Number(key));
-              onOpenChange(false);
-            }}
-            className="tracking-account-currency-menu"
-          >
-            {accounts.map((account) => (
-              <Dropdown.Item
-                key={account.id}
-                id={String(account.id)}
-                textValue={`${account.name} ${account.currency}`}
-              >
-                <span className="tracking-account-currency-option">
-                  <span>{account.name}</span>
-                  <span>
-                    {account.currency} ·{" "}
-                    {formatMoney(account.initialBalanceMinor, account.currency)}{" "}
-                    initial
-                  </span>
-                </span>
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown.Popover>
-      </Dropdown.Root>
-      {isInvalid && <p className="tracking-account-field-error">{error}</p>}
-    </div>
+    <SearchableDropdown
+      label="Merge into account"
+      placeholder="Choose an account"
+      selectedKey={selectedAccountId ? String(selectedAccountId) : undefined}
+      isDisabled={accounts.length === 0}
+      isInvalid={isInvalid}
+      hint={error}
+      items={accounts.map((account) => ({
+        id: String(account.id),
+        label: account.name,
+        supportingText: `${account.currency} · ${formatMoney(
+          account.initialBalanceMinor,
+          account.currency,
+        )} initial`,
+      }))}
+      className="searchable-dropdown-field account-merge-target-field"
+      onSelectionChange={(key) => onChange(Number(key))}
+    />
   );
 }

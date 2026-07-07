@@ -109,12 +109,12 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add expense")).click()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
         page.locator("form").getByLabel("Account").click()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Main").setExact(true))).isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Old").setExact(true))).not().isVisible()
+        assertThat(dropdownOption(page, "Main")).isVisible()
+        assertThat(dropdownOption(page, "Old")).not().isVisible()
         page.keyboard().press("Escape")
         page.locator("form").getByLabel("Category").click()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Rent").setExact(true))).isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Old category").setExact(true))).not().isVisible()
+        assertThat(dropdownOption(page, "Rent")).isVisible()
+        assertThat(dropdownOption(page, "Old category")).not().isVisible()
         page.keyboard().press("Escape")
         selectCategoryOption(page, "Category", "Rent")
         page.locator("input[name='amount']").fill("42")
@@ -810,7 +810,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByLabel("Account").last()).containsText("Main")
 
         page.getByLabel("Account").last().click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Travel").setExact(true)).click()
+        dropdownOption(page, "Travel").click()
         assertThat(page.getByLabel("Account").last()).containsText("Travel")
 
         page.navigate(server.url.toString() + "/expenses")
@@ -836,8 +836,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/expenses/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
 
-        page.getByLabel("Category").fill("")
-        val optionOrder = page.locator("[role='option']").evaluateAll(
+        page.getByLabel("Category").click()
+        val optionOrder = dropdownOptions(page).evaluateAll(
             "options => options.map(o => o.textContent.trim())",
         ) as List<String>
         optionOrder.shouldBe(listOf("Rent", "Utilities", "Groceries"))
@@ -854,7 +854,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/expenses/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
-        assertThat(page.getByLabel("Category")).hasValue("")
+        assertThat(page.getByLabel("Category")).containsText("Choose a category")
     }
 
     @Test
@@ -869,21 +869,29 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/expenses/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
 
-        page.getByLabel("Category").fill("Rent")
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Rent").setExact(true))).isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Groceries").setExact(true))).not().isVisible()
-        assertThat(page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Utilities").setExact(true))).not().isVisible()
+        page.getByLabel("Category").click()
+        page.getByLabel("Search category").fill("Rent")
+        assertThat(dropdownOption(page, "Rent")).isVisible()
+        assertThat(dropdownOption(page, "Groceries")).not().isVisible()
+        assertThat(dropdownOption(page, "Utilities")).not().isVisible()
     }
 
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
+        dropdownOption(page, option).click()
     }
 
     private fun selectCategoryOption(page: Page, label: String, option: String) {
-        page.getByLabel(label).fill(option)
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
+        page.getByLabel(label).click()
+        page.getByLabel("Search ${label.lowercase()}").fill(option)
+        dropdownOption(page, option).click()
     }
+
+    private fun dropdownOptions(page: Page): Locator =
+        page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
+
+    private fun dropdownOption(page: Page, option: String): Locator =
+        dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
 
     private fun assertDateFilterLabel(page: Page, label: String) {
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(label).setExact(true))).isVisible()
@@ -924,10 +932,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     private fun selectMoreFilterOption(page: Page, label: String, option: String) {
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Choose ${label.lowercase()}")).click()
-        page.locator(".transaction-filter-option")
-            .filter(Locator.FilterOptions().setHasText(option))
+        page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(label).setExact(true))
             .click()
+        dropdownOption(page, option).click()
         page.keyboard().press("Escape")
     }
 

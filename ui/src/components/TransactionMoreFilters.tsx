@@ -1,12 +1,12 @@
-import { ChevronDown, FilterLines, SearchLg } from "@untitledui/icons";
+import { FilterLines } from "@untitledui/icons";
 import { useState } from "react";
 import {
   Dialog as AriaDialog,
   DialogTrigger as AriaDialogTrigger,
   Popover as AriaPopover,
 } from "react-aria-components";
+import { SearchableMultiDropdown } from "@/components/SearchableDropdown";
 import { Button } from "@/components/untitled/base/buttons/button";
-import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { Input } from "@/components/untitled/base/input/input";
 import { Tag, TagGroup, TagList } from "@/components/untitled/base/tags/tags";
 
@@ -115,22 +115,9 @@ function MultiSelectFilter({
   selectedIds: number[];
   onChange: (selectedIds: number[]) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const selectedOptions = options.filter((option) =>
     selectedIds.includes(option.id),
   );
-  const visibleOptions = options.filter((option) =>
-    option.name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
-
-  function toggleOption(optionId: number) {
-    if (selectedIds.includes(optionId)) {
-      onChange(selectedIds.filter((selectedId) => selectedId !== optionId));
-    } else {
-      onChange([...selectedIds, optionId]);
-    }
-  }
 
   function removeOption(optionId: string) {
     onChange(
@@ -139,47 +126,19 @@ function MultiSelectFilter({
   }
 
   return (
-    <div className="transaction-filter-field">
-      <span className="transaction-filter-field-label">{label}</span>
-      <AriaDialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
-        <Button
-          color="secondary"
-          size="sm"
-          iconTrailing={ChevronDown}
-          className="transaction-filter-select-trigger"
-        >
-          {selectedOptions.length > 0
-            ? `${selectedOptions.length} selected`
-            : `Choose ${label.toLowerCase()}`}
-        </Button>
-        <AriaPopover className="transaction-filter-select-popover" offset={6}>
-          <AriaDialog className="transaction-filter-select-dialog">
-            <Input
-              aria-label={`Search ${label.toLowerCase()}`}
-              size="sm"
-              placeholder="Search"
-              icon={SearchLg}
-              value={search}
-              onChange={setSearch}
-              className="transaction-filter-search"
-            />
-            <div className="transaction-filter-options">
-              {visibleOptions.map((option) => (
-                <Checkbox
-                  key={option.id}
-                  label={option.name}
-                  isSelected={selectedIds.includes(option.id)}
-                  onChange={() => toggleOption(option.id)}
-                  className="transaction-filter-option"
-                />
-              ))}
-              {visibleOptions.length === 0 && (
-                <p className="transaction-filter-empty-option">No matches</p>
-              )}
-            </div>
-          </AriaDialog>
-        </AriaPopover>
-      </AriaDialogTrigger>
+    <>
+      <SearchableMultiDropdown
+        label={label}
+        placeholder={`Choose ${label.toLowerCase()}`}
+        items={options.map((option) => ({
+          id: String(option.id),
+          label: option.name,
+        }))}
+        selectedKeys={selectedIds.map(String)}
+        onSelectionChange={(nextSelectedIds) =>
+          onChange(nextSelectedIds.map(Number))
+        }
+      />
       {selectedOptions.length > 0 && (
         <TagGroup label={`Selected ${label.toLowerCase()}`} size="sm">
           <TagList
@@ -197,7 +156,7 @@ function MultiSelectFilter({
           </TagList>
         </TagGroup>
       )}
-    </div>
+    </>
   );
 }
 

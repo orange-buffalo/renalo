@@ -404,6 +404,114 @@ input {
   font-weight: 500;
 }
 
+.searchable-dropdown-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.searchable-dropdown-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px 12px;
+  color: #4b5058;
+  box-shadow:
+    0 0 0 1px #d4d9db inset,
+    0 1px 2px rgb(16 24 40 / 5%);
+  outline: none;
+}
+
+.searchable-dropdown-trigger[data-focused],
+.searchable-dropdown-trigger[data-focus-visible],
+.searchable-dropdown-trigger[data-pressed] {
+  box-shadow: 0 0 0 2px #7881bb inset;
+}
+
+.searchable-dropdown-trigger[data-invalid="true"] {
+  box-shadow: 0 0 0 1px #f04438 inset;
+}
+
+.searchable-dropdown-trigger[data-disabled] {
+  cursor: not-allowed;
+  background: #f9fafb;
+  color: #838b95;
+}
+
+.searchable-dropdown-value,
+.searchable-dropdown-option {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.searchable-dropdown-value span:first-child,
+.searchable-dropdown-option span:first-child {
+  overflow: hidden;
+  color: #4b5058;
+  font-weight: 400;
+  text-overflow: ellipsis;
+}
+
+.searchable-dropdown-value span:last-child,
+.searchable-dropdown-option span:last-child {
+  color: #626872;
+}
+
+.searchable-dropdown-chevron {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: #838b95;
+}
+
+.searchable-dropdown-popover {
+  z-index: 50;
+  width: var(--trigger-width);
+  max-height: 420px;
+  overflow: hidden;
+  border: 1px solid #d4d9db;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgb(16 24 40 / 14%);
+}
+
+.searchable-dropdown-search-wrap {
+  padding: 12px 12px 8px;
+}
+
+.searchable-dropdown-search-wrap [data-input-wrapper] {
+  max-width: none;
+}
+
+.searchable-dropdown-menu {
+  max-height: 260px;
+}
+
+.searchable-dropdown-menu [role="menuitem"] > div > span.grow {
+  display: flex;
+  align-items: center;
+  font-weight: 400;
+}
+
+.searchable-dropdown-empty {
+  margin: 0;
+  padding: 8px 14px 14px;
+  color: #838b95;
+  font-size: 0.875rem;
+}
+
 .transaction-filter-select-trigger {
   width: 100%;
 }

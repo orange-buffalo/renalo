@@ -696,8 +696,10 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun selectCurrency(page: Page, search: String) {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Currency")).click()
-        page.getByLabel("Search currencies").fill(search)
-        page.getByText(java.util.regex.Pattern.compile(search)).last().click()
+        page.getByLabel("Search currency").fill(search)
+        page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
+            .filter(Locator.FilterOptions().setHasText(search))
+            .click()
     }
 }
 

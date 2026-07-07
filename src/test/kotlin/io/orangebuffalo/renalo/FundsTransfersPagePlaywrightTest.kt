@@ -279,9 +279,9 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByLabel("Target account")).containsText("Savings")
 
         page.getByLabel("Source account").click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Travel").setExact(true)).click()
+        dropdownOption(page, "Travel").click()
         page.getByLabel("Target account").click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Main").setExact(true)).click()
+        dropdownOption(page, "Main").click()
         assertThat(page.getByLabel("Source account")).containsText("Travel")
         assertThat(page.getByLabel("Target account")).containsText("Main")
 
@@ -296,8 +296,14 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName(option).setExact(true)).click()
+        dropdownOption(page, option).click()
     }
+
+    private fun dropdownOptions(page: Page): Locator =
+        page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
+
+    private fun dropdownOption(page: Page, option: String): Locator =
+        dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
 
     private fun assertDateFilterLabel(page: Page, label: String) {
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(label).setExact(true))).isVisible()
@@ -316,11 +322,10 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     private fun selectMoreFilterOption(page: Page, label: String, option: String) {
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Choose ${label.lowercase()}"))
+        page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
+            .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(label).setExact(true))
             .click()
-        page.locator(".transaction-filter-option")
-            .filter(Locator.FilterOptions().setHasText(option))
-            .click()
+        dropdownOption(page, option).click()
         page.keyboard().press("Escape")
     }
 

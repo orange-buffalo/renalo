@@ -3,9 +3,9 @@ import { useNavigate } from "react-router";
 import type { UserType } from "@/api/auth";
 import { ApiError, apiRequest } from "@/api/client";
 import { PageLayout } from "@/components/PageLayout";
+import { SearchableDropdown } from "@/components/SearchableDropdown";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
-import { Select } from "@/components/untitled/base/select/select";
 
 const userTypeItems = [
   { id: "USER", label: "User" },
@@ -88,16 +88,13 @@ export function CreateUserPage() {
             isInvalid={Boolean(usernameError)}
             hint={usernameError}
           />
-          <Select
+          <SearchableDropdown
             label="Type"
-            name="type"
-            size="md"
+            placeholder="Choose user type"
             selectedKey={type}
             onSelectionChange={(key) => setType(key as UserType)}
             items={userTypeItems}
-          >
-            {(item) => <Select.Item id={item.id}>{item.label}</Select.Item>}
-          </Select>
+          />
 
           {error && (
             <p

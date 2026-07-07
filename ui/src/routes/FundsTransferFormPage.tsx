@@ -14,12 +14,12 @@ import {
 import { FormLoadingOverlay } from "@/components/FormLoadingOverlay";
 import { MoneyInput } from "@/components/MoneyInput";
 import { PageLayout } from "@/components/PageLayout";
+import { SearchableDropdown } from "@/components/SearchableDropdown";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { DatePicker } from "@/components/untitled/application/date-picker/date-picker";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
 import { Label } from "@/components/untitled/base/input/label";
-import { Select } from "@/components/untitled/base/select/select";
 import { loadStoredAccountId, storeAccountId } from "@/utils/accountSelection";
 import {
   currencyFractionDigits,
@@ -414,32 +414,26 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
               className="tracking-account-form-wide"
             />
           )}
-          <Select
+          <SearchableDropdown
             label="Source account"
             placeholder="Choose source account"
-            size="md"
             isRequired
-            selectedKey={sourceAccountId ? String(sourceAccountId) : null}
+            selectedKey={sourceAccountId ? String(sourceAccountId) : undefined}
             isInvalid={Boolean(sourceAccountError)}
             hint={sourceAccountError}
             items={accountItems(accounts)}
             onSelectionChange={(key) => handleSourceAccountChange(Number(key))}
-          >
-            {(item) => <Select.Item {...item} />}
-          </Select>
-          <Select
+          />
+          <SearchableDropdown
             label="Target account"
             placeholder="Choose target account"
-            size="md"
             isRequired
-            selectedKey={targetAccountId ? String(targetAccountId) : null}
+            selectedKey={targetAccountId ? String(targetAccountId) : undefined}
             isInvalid={Boolean(targetAccountError)}
             hint={targetAccountError}
             items={accountItems(accounts)}
             onSelectionChange={(key) => handleTargetAccountChange(Number(key))}
-          >
-            {(item) => <Select.Item {...item} />}
-          </Select>
+          />
           <MoneyInput
             label={isCrossCurrency ? "Source amount" : "Amount"}
             name="sourceAmount"
@@ -527,11 +521,13 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
 }
 
 function accountItems(accounts?: TrackingAccount[]) {
-  return accounts?.map((account) => ({
-    id: String(account.id),
-    label: account.name,
-    supportingText: account.currency,
-  }));
+  return (
+    accounts?.map((account) => ({
+      id: String(account.id),
+      label: account.name,
+      supportingText: account.currency,
+    })) ?? []
+  );
 }
 
 function dateToCalendarDate(date: Date) {
