@@ -46,8 +46,13 @@ export function FundsTransferMoreFilters({
   return (
     <div className="transaction-more-filters">
       <AriaDialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
-        <Button color="tertiary" size="sm" iconLeading={FilterLines}>
-          More filters
+        <Button
+          aria-label="More filters"
+          color="tertiary"
+          size="sm"
+          iconLeading={FilterLines}
+        >
+          <span className="transaction-more-filters-label">More filters</span>
           {activeFilterCount > 0 && (
             <span className="transaction-filter-count-badge">
               {activeFilterCount}

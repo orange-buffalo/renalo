@@ -172,6 +172,7 @@ export function TransactionsPage({
     <PageLayout
       title={config.title}
       description={config.description}
+      className="overview-page-surface"
       actions={
         <Button
           color="tertiary"

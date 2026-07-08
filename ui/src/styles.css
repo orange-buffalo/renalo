@@ -652,12 +652,19 @@ input {
 
 @media (max-width: 767px) {
   .transaction-filter-row {
-    display: grid;
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
   .transaction-more-filters {
-    justify-content: flex-start;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+
+  .transaction-more-filters-label {
+    display: none;
   }
 
   .date-filter-control {
@@ -2147,6 +2154,14 @@ input {
     width: 100%;
     justify-content: flex-end;
     padding-top: 24px;
+  }
+
+  .overview-page-surface .standard-page-actions {
+    padding-top: 12px;
+  }
+
+  .overview-page-surface .standard-page-main {
+    margin-top: 16px;
   }
 
   .standard-page-user {

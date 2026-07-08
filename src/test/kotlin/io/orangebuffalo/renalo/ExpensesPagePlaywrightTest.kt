@@ -207,6 +207,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/expenses")
 
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("More filters"))).isVisible()
+        assertThat(page.getByText("More filters", Page.GetByTextOptions().setExact(true))).not().isVisible()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),

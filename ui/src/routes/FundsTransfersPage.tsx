@@ -111,6 +111,7 @@ export function FundsTransfersPage() {
     <PageLayout
       title="Transfers"
       description="Move funds between tracking accounts without creating income or expense rows."
+      className="overview-page-surface"
       actions={
         <Button
           color="tertiary"

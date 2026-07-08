@@ -19,6 +19,7 @@ import type { NavItemType } from "@/components/untitled/application/app-navigati
 import { Avatar } from "@/components/untitled/base/avatar/avatar";
 import { AvatarLabelGroup } from "@/components/untitled/base/avatar/avatar-label-group";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
+import { cx } from "@/utils/cx";
 import { logoUrl } from "@/utils/logo";
 
 type PageLayoutProps = {
@@ -26,6 +27,7 @@ type PageLayoutProps = {
   description?: string;
   titleTrailing?: ReactNode;
   actions?: ReactNode;
+  className?: string;
   children?: ReactNode;
 };
 
@@ -34,6 +36,7 @@ export function PageLayout({
   description,
   titleTrailing,
   actions,
+  className,
   children,
 }: PageLayoutProps) {
   const { profile, setProfile, setSettings } = useAppState();
@@ -192,7 +195,7 @@ export function PageLayout({
       </header>
 
       <div className="standard-page-content">
-        <div className="standard-page-surface">
+        <div className={cx("standard-page-surface", className)}>
           <header className="standard-page-header">
             <div className="standard-page-heading">
               <div className="standard-page-title-row">
