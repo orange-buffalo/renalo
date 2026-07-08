@@ -141,6 +141,7 @@ tasks.named("check") {
 
 tasks.withType<Test>().configureEach {
     dependsOn(playwrightInstall)
+    environment("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")
     useJUnitPlatform()
     testLogging {
         exceptionFormat = TestExceptionFormat.FULL
