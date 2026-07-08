@@ -200,9 +200,15 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
     @Test
     fun redirectsToLoginWhenRuntimeApiRequestReturnsUnauthorized(page: Page) {
         saveUser("alice", "password", UserType.USER)
-        page.navigate(server.url.toString() + "/")
         val token = testAuthTokens.issueToken("alice", UserType.USER)
-        page.evaluate("window.localStorage.setItem('renalo.authToken', '$token')")
+        page.addInitScript(
+            """
+                if (!window.sessionStorage.getItem('renalo.testTokenSeeded')) {
+                    window.localStorage.setItem('renalo.authToken', '$token');
+                    window.sessionStorage.setItem('renalo.testTokenSeeded', 'true');
+                }
+            """.trimIndent(),
+        )
         page.navigate(server.url.toString() + "/tracking")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
         page.route("**/api/tracking/transactions/EXPENSE**") { route ->
