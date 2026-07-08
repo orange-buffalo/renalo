@@ -604,6 +604,7 @@ export function TransactionFormPage({
           {!isEditing && (
             <div className="transaction-recurrence-section">
               <Checkbox
+                className="transaction-recurring-checkbox"
                 label={config.recurringCheckboxLabel}
                 hint={config.recurringCheckboxHint}
                 size="md"

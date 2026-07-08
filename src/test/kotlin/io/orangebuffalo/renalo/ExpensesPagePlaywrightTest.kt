@@ -493,6 +493,25 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun togglesRecurringExpenseCheckboxOnMobile(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Rent")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/expenses/create")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        page.locator(".transaction-recurring-checkbox").click()
+        assertThat(page.getByLabel("Recurring expense")).isChecked()
+        assertThat(page.getByLabel("Repeat")).isVisible()
+        page.locator(".transaction-recurring-checkbox").click()
+        assertThat(page.getByLabel("Recurring expense")).not().isChecked()
+        assertThat(page.getByLabel("Repeat")).not().isVisible()
+    }
+
+    @Test
     fun editsRecurringExpensesWithSelectedScopeFromExpenseForm(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)

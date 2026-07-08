@@ -155,6 +155,25 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun togglesDefaultAccountCheckboxOnMobile(page: Page) {
+        val alice = saveUser("alice")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/settings/accounts/create")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add new account"))).isVisible()
+        page.locator(".tracking-account-default-checkbox").click()
+        assertThat(page.getByLabel("Default account")).isChecked()
+        page.getByLabel("Name").fill("Cash")
+        page.locator("input[name='initialBalance']").fill("42")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create account")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
+        trackingAccountRepository.findByUserIdOrderByName(alice.id!!).single().isDefault.shouldBe(true)
+    }
+
+    @Test
     fun archivesAndUnarchivesTrackingAccountFromSettingsPage(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
