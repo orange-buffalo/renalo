@@ -2254,10 +2254,67 @@ input {
     display: none;
   }
 
+  .profile-panel {
+    padding: 16px;
+  }
+
+  .profile-password-field {
+    max-width: none;
+  }
+
+  .profile-form-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+
+  .profile-form-actions > span,
+  .profile-disable-password-wrapper {
+    width: 100%;
+  }
+
+  .profile-form-actions button {
+    width: 100%;
+  }
+
+  .profile-disable-password-wrapper button {
+    width: auto;
+    margin-inline: auto;
+  }
+
+  .profile-sign-in-link-panel,
+  .profile-passkeys-panel {
+    margin-top: 20px;
+  }
+
+  .profile-sign-in-link-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-sign-in-link-row button {
+    width: 100%;
+  }
+
+  .profile-sign-in-link-qr img {
+    width: min(192px, 100%);
+    height: auto;
+  }
+
   .profile-passkeys-heading,
   .profile-passkey-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .profile-passkeys-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .profile-passkeys-actions button,
+  .profile-passkey-row button {
+    width: 100%;
   }
 
   .activation-link-row {

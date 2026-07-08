@@ -315,6 +315,25 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.ALERT)).containsText("Sign in link is invalid")
     }
 
+    @Test
+    fun keepsProfilePanelsWithinMobileViewport(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        page.setViewportSize(390, 844)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/profile")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("My profile"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create link")).click()
+        assertThat(page.getByLabel("Sign in link")).isVisible()
+        page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Passkeys")).scrollIntoViewIfNeeded()
+
+        val overflowingPanelCount = page.locator(".profile-panel").evaluateAll(
+            "panels => panels.filter(panel => panel.getBoundingClientRect().right > window.innerWidth || panel.scrollWidth > panel.clientWidth + 1).length",
+        ) as Int
+        overflowingPanelCount.shouldBe(0)
+    }
+
     private fun saveUser(username: String, password: String, type: UserType): User {
         return userRepository.save(User(username = username, passwordHash = passwordHasher.hash(password), type = type))
     }
