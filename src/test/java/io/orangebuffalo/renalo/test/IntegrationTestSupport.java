@@ -43,6 +43,11 @@ public abstract class IntegrationTestSupport implements TestPropertyProvider {
     }
 
     protected void setStoredToken(Page page, String token) {
-        page.addInitScript("window.localStorage.setItem('renalo.authToken', '%s');".formatted(token));
+        page.addInitScript("""
+                if (!window.sessionStorage.getItem('renalo.testStoredTokenSeeded')) {
+                    window.localStorage.setItem('renalo.authToken', '%s');
+                    window.sessionStorage.setItem('renalo.testStoredTokenSeeded', 'true');
+                }
+                """.formatted(token));
     }
 }

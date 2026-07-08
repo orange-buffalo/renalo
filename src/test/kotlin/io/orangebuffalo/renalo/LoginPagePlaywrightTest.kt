@@ -137,8 +137,7 @@ class LoginPagePlaywrightTest : IntegrationTestSupport() {
             }
 
             setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
-            page.navigate(server.url.toString() + "/")
-            page.evaluate("setTimeout(() => { window.location.href = '/tracking'; }, 0)")
+            page.navigate(server.url.toString() + "/tracking")
 
             try {
                 assertThat(page.locator("#app-loader")).isVisible()
