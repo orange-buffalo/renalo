@@ -19,6 +19,9 @@ import java.util.Date;
 public class PlaywrightExtension implements BeforeEachCallback, AfterEachCallback, ParameterResolver {
     private static final ExtensionContext.Namespace NAMESPACE = ExtensionContext.Namespace.create(PlaywrightExtension.class);
     private static final java.nio.file.Path TRACES_DIR = java.nio.file.Paths.get("build", "playwright-traces");
+    private static final Object PLAYWRIGHT_LOCK = new Object();
+    private static Playwright sharedPlaywright;
+    private static Browser sharedBrowser;
 
     @Override
     public void beforeEach(ExtensionContext context) {
@@ -26,8 +29,7 @@ public class PlaywrightExtension implements BeforeEachCallback, AfterEachCallbac
             return;
         }
 
-        Playwright playwright = Playwright.create();
-        Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+        Browser browser = getSharedBrowser();
         BrowserContext browserContext = browser.newContext();
         browserContext.tracing().start(new Tracing.StartOptions()
                 .setScreenshots(true)
@@ -37,8 +39,6 @@ public class PlaywrightExtension implements BeforeEachCallback, AfterEachCallbac
         page.clock().install(new Clock.InstallOptions().setTime(Date.from(TestTimeProvider.DEFAULT_TIME)));
 
         ExtensionContext.Store store = context.getStore(NAMESPACE);
-        store.put(Playwright.class, playwright);
-        store.put(Browser.class, browser);
         store.put(BrowserContext.class, browserContext);
         store.put(Page.class, page);
     }
@@ -48,18 +48,10 @@ public class PlaywrightExtension implements BeforeEachCallback, AfterEachCallbac
         ExtensionContext.Store store = context.getStore(NAMESPACE);
         store.remove(Page.class);
         BrowserContext browserContext = store.remove(BrowserContext.class, BrowserContext.class);
-        Browser browser = store.remove(Browser.class, Browser.class);
-        Playwright playwright = store.remove(Playwright.class, Playwright.class);
 
         if (browserContext != null) {
             stopTracing(context, browserContext);
             browserContext.close();
-        }
-        if (browser != null) {
-            browser.close();
-        }
-        if (playwright != null) {
-            playwright.close();
         }
     }
 
@@ -96,5 +88,31 @@ public class PlaywrightExtension implements BeforeEachCallback, AfterEachCallbac
             }
         }
         return false;
+    }
+
+    private Browser getSharedBrowser() {
+        synchronized (PLAYWRIGHT_LOCK) {
+            if (sharedPlaywright == null) {
+                sharedPlaywright = Playwright.create();
+                Runtime.getRuntime().addShutdownHook(new Thread(PlaywrightExtension::closeSharedBrowser));
+            }
+            if (sharedBrowser == null || !sharedBrowser.isConnected()) {
+                sharedBrowser = sharedPlaywright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+            }
+            return sharedBrowser;
+        }
+    }
+
+    private static void closeSharedBrowser() {
+        synchronized (PLAYWRIGHT_LOCK) {
+            if (sharedBrowser != null) {
+                sharedBrowser.close();
+                sharedBrowser = null;
+            }
+            if (sharedPlaywright != null) {
+                sharedPlaywright.close();
+                sharedPlaywright = null;
+            }
+        }
     }
 }
