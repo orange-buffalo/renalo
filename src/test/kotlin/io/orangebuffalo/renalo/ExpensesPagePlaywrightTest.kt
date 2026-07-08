@@ -210,23 +210,28 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("More filters"))).isVisible()
         assertThat(page.getByText("More filters", Page.GetByTextOptions().setExact(true))).not().isVisible()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
-        page.shouldEventuallyContainExpenseRows(
-            ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
-        )
 
         val expenseCard = page.locator("[data-testid='expense-row-${expense.id}']")
+        assertThat(expenseCard).isVisible()
         assertThat(expenseCard.getByText("Groceries")).isVisible()
         assertThat(expenseCard.getByText("A$12.34")).isVisible()
-        assertThat(expenseCard.getByText("Today")).isVisible()
+        assertThat(expenseCard.getByText("Today")).not().isVisible()
         assertThat(expenseCard.getByText("Main")).not().isVisible()
         assertThat(expenseCard.getByText("Milk")).not().isVisible()
-        expenseCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Show Groceries details")).click()
+        assertThat(expenseCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Groceries expense"))).not().isVisible()
+        expenseCard.click()
 
+        assertThat(expenseCard.getByText("Today")).isVisible()
         assertThat(expenseCard.getByText("Main")).isVisible()
         assertThat(expenseCard.getByText("Milk")).isVisible()
+        assertThat(expenseCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Groceries expense"))).isVisible()
         expenseCard.locator("[data-mobile-label='Account']")
             .evaluate("element => getComputedStyle(element, '::before').content")
             .shouldBe("\"Account\"")
+        expenseCard.click()
+        assertThat(expenseCard.getByText("Today")).not().isVisible()
+        assertThat(expenseCard.getByText("Main")).not().isVisible()
+        assertThat(expenseCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Groceries expense"))).not().isVisible()
     }
 
     @Test

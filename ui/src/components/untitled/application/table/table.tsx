@@ -1,8 +1,8 @@
 "use client";
 
-import type { ComponentPropsWithRef, HTMLAttributes, MouseEvent, ReactNode, Ref, TdHTMLAttributes, ThHTMLAttributes } from "react";
+import type { ComponentPropsWithRef, HTMLAttributes, ReactNode, Ref, TdHTMLAttributes, ThHTMLAttributes } from "react";
 import { createContext, isValidElement, useContext, useState } from "react";
-import { ArrowDown, ChevronSelectorVertical, Copy01, Edit01, HelpCircle, InfoCircle, Trash01 } from "@untitledui/icons";
+import { ArrowDown, ChevronSelectorVertical, Copy01, Edit01, HelpCircle, Trash01 } from "@untitledui/icons";
 import type {
     CellProps as AriaCellProps,
     ColumnProps as AriaColumnProps,
@@ -222,15 +222,23 @@ interface TableRowProps<T extends object>
     size?: "sm" | "md";
 }
 
-const TableRow = <T extends object>({ columns, children, className, highlightSelectedRow = true, size: sizeProp, ...props }: TableRowProps<T>) => {
+const TableRow = <T extends object>({ columns, children, className, highlightSelectedRow = true, size: sizeProp, onAction, ...props }: TableRowProps<T>) => {
     const context = useContext(TableContext);
     const { selectionBehavior } = useTableOptions();
+    const [mobileDetailsExpanded, setMobileDetailsExpanded] = useState(false);
 
     const size = sizeProp ?? context.size;
+
+    function toggleMobileDetails() {
+        setMobileDetailsExpanded((currentValue) => !currentValue);
+        onAction?.();
+    }
 
     return (
         <AriaRow
             {...props}
+            data-mobile-details-expanded={mobileDetailsExpanded || undefined}
+            onAction={toggleMobileDetails}
             className={(state) =>
                 cx(
                     "relative outline-focus-ring transition-colors after:pointer-events-none hover:bg-secondary focus-visible:outline-2 focus-visible:-outline-offset-2",
@@ -294,38 +302,6 @@ const TableCell = ({ className, children, mobileLabel, mobileRole, size: sizePro
 };
 TableCell.displayName = "TableCell";
 
-interface TableMobileDetailsButtonProps {
-    label?: string;
-}
-
-const TableMobileDetailsButton = ({ label = "Show details" }: TableMobileDetailsButtonProps) => {
-    const [detailsExpanded, setDetailsExpanded] = useState(false);
-
-    function toggleDetails(event: MouseEvent<HTMLButtonElement>) {
-        const nextExpanded = !detailsExpanded;
-        setDetailsExpanded(nextExpanded);
-        const row = event.currentTarget.closest("tr, [role='row']");
-        if (nextExpanded) {
-            row?.setAttribute("data-mobile-details-expanded", "true");
-        } else {
-            row?.removeAttribute("data-mobile-details-expanded");
-        }
-    }
-
-    return (
-        <button
-            type="button"
-            className="mobile-table-details-button"
-            aria-label={detailsExpanded ? "Hide details" : label}
-            aria-expanded={detailsExpanded}
-            onClick={toggleDetails}
-        >
-            <InfoCircle className="size-5" />
-        </button>
-    );
-};
-TableMobileDetailsButton.displayName = "TableMobileDetailsButton";
-
 const TableCard = {
     Root: TableCardRoot,
     Header: TableCardHeader,
@@ -336,14 +312,12 @@ const Table = TableRoot as typeof TableRoot & {
     Cell: typeof TableCell;
     Head: typeof TableHead;
     Header: typeof TableHeader;
-    MobileDetailsButton: typeof TableMobileDetailsButton;
     Row: typeof TableRow;
 };
 Table.Body = AriaTableBody;
 Table.Cell = TableCell;
 Table.Head = TableHead;
 Table.Header = TableHeader;
-Table.MobileDetailsButton = TableMobileDetailsButton;
 Table.Row = TableRow;
 
 export { Table, TableCard };

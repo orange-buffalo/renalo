@@ -18,7 +18,6 @@ import { TableLoadingState } from "@/components/TableLoadingState";
 import {
   TableDeleteAction,
   TableEditAction,
-  TableMobileDetailsAction,
   TableRowActions,
   TableViewAction,
 } from "@/components/TableRowActions";
@@ -296,9 +295,6 @@ export function TransactionsPage({
                       </Table.Cell>
                       <Table.Cell mobileRole="actions">
                         <TableRowActions>
-                          <TableMobileDetailsAction
-                            label={`Show ${row.transaction.category.name} details`}
-                          />
                           <TableEditAction
                             label={`Edit ${row.transaction.category.name} ${config.itemLabel}`}
                             onPress={() =>

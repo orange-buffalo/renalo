@@ -177,10 +177,6 @@ input {
   font: inherit;
 }
 
-.mobile-table-details-button {
-  display: none;
-}
-
 .transaction-recurrence-description {
   display: block;
   margin-top: 2px;
@@ -734,6 +730,10 @@ input {
     border-radius: 14px;
     background: #ffffff;
     box-shadow: 0 1px 2px rgb(16 24 40 / 0.05);
+    cursor: pointer;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease;
   }
 
   .responsive-table tbody tr + tr {
@@ -751,16 +751,7 @@ input {
     display: none;
   }
 
-  .responsive-table
-    tbody
-    td:not(:first-of-type):not(:nth-of-type(2)):not(
-      [data-mobile-role="detail"]
-    ):not([data-mobile-role="actions"]),
-  .responsive-table
-    tbody
-    th:not(:first-of-type):not(:nth-of-type(2)):not(
-      [data-mobile-role="detail"]
-    ):not([data-mobile-role="actions"]) {
+  .responsive-table tbody [data-mobile-role="hidden"] {
     display: none;
   }
 
@@ -789,24 +780,55 @@ input {
   .responsive-table tbody [data-mobile-role="detail"],
   .responsive-table
     tbody
+    tr
+    > td:not(:first-of-type):not(:nth-of-type(2)):not(
+      [data-mobile-role="actions"]
+    ):not([data-mobile-role="hidden"]),
+  .responsive-table
+    tbody
+    tr
+    > th:not(:first-of-type):not(:nth-of-type(2)):not(
+      [data-mobile-role="actions"]
+    ):not([data-mobile-role="hidden"]) {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(7rem, 42%) minmax(0, 1fr);
+    gap: 12px;
+    max-height: 0;
+    overflow: hidden;
+    padding-top: 0;
+    color: #4b5058;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      max-height 180ms ease,
+      opacity 140ms ease,
+      padding-top 180ms ease,
+      visibility 180ms ease;
+  }
+
+  .responsive-table
+    tbody
+    tr[data-mobile-details-expanded="true"]
+    [data-mobile-role="detail"],
+  .responsive-table
+    tbody
     tr[data-mobile-details-expanded="true"]
     > td:not(:first-of-type):not(:nth-of-type(2)):not(
       [data-mobile-role="actions"]
-    ),
+    ):not([data-mobile-role="hidden"]),
   .responsive-table
     tbody
     tr[data-mobile-details-expanded="true"]
     > th:not(:first-of-type):not(:nth-of-type(2)):not(
       [data-mobile-role="actions"]
-    ) {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: minmax(7rem, 42%) minmax(0, 1fr);
-    gap: 12px;
+    ):not([data-mobile-role="hidden"]) {
+    max-height: 160px;
     padding-top: 8px;
-    color: #4b5058;
-    font-size: 0.8125rem;
-    line-height: 1.4;
+    opacity: 1;
+    visibility: visible;
   }
 
   .responsive-table tbody [data-mobile-role="detail"]::before,
@@ -840,34 +862,37 @@ input {
     grid-column: 1 / -1;
     align-items: center;
     justify-content: center;
+    max-height: 0;
+    overflow: hidden;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 1px solid transparent;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      max-height 180ms ease,
+      opacity 140ms ease,
+      margin-top 180ms ease,
+      padding-top 180ms ease,
+      border-color 180ms ease,
+      visibility 180ms ease;
+  }
+
+  .responsive-table
+    tbody
+    tr[data-mobile-details-expanded="true"]
+    [data-mobile-role="actions"] {
+    max-height: 96px;
     margin-top: 10px;
     padding-top: 10px;
-    border-top: 1px solid #d1d7e0;
+    border-top-color: #d1d7e0;
+    opacity: 1;
+    visibility: visible;
   }
 
   .responsive-table tbody [data-mobile-role="actions"] > * {
     width: 100%;
     justify-content: space-evenly;
-  }
-
-  .mobile-table-details-button {
-    display: inline-flex;
-    width: 36px;
-    height: 36px;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    border-radius: 10px;
-    color: #626872;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .mobile-table-details-button:hover,
-  .mobile-table-details-button:focus-visible {
-    color: #4b5058;
-    background: #f3f6f8;
-    outline: none;
   }
 }
 

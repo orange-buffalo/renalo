@@ -29,7 +29,6 @@ import {
   TableArchiveAction,
   TableEditAction,
   TableMergeAction,
-  TableMobileDetailsAction,
   TableRowActions,
 } from "@/components/TableRowActions";
 import { Alert } from "@/components/untitled/application/alerts/alert";
@@ -412,9 +411,6 @@ export function SettingsPage() {
                       </Table.Cell>
                       <Table.Cell mobileRole="actions">
                         <TableRowActions>
-                          <TableMobileDetailsAction
-                            label={`Show ${account.name} details`}
-                          />
                           <TableArchiveAction
                             label={
                               account.archived

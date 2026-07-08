@@ -7,7 +7,6 @@ import {
   Trash01,
 } from "@untitledui/icons";
 import type { ComponentProps, ReactNode } from "react";
-import { Table } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
 
 type TableRowActionsProps = {
@@ -25,10 +24,6 @@ type TableDeleteActionProps = {
   isLoading?: boolean;
   isDisabled?: boolean;
   actionIcon?: string;
-};
-
-type TableMobileDetailsActionProps = {
-  label: string;
 };
 
 type TableViewActionProps = {
@@ -54,12 +49,6 @@ type TableArchiveActionProps = {
 
 export function TableRowActions({ children }: TableRowActionsProps) {
   return <div className="table-row-actions">{children}</div>;
-}
-
-export function TableMobileDetailsAction({
-  label,
-}: TableMobileDetailsActionProps) {
-  return <Table.MobileDetailsButton label={label} />;
 }
 
 export function TableEditAction({ label, onPress }: TableEditActionProps) {

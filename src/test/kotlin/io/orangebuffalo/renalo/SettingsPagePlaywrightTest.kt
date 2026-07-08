@@ -140,7 +140,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(mainCard.getByText("AUD")).isVisible()
         assertThat(mainCard.getByText("A$0.00")).not().isVisible()
         assertThat(mainCard.getByText("Default")).not().isVisible()
-        mainCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Show Main details")).click()
+        assertThat(mainCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Main"))).not().isVisible()
+        mainCard.click()
 
         val initialBalanceDetail = mainCard.locator("[data-mobile-label='Initial balance']")
         assertThat(initialBalanceDetail).isVisible()
@@ -148,6 +149,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(mainCard.getByText("A$0.00")).isVisible()
         assertThat(mainCard.getByText("Default")).isVisible()
         assertThat(mainCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Main"))).isVisible()
+        mainCard.click()
+        assertThat(mainCard.getByText("A$0.00")).not().isVisible()
+        assertThat(mainCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Main"))).not().isVisible()
     }
 
     @Test
