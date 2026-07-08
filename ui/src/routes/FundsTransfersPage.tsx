@@ -114,7 +114,7 @@ export function FundsTransfersPage() {
       className="overview-page-surface"
       actions={
         <Button
-          color="tertiary"
+          color="secondary"
           size="sm"
           iconLeading={Plus}
           onPress={() => navigate("/transfers/create")}

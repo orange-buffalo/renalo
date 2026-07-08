@@ -174,7 +174,7 @@ export function TransactionsPage({
       className="overview-page-surface"
       actions={
         <Button
-          color="tertiary"
+          color="secondary"
           size="sm"
           iconLeading={Plus}
           onPress={() => navigate(`${config.routeBasePath}/create`)}

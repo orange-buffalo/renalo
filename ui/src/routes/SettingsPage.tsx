@@ -342,7 +342,7 @@ export function SettingsPage() {
         <Tabs.Panel id="accounts" className="settings-tab-panel">
           <div className="settings-tab-actions">
             <Button
-              color="tertiary"
+              color="secondary"
               size="sm"
               iconLeading={Plus}
               onPress={() => navigate("/settings/accounts/create")}
@@ -458,7 +458,7 @@ export function SettingsPage() {
         <Tabs.Panel id="expense-categories" className="settings-tab-panel">
           <div className="settings-tab-actions">
             <Button
-              color="tertiary"
+              color="secondary"
               size="sm"
               iconLeading={Plus}
               onPress={() => navigate("/settings/expense-categories/create")}
@@ -563,7 +563,7 @@ export function SettingsPage() {
         <Tabs.Panel id="income-categories" className="settings-tab-panel">
           <div className="settings-tab-actions">
             <Button
-              color="tertiary"
+              color="secondary"
               size="sm"
               iconLeading={Plus}
               onPress={() => navigate("/settings/income-categories/create")}

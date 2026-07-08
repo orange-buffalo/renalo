@@ -146,7 +146,7 @@ export function UserManagementPage() {
       }
       actions={
         <Button
-          color="tertiary"
+          color="secondary"
           size="sm"
           iconLeading={Plus}
           onPress={() => navigate("/user-management/create")}
