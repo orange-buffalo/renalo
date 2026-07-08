@@ -667,6 +667,10 @@ input {
     display: none;
   }
 
+  .transaction-more-filters [aria-label="More filters"] {
+    transform: translateY(-3px);
+  }
+
   .date-filter-control {
     width: 100%;
     grid-template-columns: auto minmax(0, 1fr) auto;
