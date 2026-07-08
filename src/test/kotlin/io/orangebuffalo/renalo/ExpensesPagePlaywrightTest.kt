@@ -485,10 +485,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel("Recurring expense").isChecked().shouldBe(false)
         page.getByLabel("Recurring expense").press("Space")
 
-        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Custom Repeat"))).isVisible()
-        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("3 Repeat every"))).isVisible()
-        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Weeks Cadence"))).isVisible()
-        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("3 End after repetitions"))).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Repeat").setExact(true))).containsText("Custom")
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Repeat every").setExact(true))).containsText("3")
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Cadence").setExact(true))).containsText("Weeks")
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("End after repetitions").setExact(true))).containsText("3")
         assertThat(page.getByText("Jul 26, 2099", Page.GetByTextOptions().setExact(true))).isVisible()
     }
 
@@ -909,7 +909,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/expenses/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
-        assertThat(page.getByLabel("Category")).containsText("Choose a category")
+        assertThat(page.getByLabel("Category")).containsText("Choose category")
     }
 
     @Test
@@ -946,7 +946,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
 
     private fun dropdownOption(page: Page, option: String): Locator =
-        dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
+        page.locator(".searchable-dropdown-popover").getByText(option, Locator.GetByTextOptions().setExact(true))
 
     private fun assertRequiredLabel(page: Page, label: String) {
         assertThat(

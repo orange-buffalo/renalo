@@ -44,12 +44,9 @@ class ProfilePagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("My profile"))).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Change password"))).isVisible()
 
-        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Current password").setExact(true))
-            .fill("old-password")
-        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("New password").setExact(true))
-            .fill("new-password")
-        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Confirm new password").setExact(true))
-            .fill("new-password")
+        page.locator("input[name='currentPassword']").fill("old-password")
+        page.locator("input[name='newPassword']").fill("new-password")
+        page.locator("input[name='newPasswordConfirmation']").fill("new-password")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Change password")).click()
 
         assertThat(page.getByRole(AriaRole.ALERT)).containsText("Password changed")

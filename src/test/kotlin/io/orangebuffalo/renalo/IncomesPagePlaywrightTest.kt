@@ -483,7 +483,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/incomes/create")
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add income"))).isVisible()
-        assertThat(page.getByLabel("Income category")).containsText("Choose a category")
+        assertThat(page.getByLabel("Income category")).containsText("Choose income category")
     }
 
     @Test
@@ -520,7 +520,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
 
     private fun dropdownOption(page: Page, option: String): Locator =
-        dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
+        page.locator(".searchable-dropdown-popover").getByText(option, Locator.GetByTextOptions().setExact(true))
 
     private fun assertRequiredLabel(page: Page, label: String) {
         assertThat(
