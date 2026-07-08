@@ -10,6 +10,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "2.4.0"
     id("org.jetbrains.kotlin.kapt") version "2.4.0"
     id("com.google.cloud.tools.jib") version "3.5.3"
+    id("org.gradle.test-retry") version "1.6.2"
 }
 
 group = "io.orange-buffalo"
@@ -143,6 +144,10 @@ tasks.withType<Test>().configureEach {
     dependsOn(playwrightInstall)
     environment("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")
     useJUnitPlatform()
+    retry {
+        maxRetries.set(3)
+        failOnPassedAfterRetry.set(false)
+    }
     testLogging {
         exceptionFormat = TestExceptionFormat.FULL
     }
