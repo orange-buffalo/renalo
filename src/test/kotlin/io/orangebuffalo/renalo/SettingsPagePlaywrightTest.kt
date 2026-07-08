@@ -186,6 +186,27 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun centersConfirmationDialogOnMobile(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/settings")
+
+        val mainRow = page.locator("[data-testid='account-row-${main.id}']")
+        mainRow.click()
+        mainRow.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Archive Main")).click()
+        val dialog = page.getByRole(AriaRole.DIALOG)
+
+        assertThat(dialog.getByText("Archive account?")).isVisible()
+        val centerOffset = (dialog.evaluate(
+            "dialog => { const rect = dialog.getBoundingClientRect(); return Math.abs((rect.top + rect.height / 2) - (window.innerHeight / 2)); }",
+        ) as Number).toDouble()
+        (centerOffset < 24.0).shouldBe(true)
+    }
+
+    @Test
     fun cancelsAccountCreateBackToSettings(page: Page) {
         val alice = saveUser("alice")
         saveAccount(alice, "Main", "AUD", 0, isDefault = true)
