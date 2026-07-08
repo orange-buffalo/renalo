@@ -276,7 +276,10 @@ export function TransactionsPage({
                           row.transaction.trackingAccount.currency,
                         )}
                       </Table.Cell>
-                      <Table.Cell mobileLabel="Date" mobileRole="detail">
+                      <Table.Cell
+                        mobileLabel="Date"
+                        mobileRole="visible-detail"
+                      >
                         <span>
                           {formatTransactionDate(row.transaction.date)}
                         </span>

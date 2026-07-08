@@ -215,13 +215,12 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(expenseCard).isVisible()
         assertThat(expenseCard.getByText("Groceries")).isVisible()
         assertThat(expenseCard.getByText("A$12.34")).isVisible()
-        assertThat(expenseCard.getByText("Today")).not().isVisible()
+        assertThat(expenseCard.getByText("Today")).isVisible()
         assertThat(expenseCard.getByText("Main")).not().isVisible()
         assertThat(expenseCard.getByText("Milk")).not().isVisible()
         assertThat(expenseCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Groceries expense"))).not().isVisible()
         expenseCard.click()
 
-        assertThat(expenseCard.getByText("Today")).isVisible()
         assertThat(expenseCard.getByText("Main")).isVisible()
         assertThat(expenseCard.getByText("Milk")).isVisible()
         assertThat(expenseCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Groceries expense"))).isVisible()
@@ -229,7 +228,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             .evaluate("element => getComputedStyle(element, '::before').content")
             .shouldBe("\"Account\"")
         expenseCard.click()
-        assertThat(expenseCard.getByText("Today")).not().isVisible()
+        assertThat(expenseCard.getByText("Today")).isVisible()
         assertThat(expenseCard.getByText("Main")).not().isVisible()
         assertThat(expenseCard.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Edit Groceries expense"))).not().isVisible()
     }

@@ -27,7 +27,7 @@ import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Tooltip, TooltipTrigger } from "@/components/untitled/base/tooltip/tooltip";
 import { cx } from "@/utils/cx";
 
-type MobileCellRole = "title" | "subtitle" | "detail" | "actions" | "hidden";
+type MobileCellRole = "title" | "subtitle" | "detail" | "visible-detail" | "actions" | "hidden";
 
 export const TableRowActionsDropdown = () => (
     <Dropdown.Root>
