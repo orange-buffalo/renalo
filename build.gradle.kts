@@ -10,7 +10,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "2.4.0"
     id("org.jetbrains.kotlin.kapt") version "2.4.0"
     id("com.google.cloud.tools.jib") version "3.5.3"
-    id("org.gradle.test-retry") version "1.6.2"
+    id("org.gradle.test-retry") version "1.6.5"
 }
 
 group = "io.orange-buffalo"
