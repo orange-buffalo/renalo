@@ -10,11 +10,20 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "2.4.0"
     id("org.jetbrains.kotlin.kapt") version "2.4.0"
     id("com.google.cloud.tools.jib") version "3.5.3"
+    id("com.github.jmongard.git-semver-plugin") version "0.19.1"
     id("org.gradle.test-retry") version "1.6.5"
 }
 
 group = "io.orange-buffalo"
-version = "0.1.0"
+
+semver {
+    createReleaseTag = true
+    releaseTagNameFormat = "v%s"
+}
+val ver = semver.version
+allprojects {
+    version = ver
+}
 
 val javaVersion = 25
 
@@ -158,7 +167,7 @@ jib {
         image = "eclipse-temurin:25-jre"
     }
     to {
-        image = "ghcr.io/orange-buffalo/renalo:latest"
+        image = "ghcr.io/orange-buffalo/renalo:${project.version}"
     }
     container {
         ports = listOf("8080")

@@ -52,5 +52,5 @@ docker run --rm -p 8080:8080 \
   -e JDBC_PASSWORD=renalo \
   -e RENALO_JWT_SECRET="$(openssl rand -base64 64)" \
   -e RENALO_PUBLIC_URL=http://localhost:8080 \
-  ghcr.io/orange-buffalo/renalo:latest
+  ghcr.io/orange-buffalo/renalo:<version>
 ```

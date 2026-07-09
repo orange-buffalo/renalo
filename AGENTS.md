@@ -13,6 +13,8 @@
 - When a commit is requested, use a Conventional Commit message, for example `feat: add user management table` or `fix: correct auth bootstrap loading state`.
 - When the user requests changes, then provides feedback, commit the already-completed changes before starting the feedback changes unless the user explicitly says not to. Default flow: user requests work, agent implements it, user provides feedback, agent commits completed work, then agent addresses the feedback.
 - Do not commit newly written code in the same turn it is produced. Leave fresh changes uncommitted for user review, then commit those reviewed changes on the next turn before starting additional feedback work, unless the user explicitly asks to commit immediately.
+- Project versioning is driven by `com.github.jmongard.git-semver-plugin` with release tags formatted as `v%s`; release workflows should use `./gradlew releaseVersion` and `./gradlew -q printVersion`, not manual `version = ...` edits in `build.gradle.kts`.
+- CI publishes release Docker images to `ghcr.io/orange-buffalo/renalo:<version>` via Jib only when `printVersion` on `main` is not a `-SNAPSHOT` version.
 
 ## Backend
 

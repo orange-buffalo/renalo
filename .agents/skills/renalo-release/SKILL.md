@@ -1,9 +1,9 @@
 ---
 name: renalo-release
 description: >
-  Creates a Renalo release locally: verifies GitHub CLI and git state, updates
-  the Gradle project version, builds the project, prepares release notes,
-  pushes the release tag, and creates a draft GitHub release.
+  Creates a Renalo release locally: verifies GitHub CLI and git state, runs
+  the Gradle semver release task, prepares release notes, pushes the release
+  tag, and creates a draft GitHub release.
 compatibility: "requires: gh CLI, git, Java 25, Bun 1.3+, Gradle wrapper"
 ---
 
@@ -11,7 +11,7 @@ compatibility: "requires: gh CLI, git, Java 25, Bun 1.3+, Gradle wrapper"
 
 Use this skill when the user wants to create a new Renalo release, draft a GitHub release, publish release notes, or run the local release workflow.
 
-This workflow is intentionally local and stateful. It may update `build.gradle.kts`, create a release commit and tag, build the project, push the release tag, and create a draft GitHub release.
+This workflow is intentionally local and stateful. CI must not create tags or GitHub releases; CI only publishes the Docker image when it sees a release version on `main`.
 
 ## Preconditions
 
@@ -72,39 +72,44 @@ Rules:
 - If there is no previous GitHub release and no previous version tag, use the first repository commit as the lower bound and say this is the first release.
 - Preserve the tag exactly as GitHub reports it, usually `vX.Y.Z`.
 
-### 2. Determine the Release Version
+### 2. Create the Release Commit and Tag
 
-Read the current project version from `build.gradle.kts`:
-
-```bash
-current_version="$(grep -E '^version = ' build.gradle.kts | head -n 1 | sed -E 's/^version = "(.*)"$/\1/')"
-```
-
-Rules:
-
-- The repository currently uses a `-SNAPSHOT` development version in `build.gradle.kts`.
-- If `current_version` ends with `-SNAPSHOT`, derive the release version by removing the suffix.
-- If the version cannot be derived unambiguously, stop and ask the user for the intended release version.
-
-### 3. Update Version
-
-Update `build.gradle.kts` so `version = "<release-version>"`.
-
-Do not run the local project build or image build in this workflow; CI is responsible for verifying the release commit and producing the container image.
-
-### 4. Create the Release Commit and Tag
-
-Commit the version change with a conventional commit message, then tag the release commit:
+Run the semver plugin release task:
 
 ```bash
-git add build.gradle.kts
-git commit -m "release: v<release-version>"
-git tag "v<release-version>"
+./gradlew releaseVersion --console=plain
 ```
 
-Stop if the commit or tag creation fails.
+Expected result:
 
-### 5. Collect Commits for Release Notes
+- The task creates a release commit.
+- The task creates a local release tag.
+- The working copy remains clean after the task completes.
+
+After it completes, collect the new version and tag:
+
+```bash
+new_version="$(./gradlew -q printVersion | grep -E '^[0-9]+\.[0-9]+\.[0-9]+' | tail -n 1)"
+new_tag="v${new_version}"
+git rev-parse "$new_tag"
+git status --short
+```
+
+Stop if:
+
+- `new_version` is empty.
+- `new_version` contains `-SNAPSHOT`.
+- `new_tag` does not exist locally.
+- The working copy is dirty.
+- The tag already exists on the remote. This command should fail for a new release; if it succeeds, stop:
+
+```bash
+git ls-remote --exit-code --tags origin "refs/tags/${new_tag}"
+```
+
+If the remote tag exists, stop and report that the release appears to have already been published.
+
+### 3. Collect Commits for Release Notes
 
 Collect commits between the previous release, exclusive, and current `HEAD`, inclusive.
 
@@ -141,7 +146,7 @@ Commit collection rules:
 - Do not include uncategorized commits in the release notes unless they describe user-visible behavior.
 - Keep commit hashes available for the final report, but release notes should be readable and not just a raw commit dump.
 
-### 6. Build Release Notes
+### 4. Build Release Notes
 
 Create the release notes in a temp file:
 
@@ -212,24 +217,24 @@ When rewriting entries:
 
 Before creating the GitHub release, show the generated notes to the user and ask for confirmation. If the user requests changes, edit the temp file and show the updated notes before continuing.
 
-### 7. Push the Release Commit and Tag
+### 5. Push the Release Commit and Tag
 
 Push the release commit first, then the tag:
 
 ```bash
 git push origin main
-git push origin "v<release-version>"
+git push origin "$new_tag"
 ```
 
 Stop if either push fails. Do not create the GitHub release if the commit or tag push did not succeed.
 
-### 8. Create the Draft GitHub Release
+### 6. Create the Draft GitHub Release
 
 Create the release in draft state:
 
 ```bash
-gh release create "v<release-version>" \
-  --title "v<release-version>" \
+gh release create "$new_tag" \
+  --title "$new_tag" \
   --notes-file "$notes_file" \
   --draft \
   --prerelease \
@@ -239,10 +244,10 @@ gh release create "v<release-version>" \
 Then fetch the release URL:
 
 ```bash
-release_url="$(gh release view "v<release-version>" --json url --jq .url)"
+release_url="$(gh release view "$new_tag" --json url --jq .url)"
 ```
 
-### 9. Find the CI Build
+### 7. Find the CI Build
 
 After pushing, find the CI run for the release commit on `main`:
 
@@ -253,7 +258,7 @@ ci_url="$(gh run list --workflow build.yml --branch main --commit "$release_sha"
 
 If no CI run is found, check whether the workflow file has not been picked up yet or whether the workflow name changed.
 
-### 10. Final Report
+### 8. Final Report
 
 When finished, report:
 
