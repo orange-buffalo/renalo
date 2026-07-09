@@ -86,22 +86,11 @@ Rules:
 - If `current_version` ends with `-SNAPSHOT`, derive the release version by removing the suffix.
 - If the version cannot be derived unambiguously, stop and ask the user for the intended release version.
 
-### 3. Update and Build
+### 3. Update Version
 
-Update `build.gradle.kts` so `version = "<release-version>"`, then run the project verification:
+Update `build.gradle.kts` so `version = "<release-version>"`.
 
-```bash
-./gradlew build
-./gradlew --no-configuration-cache jibBuildTar
-```
-
-Expected result:
-
-- The build succeeds.
-- The container image tarball task succeeds.
-- The working copy reflects only the intended version change.
-
-If the build fails, report the exact failure and stop unless the remediation is obvious and directly related to the release version update.
+Do not run the local project build or image build in this workflow; CI is responsible for verifying the release commit and producing the container image.
 
 ### 4. Create the Release Commit and Tag
 

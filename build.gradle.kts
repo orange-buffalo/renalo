@@ -14,7 +14,7 @@ plugins {
 }
 
 group = "io.orange-buffalo"
-version = "0.1.0-SNAPSHOT"
+version = "0.1.0"
 
 val javaVersion = 25
 
