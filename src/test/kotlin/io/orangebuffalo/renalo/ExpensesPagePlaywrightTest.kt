@@ -197,6 +197,38 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun changesExpenseDateFromCalendarOnMobileWithoutApplyButton(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Groceries")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/expenses/create")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        val dateField = page.locator(".transaction-date-field").first()
+        dateField.getByRole(AriaRole.BUTTON).click()
+        val datePicker = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date picker"))
+        assertThat(datePicker).isVisible()
+        assertThat(datePicker.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply"))).not().isVisible()
+
+        datePicker.getByText("20", Locator.GetByTextOptions().setExact(true)).click()
+
+        assertThat(datePicker).not().isVisible()
+        assertThat(dateField.getByRole(AriaRole.BUTTON)).containsText("Jun 20, 2099")
+        selectCategoryOption(page, "Category", "Groceries")
+        page.locator("input[name='amount']").fill("12.34")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Create expense")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        expenseRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE)
+            .single()
+            .date
+            .shouldBe(LocalDate.of(2099, 6, 20))
+    }
+
+    @Test
     fun showsExpenseMobileCardsWithDateAlwaysVisibleAndDetailsExpandable(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)

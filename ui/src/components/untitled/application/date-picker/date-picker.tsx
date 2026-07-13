@@ -13,9 +13,9 @@ import { Calendar } from "./calendar";
 const highlightedDates = [today(getLocalTimeZone())];
 
 interface DatePickerProps extends AriaDatePickerProps<DateValue> {
-    /** The function to call when the apply button is clicked. */
+    /** @deprecated Dates are applied immediately on selection. */
     onApply?: () => void;
-    /** The function to call when the cancel button is clicked. */
+    /** @deprecated Dates are applied immediately on selection. */
     onCancel?: () => void;
     size?: ButtonProps["size"];
 }
@@ -30,8 +30,15 @@ export const DatePicker = ({ value: valueProp, defaultValue, onChange, onApply, 
 
     const formattedDate = value ? formatter.format(value.toDate(getLocalTimeZone())) : "Select date";
 
+    function handleChange(nextValue: DateValue | null) {
+        setValue(nextValue);
+        if (nextValue) {
+            onApply?.();
+        }
+    }
+
     return (
-        <AriaDatePicker aria-label="Date picker" shouldCloseOnSelect={false} {...props} value={value} onChange={setValue}>
+        <AriaDatePicker aria-label="Date picker" shouldCloseOnSelect {...props} value={value} onChange={handleChange}>
             <AriaGroup>
                 <Button size={size} color="secondary" iconLeading={CalendarIcon}>
                     {formattedDate}
@@ -50,36 +57,8 @@ export const DatePicker = ({ value: valueProp, defaultValue, onChange, onApply, 
                     )
                 }
             >
-                <AriaDialog aria-label="Date picker" className="rounded-2xl bg-primary shadow-xl ring ring-secondary_alt">
-                    {({ close }) => (
-                        <>
-                            <div className="flex px-6 py-5">
-                                <Calendar highlightedDates={highlightedDates} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3 border-t border-secondary p-4">
-                                <Button
-                                    size="md"
-                                    color="secondary"
-                                    onClick={() => {
-                                        onCancel?.();
-                                        close();
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    size="md"
-                                    color="primary"
-                                    onClick={() => {
-                                        onApply?.();
-                                        close();
-                                    }}
-                                >
-                                    Apply
-                                </Button>
-                            </div>
-                        </>
-                    )}
+                <AriaDialog aria-label="Date picker" className="rounded-xl bg-primary p-3 shadow-xl ring ring-secondary_alt sm:p-4">
+                    <Calendar highlightedDates={highlightedDates} className="gap-2" />
                 </AriaDialog>
             </AriaPopover>
         </AriaDatePicker>
