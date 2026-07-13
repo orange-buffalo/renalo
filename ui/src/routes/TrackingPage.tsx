@@ -1,4 +1,9 @@
-import { Plus } from "@untitledui/icons";
+import {
+  CreditCard02,
+  Plus,
+  SwitchHorizontal01,
+  TrendUp02,
+} from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
@@ -110,22 +115,25 @@ function DashboardQuickAddButton({
         iconLeading={Plus}
         className="dashboard-quick-add-trigger"
       >
-        Add
+        Record new
       </Button>
       <Dropdown.Popover placement="bottom right" className="w-48">
         <Dropdown.Menu selectionMode="none" aria-label="Quick add">
           <Dropdown.Item
             label="Expense"
+            icon={CreditCard02}
             selectionIndicator="none"
             onAction={() => onNavigate("/expenses/create")}
           />
           <Dropdown.Item
             label="Income"
+            icon={TrendUp02}
             selectionIndicator="none"
             onAction={() => onNavigate("/incomes/create")}
           />
           <Dropdown.Item
             label="Transfer"
+            icon={SwitchHorizontal01}
             selectionIndicator="none"
             onAction={() => onNavigate("/transfers/create")}
           />

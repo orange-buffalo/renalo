@@ -89,7 +89,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/tracking")
 
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record new").setExact(true)).click()
         assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Expense"))).isVisible()
         assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Income"))).isVisible()
         page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Transfer")).click()
@@ -105,7 +105,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/tracking")
 
-        val addButton = page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add").setExact(true))
+        val addButton = page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record new").setExact(true))
         assertThat(addButton).isVisible()
 
         @Suppress("UNCHECKED_CAST")
