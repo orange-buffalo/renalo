@@ -4,6 +4,7 @@ import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
@@ -27,6 +28,7 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import java.time.LocalDate
+import java.util.regex.Pattern
 import org.junit.jupiter.api.Test
 
 @MicronautTest(transactional = false)
@@ -78,6 +80,52 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             DashboardCardText("CashTotal balanceA$123.00Inflow JuneA$0.00Outflow JuneA$0.00"),
         )
         page.locator("[data-testid='dashboard-account-card']").first().scrollIntoViewIfNeeded()
+    }
+
+    @Test
+    fun opensQuickAddMenuFromDashboard(page: Page) {
+        saveUser("alice")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Expense"))).isVisible()
+        assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Income"))).isVisible()
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Transfer")).click()
+
+        assertThat(page).hasURL(Pattern.compile(".*/transfers/create$"))
+    }
+
+    @Test
+    fun centersQuickAddButtonOnMobile(page: Page) {
+        saveUser("alice")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        val addButton = page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add").setExact(true))
+        assertThat(addButton).isVisible()
+
+        @Suppress("UNCHECKED_CAST")
+        val dimensions = addButton.evaluate(
+            """
+                button => {
+                    const rect = button.getBoundingClientRect();
+                    const actionsRect = button.closest('.standard-page-actions').getBoundingClientRect();
+                    return [rect.width, rect.left - actionsRect.left, actionsRect.width];
+                }
+            """.trimIndent(),
+        ) as List<Number>
+        val width = dimensions[0].toDouble()
+        val left = dimensions[1].toDouble()
+        val actionsWidth = dimensions[2].toDouble()
+
+        (width >= actionsWidth * 0.78).shouldBe(true)
+        (kotlin.math.abs(left - ((actionsWidth - width) / 2)) < 3).shouldBe(true)
+        addButton.click()
+        assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Expense"))).isVisible()
     }
 
     private fun saveUser(username: String): User =

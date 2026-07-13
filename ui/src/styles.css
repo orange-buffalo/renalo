@@ -219,6 +219,10 @@ input {
   gap: 20px;
 }
 
+.dashboard-quick-add-trigger {
+  min-width: 96px;
+}
+
 .dashboard-account-card {
   display: grid;
   gap: 18px;
@@ -2215,6 +2219,14 @@ input {
     margin-top: 16px;
   }
 
+  .dashboard-page-surface .standard-page-actions {
+    justify-content: center;
+  }
+
+  .dashboard-page-surface .dashboard-quick-add-trigger {
+    width: min(80%, 360px);
+  }
+
   .standard-page-user {
     display: inline-block;
     margin-top: 20px;
@@ -2320,5 +2332,11 @@ input {
 
   .tracking-account-form > * {
     max-width: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-page-surface .dashboard-quick-add-trigger {
+    width: 100%;
   }
 }

@@ -1,4 +1,6 @@
+import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   type AccountDashboardSummary,
   fetchAccountDashboardSummaries,
@@ -6,6 +8,8 @@ import {
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
+import { Button } from "@/components/untitled/base/buttons/button";
+import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { formatMoney } from "@/utils/money";
 
 const currentMonthName = new Intl.DateTimeFormat(undefined, {
@@ -13,6 +17,7 @@ const currentMonthName = new Intl.DateTimeFormat(undefined, {
 }).format(new Date());
 
 export function TrackingPage() {
+  const navigate = useNavigate();
   const [accountSummaries, setAccountSummaries] = useState<
     AccountDashboardSummary[]
   >([]);
@@ -51,6 +56,8 @@ export function TrackingPage() {
     <PageLayout
       title="Dashboard"
       description="Review account balances and current-month money flow."
+      actions={<DashboardQuickAddButton onNavigate={navigate} />}
+      className="dashboard-page-surface"
     >
       {error && (
         <Alert tone="error" title="Dashboard could not be loaded">
@@ -87,6 +94,44 @@ export function TrackingPage() {
         </section>
       )}
     </PageLayout>
+  );
+}
+
+function DashboardQuickAddButton({
+  onNavigate,
+}: {
+  onNavigate: (path: string) => void;
+}) {
+  return (
+    <Dropdown.Root>
+      <Button
+        color="primary"
+        size="sm"
+        iconLeading={Plus}
+        className="dashboard-quick-add-trigger"
+      >
+        Add
+      </Button>
+      <Dropdown.Popover placement="bottom right" className="w-48">
+        <Dropdown.Menu selectionMode="none" aria-label="Quick add">
+          <Dropdown.Item
+            label="Expense"
+            selectionIndicator="none"
+            onAction={() => onNavigate("/expenses/create")}
+          />
+          <Dropdown.Item
+            label="Income"
+            selectionIndicator="none"
+            onAction={() => onNavigate("/incomes/create")}
+          />
+          <Dropdown.Item
+            label="Transfer"
+            selectionIndicator="none"
+            onAction={() => onNavigate("/transfers/create")}
+          />
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown.Root>
   );
 }
 
