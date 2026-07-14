@@ -207,6 +207,21 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/expenses/create")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+        page.locator(".tracking-account-form").evaluate(
+            """
+                form => {
+                    const formWidth = form.getBoundingClientRect().width;
+                    return [...form.querySelectorAll('.searchable-dropdown-field, .money-input-field, .transaction-date-field, .date-picker-trigger')]
+                        .filter((field) => field.getBoundingClientRect().height > 0)
+                        .map((field) => ({
+                            className: field.className,
+                            width: Math.round(field.getBoundingClientRect().width),
+                            formWidth: Math.round(formWidth),
+                        }))
+                        .filter((field) => field.width < field.formWidth - 1);
+                }
+            """.trimIndent(),
+        ).shouldBe(emptyList<Any>())
         val dateField = page.locator(".transaction-date-field").first()
         dateField.getByRole(AriaRole.BUTTON).click()
         val datePicker = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date picker"))

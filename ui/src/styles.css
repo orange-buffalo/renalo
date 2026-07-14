@@ -1409,7 +1409,7 @@ input {
 .transaction-date-field {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 6px;
 }
 
@@ -2330,8 +2330,32 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .create-user-form > *,
+  .edit-user-form > *,
+  .profile-form > *,
   .tracking-account-form > * {
+    width: 100%;
     max-width: none;
+  }
+
+  .create-user-form .searchable-dropdown-field,
+  .edit-user-form .searchable-dropdown-field,
+  .profile-form .searchable-dropdown-field,
+  .tracking-account-form .money-input-field,
+  .tracking-account-form .searchable-dropdown-field,
+  .tracking-account-form .transaction-date-field,
+  .tracking-account-form .tracking-account-currency-field {
+    width: 100%;
+    max-width: none;
+  }
+
+  .tracking-account-form .date-picker-trigger {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .tracking-account-form .transaction-date-field [role="group"] {
+    width: 100%;
   }
 }
 
