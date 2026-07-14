@@ -598,12 +598,16 @@ input {
   outline: none;
 }
 
+.date-filter-mobile-header {
+  display: none;
+}
+
 .date-filter-presets {
   display: flex;
-  width: 164px;
+  width: 150px;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px;
+  gap: 2px;
+  padding: 8px;
   border-right: 1px solid #d1d7e0;
 }
 
@@ -615,7 +619,7 @@ input {
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 600;
-  padding: 8px 10px;
+  padding: 7px 9px;
   text-align: left;
 }
 
@@ -635,7 +639,7 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px;
+  padding: 8px;
   border-top: 1px solid #d1d7e0;
 }
 
@@ -680,20 +684,91 @@ input {
     min-width: 0;
   }
 
+  .date-filter-mobile-overlay {
+    position: fixed;
+    z-index: 60;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    background: #ffffff;
+    outline: none;
+  }
+
+  .date-filter-mobile-modal {
+    width: 100%;
+    height: 100dvh;
+    background: #ffffff;
+    outline: none;
+  }
+
   .date-filter-dialog {
-    max-width: calc(100vw - 24px);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
     flex-direction: column;
+    overflow-y: auto;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overscroll-behavior: contain;
+  }
+
+  .date-filter-mobile-header {
+    display: block;
+    padding: max(16px, env(safe-area-inset-top)) 16px 8px;
+  }
+
+  .date-filter-mobile-header h2 {
+    margin: 0;
+    color: #343841;
+    font-size: 1rem;
+    font-weight: 600;
   }
 
   .date-filter-presets {
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 8px;
+    padding: 8px 12px 10px;
     border-right: 0;
     border-bottom: 1px solid #d1d7e0;
   }
 
+  .date-filter-preset {
+    padding: 6px 8px;
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+
+  .date-filter-calendar-panel {
+    min-height: 0;
+    flex: 1;
+  }
+
+  .date-filter-calendar-panel > :first-child {
+    width: 100%;
+    justify-content: center;
+  }
+
   .date-filter-dialog-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
     align-items: stretch;
     flex-direction: column;
+    margin-top: auto;
+    gap: 8px;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+    background: #ffffff;
+  }
+
+  .date-filter-selected-range {
+    text-align: center;
+  }
+
+  .date-filter-dialog-actions > button {
+    flex: 1;
   }
 
   .table-card-root:has(.responsive-table) {

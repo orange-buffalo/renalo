@@ -96,6 +96,8 @@ const MobilePresetButton = ({ value, children, ...props }: MobilePresetButtonPro
 };
 
 interface RangeCalendarProps extends AriaRangeCalendarProps<DateValue> {
+    /** Whether to use tighter spacing for compact popovers and mobile overlays. */
+    isCompact?: boolean;
     /** The dates to highlight. */
     highlightedDates?: DateValue[];
     /** The date presets to display. */
@@ -106,7 +108,7 @@ interface RangeCalendarProps extends AriaRangeCalendarProps<DateValue> {
     showPresetsOnDesktop?: boolean;
 }
 
-export const RangeCalendar = ({ presets, visibleDuration, showOutOfRangeDates = false, showPresetsOnDesktop = false, ...props }: RangeCalendarProps) => {
+export const RangeCalendar = ({ isCompact = false, presets, visibleDuration, showOutOfRangeDates = false, showPresetsOnDesktop = false, ...props }: RangeCalendarProps) => {
     const isDesktop = useBreakpoint("md");
     const context = useSlottedContext(RangeCalendarContext);
 
@@ -123,7 +125,7 @@ export const RangeCalendar = ({ presets, visibleDuration, showOutOfRangeDates = 
                     months: visibleDurationMonths,
                 }}
             >
-                <div className="flex flex-col gap-3 px-6 py-5 md:gap-2">
+                <div className={cx("flex flex-col", isCompact ? "gap-2 p-3" : "gap-3 px-6 py-5 md:gap-2")}>
                     <header className={cx("relative flex items-center", visibleDurationMonths > 1 ? "justify-start" : "justify-between")}>
                         <Button slot="previous" iconLeading={ChevronLeft} size="sm" color="tertiary" className="size-8" />
 
@@ -152,7 +154,7 @@ export const RangeCalendar = ({ presets, visibleDuration, showOutOfRangeDates = 
                         </div>
                     )}
 
-                    <AriaCalendarGrid weekdayStyle="short" className="w-max">
+                    <AriaCalendarGrid weekdayStyle="short" className="w-max self-center">
                         <AriaCalendarGridHeader>
                             {(day) => (
                                 <AriaCalendarHeaderCell className="border-b-4 border-transparent p-0">
@@ -167,7 +169,7 @@ export const RangeCalendar = ({ presets, visibleDuration, showOutOfRangeDates = 
                 </div>
 
                 {visibleDurationMonths > 1 && (
-                    <div className="flex flex-col gap-3 border-l border-secondary px-6 py-5">
+                    <div className={cx("flex flex-col border-l border-secondary", isCompact ? "gap-2 p-3" : "gap-3 px-6 py-5")}>
                         <header className="relative flex items-center justify-end">
                             <h2 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-semibold text-fg-secondary">
                                 <RangeCalendarTitle part="end" />
@@ -176,7 +178,7 @@ export const RangeCalendar = ({ presets, visibleDuration, showOutOfRangeDates = 
                             <Button slot="next" iconLeading={ChevronRight} size="sm" color="tertiary" className="size-8" />
                         </header>
 
-                        <AriaCalendarGrid weekdayStyle="short" offset={{ months: 1 }} className="w-max">
+                        <AriaCalendarGrid weekdayStyle="short" offset={{ months: 1 }} className="w-max self-center">
                             <AriaCalendarGridHeader>
                                 {(day) => (
                                     <AriaCalendarHeaderCell className="border-b-4 border-transparent p-0">

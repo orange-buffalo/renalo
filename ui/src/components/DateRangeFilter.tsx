@@ -4,10 +4,13 @@ import { useState } from "react";
 import {
   Dialog as AriaDialog,
   DialogTrigger as AriaDialogTrigger,
+  Modal as AriaModal,
+  ModalOverlay as AriaModalOverlay,
   Popover as AriaPopover,
 } from "react-aria-components";
 import { RangeCalendar } from "@/components/untitled/application/date-picker/range-calendar";
 import { Button } from "@/components/untitled/base/buttons/button";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cx } from "@/utils/cx";
 
 export type DateFilterPreset =
@@ -51,6 +54,7 @@ const presetOrder: DateFilterPreset[] = [
 ];
 
 export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
+  const isDesktop = useBreakpoint("md");
   const [isOpen, setIsOpen] = useState(false);
   const [draftRange, setDraftRange] = useState<CalendarRange>(() =>
     calendarRangeFromFilter(value),
@@ -99,6 +103,64 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
     setIsOpen(false);
   }
 
+  const rangeDialog = (
+    <AriaDialog aria-label="Date range filter" className="date-filter-dialog">
+      <header className="date-filter-mobile-header">
+        <h2>Choose date range</h2>
+      </header>
+      <div className="date-filter-presets">
+        {presetOrder.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className={cx(
+              "date-filter-preset",
+              draftPreset === preset && "date-filter-preset-selected",
+            )}
+            onClick={() => applyPreset(preset)}
+          >
+            {presetLabels[preset]}
+          </button>
+        ))}
+      </div>
+      <div className="date-filter-calendar-panel">
+        <RangeCalendar
+          isCompact
+          value={draftRange}
+          focusedValue={focusedValue}
+          onFocusChange={(date) => setFocusedValue(date as CalendarDate | null)}
+          onChange={(range) => {
+            setDraftPreset(undefined);
+            setDraftRange({
+              start: range.start as CalendarDate,
+              end: range.end as CalendarDate,
+            });
+          }}
+          highlightedDates={[today(getLocalTimeZone())]}
+        />
+        <div className="date-filter-dialog-footer">
+          <div className="date-filter-selected-range">
+            {draftPreset === "ALL_TIME"
+              ? "All time"
+              : `${formatFullDate(calendarDateToIsoDate(draftRange.start))} - ${formatFullDate(calendarDateToIsoDate(draftRange.end))}`}
+          </div>
+          <div className="date-filter-dialog-actions">
+            <Button
+              color="secondary"
+              size="sm"
+              onPress={() => setIsOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button color="primary" size="sm" onPress={applyDraft}>
+              Apply
+            </Button>
+          </div>
+        </div>
+      </div>
+    </AriaDialog>
+  );
+
   return (
     <section className="date-filter-panel" aria-label="Transaction filters">
       <div className="date-filter-control">
@@ -118,68 +180,24 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
           >
             {value.label}
           </Button>
-          <AriaPopover
-            placement="bottom left"
-            offset={8}
-            className="date-filter-popover"
-          >
-            <AriaDialog
-              aria-label="Date range filter"
-              className="date-filter-dialog"
+          {isDesktop ? (
+            <AriaPopover
+              placement="bottom left"
+              offset={8}
+              className="date-filter-popover"
             >
-              <div className="date-filter-presets">
-                {presetOrder.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className={cx(
-                      "date-filter-preset",
-                      draftPreset === preset && "date-filter-preset-selected",
-                    )}
-                    onClick={() => applyPreset(preset)}
-                  >
-                    {presetLabels[preset]}
-                  </button>
-                ))}
-              </div>
-              <div className="date-filter-calendar-panel">
-                <RangeCalendar
-                  value={draftRange}
-                  focusedValue={focusedValue}
-                  onFocusChange={(date) =>
-                    setFocusedValue(date as CalendarDate | null)
-                  }
-                  onChange={(range) => {
-                    setDraftPreset(undefined);
-                    setDraftRange({
-                      start: range.start as CalendarDate,
-                      end: range.end as CalendarDate,
-                    });
-                  }}
-                  highlightedDates={[today(getLocalTimeZone())]}
-                />
-                <div className="date-filter-dialog-footer">
-                  <div className="date-filter-selected-range">
-                    {draftPreset === "ALL_TIME"
-                      ? "All time"
-                      : `${formatFullDate(calendarDateToIsoDate(draftRange.start))} - ${formatFullDate(calendarDateToIsoDate(draftRange.end))}`}
-                  </div>
-                  <div className="date-filter-dialog-actions">
-                    <Button
-                      color="secondary"
-                      size="sm"
-                      onPress={() => setIsOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button color="primary" size="sm" onPress={applyDraft}>
-                      Apply
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </AriaDialog>
-          </AriaPopover>
+              {rangeDialog}
+            </AriaPopover>
+          ) : (
+            <AriaModalOverlay
+              isDismissable
+              className="date-filter-mobile-overlay"
+            >
+              <AriaModal className="date-filter-mobile-modal">
+                {rangeDialog}
+              </AriaModal>
+            </AriaModalOverlay>
+          )}
         </AriaDialogTrigger>
         <Button
           aria-label="Next date range"

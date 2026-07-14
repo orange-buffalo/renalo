@@ -407,6 +407,42 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun usesFullScreenDateRangeFilterOnMobile(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/expenses")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("June 2099").setExact(true)).click()
+
+        val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        assertThat(dialog).isVisible()
+        assertThat(dialog.getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("Choose date range"))).isVisible()
+        assertThat(dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply"))).isVisible()
+        page.locator(".date-filter-mobile-overlay").evaluate(
+            """
+                overlay => {
+                    const rect = overlay.getBoundingClientRect();
+                    const dialog = overlay.querySelector('.date-filter-dialog');
+                    const presets = overlay.querySelector('.date-filter-presets');
+                    return Math.abs(rect.top) < 1
+                        && Math.abs(rect.left) < 1
+                        && Math.abs(rect.width - window.innerWidth) < 1
+                        && Math.abs(rect.height - window.innerHeight) < 1
+                        && dialog.scrollWidth <= dialog.clientWidth + 1
+                        && getComputedStyle(presets).gridTemplateColumns.split(' ').length === 2;
+                }
+            """.trimIndent(),
+        ).shouldBe(true)
+
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Previous month").setExact(true)).click()
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply")).click()
+
+        assertDateFilterLabel(page, "May 2099")
+    }
+
+    @Test
     fun filtersExpensesByCategoryAccountAndNotes(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
