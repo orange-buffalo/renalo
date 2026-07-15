@@ -15,6 +15,16 @@ interface AccountAdjustmentRepository : CrudRepository<AccountAdjustment, Long> 
 
     @Query(
         """
+            UPDATE account_adjustments
+            SET tracking_account_id = :targetAccountId
+            WHERE user_id = :userId
+              AND tracking_account_id = :sourceAccountId
+        """,
+    )
+    fun reassignTrackingAccount(userId: Long, sourceAccountId: Long, targetAccountId: Long)
+
+    @Query(
+        """
             SELECT COALESCE(SUM(adjustment_amount_minor), 0)
             FROM account_adjustments
             WHERE user_id = :userId

@@ -53,7 +53,7 @@ class AccountAdjustmentController(
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
 
-        return when (accountAdjustmentService.deleteAdjustment(user.id!!, adjustmentId)) {
+        return when (accountAdjustmentService.deleteAdjustment(user.id!!, accountId, adjustmentId)) {
             DeleteAdjustmentResult.Deleted -> HttpResponse.noContent<Any>()
             DeleteAdjustmentResult.NotFound -> HttpResponse.notFound<Any>()
         }

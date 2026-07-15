@@ -22,10 +22,11 @@ import { Input } from "@/components/untitled/base/input/input";
 import { Label } from "@/components/untitled/base/input/label";
 import { loadStoredAccountId, storeAccountId } from "@/utils/accountSelection";
 import {
-  currencyFractionDigits,
-  formatMoneyInput,
-  parseMoneyInput,
-} from "@/utils/money";
+  calculateTargetAmountMinor,
+  formatExchangeRate,
+  parseExchangeRate,
+} from "@/utils/exchangeRate";
+import { formatMoneyInput, parseMoneyInput } from "@/utils/money";
 
 export function CreateFundsTransferPage() {
   return <FundsTransferFormPage mode="create" />;
@@ -186,12 +187,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
       (account) => account.id === nextAccountId,
     );
     const nextSourceCurrency = nextAccount?.currency ?? sourceCurrency;
-    const nextSourceAmount = sourceAmount
-      ? formatMoneyInput(
-          parseMoneyInput(sourceAmount, sourceCurrency) ?? 0,
-          nextSourceCurrency,
-        )
-      : "";
+    const nextSourceAmount = sourceAmount;
     setSourceAccountId(nextAccountId);
     storeAccountId("renalo.transfer.sourceAccountId", nextAccountId);
     setSourceAmount(nextSourceAmount);
@@ -213,12 +209,7 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
       (account) => account.id === nextAccountId,
     );
     const nextTargetCurrency = nextAccount?.currency ?? targetCurrency;
-    const nextTargetAmount = targetAmount
-      ? formatMoneyInput(
-          parseMoneyInput(targetAmount, targetCurrency) ?? 0,
-          nextTargetCurrency,
-        )
-      : "";
+    const nextTargetAmount = targetAmount;
     setTargetAccountId(nextAccountId);
     storeAccountId("renalo.transfer.targetAccountId", nextAccountId);
     setTargetAmount(nextTargetAmount);
@@ -271,17 +262,17 @@ function FundsTransferFormPage({ mode }: { mode: "create" | "edit" }) {
     ) {
       return;
     }
-    setTargetAmount(
-      formatMoneyInput(
-        calculateTargetAmountMinor(
-          sourceAmountMinor,
-          sourceCurrency,
-          targetCurrency,
-          parsedRate,
-        ),
-        targetCurrency,
-      ),
+    const calculatedTargetAmount = calculateTargetAmountMinor(
+      sourceAmountMinor,
+      sourceCurrency,
+      targetCurrency,
+      nextRate,
     );
+    if (calculatedTargetAmount === undefined) {
+      setTargetAmountError("The calculated amount is too large.");
+      return;
+    }
+    setTargetAmount(formatMoneyInput(calculatedTargetAmount, targetCurrency));
     setTargetAmountError(undefined);
   }
 
@@ -550,46 +541,4 @@ function calendarDateToIsoDate(date: CalendarDate) {
   const month = String(date.month).padStart(2, "0");
   const day = String(date.day).padStart(2, "0");
   return `${date.year}-${month}-${day}`;
-}
-
-function parseExchangeRate(value: string) {
-  const normalized = value.trim().replace(",", ".");
-  if (normalized === "") {
-    return undefined;
-  }
-  const parsedRate = Number(normalized);
-  return Number.isFinite(parsedRate) && parsedRate > 0 ? parsedRate : undefined;
-}
-
-function formatExchangeRate(
-  sourceAmountMinor: number,
-  sourceCurrency: string,
-  targetAmountMinor: number,
-  targetCurrency: string,
-) {
-  const sourceAmount = minorUnitsToMajor(sourceAmountMinor, sourceCurrency);
-  const targetAmount = minorUnitsToMajor(targetAmountMinor, targetCurrency);
-  if (sourceAmount <= 0 || targetAmount <= 0) {
-    return "";
-  }
-  return formatRate(targetAmount / sourceAmount);
-}
-
-function calculateTargetAmountMinor(
-  sourceAmountMinor: number,
-  sourceCurrency: string,
-  targetCurrency: string,
-  exchangeRate: number,
-) {
-  const sourceAmount = minorUnitsToMajor(sourceAmountMinor, sourceCurrency);
-  const targetFractionDigits = currencyFractionDigits(targetCurrency);
-  return Math.round(sourceAmount * exchangeRate * 10 ** targetFractionDigits);
-}
-
-function minorUnitsToMajor(minorUnits: number, currency: string) {
-  return minorUnits / 10 ** currencyFractionDigits(currency);
-}
-
-function formatRate(rate: number) {
-  return rate.toFixed(8).replace(/\.?0+$/, "");
 }

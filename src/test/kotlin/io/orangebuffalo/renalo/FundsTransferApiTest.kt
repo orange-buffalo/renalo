@@ -262,6 +262,42 @@ class FundsTransferApiTest : IntegrationTestSupport() {
             """.trimIndent(),
             token,
         ).statusCode().shouldBe(400)
+        listOf(0, -1).forEach { invalidSourceAmount ->
+            api().postJson(
+                "/api/tracking/funds-transfers",
+                """
+                    {"sourceAccountId":${main.id},"targetAccountId":${travel.id},"sourceAmountMinor":$invalidSourceAmount,"targetAmountMinor":100,"date":"2026-06-10"}
+                """.trimIndent(),
+                token,
+            ).statusCode().shouldBe(400)
+        }
+        api().postJson(
+            "/api/tracking/funds-transfers",
+            """
+                {"sourceAccountId":${main.id},"targetAccountId":${travel.id},"sourceAmountMinor":100,"targetAmountMinor":-1,"date":"2026-06-10"}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(400)
+    }
+
+    @Test
+    fun sameCurrencyTransferAlwaysUsesSourceAmountForBothSides() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD")
+
+        val response = api().postJson(
+            "/api/tracking/funds-transfers",
+            """
+                {"sourceAccountId":${main.id},"targetAccountId":${savings.id},"sourceAmountMinor":1,"targetAmountMinor":999,"date":"2026-06-10"}
+            """.trimIndent(),
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(201)
+        val transfer = fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).single()
+        transfer.sourceAmountMinor.shouldBe(1)
+        transfer.targetAmountMinor.shouldBe(1)
     }
 
     @Test

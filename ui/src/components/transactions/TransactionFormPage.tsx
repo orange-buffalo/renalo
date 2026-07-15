@@ -248,23 +248,9 @@ export function TransactionFormPage({
   }, [config, transactionId, isEditing]);
 
   function handleAccountChange(nextAccountId: number) {
-    const previousCurrency = currency;
-    const nextAccount = accounts?.find(
-      (account) => account.id === nextAccountId,
-    );
     setTrackingAccountId(nextAccountId);
     storeAccountId(config.accountStorageKey, nextAccountId);
     setAccountError(undefined);
-    if (nextAccount) {
-      setAmount(
-        amount
-          ? formatMoneyInput(
-              parseMoneyInput(amount, previousCurrency) ?? 0,
-              nextAccount.currency,
-            )
-          : "",
-      );
-    }
   }
 
   function handleDateChange(nextDate: CalendarDate | null) {

@@ -108,6 +108,13 @@ val uiCheck by tasks.registering(Exec::class) {
     inputs.file(uiDir.file("tsconfig.json"))
 }
 
+val uiTest by tasks.registering(Exec::class) {
+    dependsOn(uiInstall)
+    workingDir(uiDir.asFile)
+    commandLine("bun", "run", "test")
+    inputs.dir(uiDir.dir("src"))
+}
+
 val uiBuild by tasks.registering(Exec::class) {
     dependsOn(uiInstall)
     workingDir(uiDir.asFile)
@@ -146,7 +153,7 @@ tasks.matching { it.name == "inspectRuntimeClasspath" }.configureEach {
 }
 
 tasks.named("check") {
-    dependsOn(uiCheck)
+    dependsOn(uiCheck, uiTest)
 }
 
 tasks.withType<Test>().configureEach {

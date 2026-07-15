@@ -326,6 +326,31 @@ class IncomeApiTest : IntegrationTestSupport() {
             )
     }
 
+    @Test
+    fun rejectsNonpositiveIncomeAmountsAndAcceptsSmallestMinorUnit() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD")
+        val salary = saveIncomeCategory(alice, "Salary")
+        val token = api().login("alice", "password")
+
+        listOf(0, -1).forEach { invalidAmount ->
+            api().postJson(
+                "/api/tracking/transactions/INCOME",
+                transactionJson(account, salary, "2026-06-15", invalidAmount.toLong(), null),
+                token,
+            ).statusCode().shouldBe(400)
+        }
+
+        val response = api().postJson(
+            "/api/tracking/transactions/INCOME",
+            transactionJson(account, salary, "2026-06-15", 1, null),
+            token,
+        )
+        response.statusCode().shouldBe(201)
+        transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.INCOME)
+            .single().amountMinor.shouldBe(1)
+    }
+
     private fun saveUser(username: String, type: UserType): User = userRepository.save(
         User(
             username = username,

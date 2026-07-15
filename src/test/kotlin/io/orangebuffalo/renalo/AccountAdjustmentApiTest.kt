@@ -13,6 +13,8 @@ import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 
 import io.orangebuffalo.renalo.tracking.IncomeCategory
 import io.orangebuffalo.renalo.tracking.IncomeCategoryRepository
+import io.orangebuffalo.renalo.tracking.FundsTransfer
+import io.orangebuffalo.renalo.tracking.FundsTransferRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.tracking.Transaction
@@ -55,6 +57,9 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var accountAdjustmentRepository: AccountAdjustmentRepository
+
+    @Inject
+    lateinit var fundsTransferRepository: FundsTransferRepository
 
     @Test
     fun requiresRegularUserForAdjustments() {
@@ -266,6 +271,79 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
         )
     }
 
+    @Test
+    fun currentBalanceIncludesOnlyActivityThroughTodayAndAllTransferSides() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 10_000, isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", 5_000)
+        val expenseCategory = saveExpenseCategory(alice)
+        val incomeCategory = saveIncomeCategory(alice)
+        saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, 2_000, TestTimeProvider.DEFAULT_DATE)
+        saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, 90_000, TestTimeProvider.DEFAULT_DATE.plusDays(1))
+        saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, 500, TestTimeProvider.DEFAULT_DATE)
+        saveTransaction(alice, main, expenseCategory, TransactionType.EXPENSE, 80_000, TestTimeProvider.DEFAULT_DATE.plusDays(1))
+        saveTransfer(alice, main, savings, 300, TestTimeProvider.DEFAULT_DATE)
+        saveTransfer(alice, savings, main, 700, TestTimeProvider.DEFAULT_DATE)
+        saveTransfer(alice, main, savings, 70_000, TestTimeProvider.DEFAULT_DATE.plusDays(1))
+        val currentAdjustment = saveAdjustment(alice, main, 100)
+        val futureAdjustment = accountAdjustmentRepository.save(
+            AccountAdjustment(
+                userId = alice.id!!,
+                trackingAccountId = main.id!!,
+                adjustmentAmountMinor = 60_000,
+                date = TestTimeProvider.DEFAULT_DATE.plusDays(1),
+            ),
+        )
+
+        val response = api().get(
+            "/api/tracking/accounts/${main.id}/adjustments",
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "accountId": ${main.id},
+                  "accountName": "Main",
+                  "currency": "AUD",
+                  "currentBalanceMinor": 12000,
+                  "baseBalanceMinor": 11900,
+                  "adjustments": [
+                    {
+                      "id": ${futureAdjustment.id},
+                      "adjustmentAmountMinor": 60000,
+                      "date": "${futureAdjustment.date}",
+                      "createdAt": "${createdAtFormatter.format(futureAdjustment.createdAt!!)}"
+                    },
+                    {
+                      "id": ${currentAdjustment.id},
+                      "adjustmentAmountMinor": 100,
+                      "date": "${currentAdjustment.date}",
+                      "createdAt": "${createdAtFormatter.format(currentAdjustment.createdAt!!)}"
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun doesNotDeleteAdjustmentThroughAnotherAccountUrl() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        val savings = saveAccount(alice, "Savings", "AUD", 0)
+        val adjustment = saveAdjustment(alice, main, 100)
+
+        val response = api().delete(
+            "/api/tracking/accounts/${savings.id}/adjustments/${adjustment.id}",
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(404)
+        accountAdjustmentRepository.findById(adjustment.id!!).isPresent.shouldBe(true)
+    }
+
     private fun saveUser(username: String, type: UserType): User = userRepository.save(
         User(
             username = username,
@@ -296,6 +374,23 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
 
     private fun saveIncomeCategory(user: User): IncomeCategory = incomeCategoryRepository.save(
         IncomeCategory(userId = user.id!!, name = "Salary"),
+    )
+
+    private fun saveTransfer(
+        user: User,
+        source: TrackingAccount,
+        target: TrackingAccount,
+        amountMinor: Long,
+        date: LocalDate,
+    ): FundsTransfer = fundsTransferRepository.save(
+        FundsTransfer(
+            userId = user.id!!,
+            sourceAccountId = source.id!!,
+            targetAccountId = target.id!!,
+            sourceAmountMinor = amountMinor,
+            targetAmountMinor = amountMinor,
+            date = date,
+        ),
     )
 
     private fun saveTransaction(

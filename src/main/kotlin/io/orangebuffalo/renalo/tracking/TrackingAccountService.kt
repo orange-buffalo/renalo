@@ -9,6 +9,8 @@ open class TrackingAccountService(
     private val trackingAccountRepository: TrackingAccountRepository,
     private val transactionRepository: TransactionRepository,
     private val fundsTransferRepository: FundsTransferRepository,
+    private val accountAdjustmentRepository: AccountAdjustmentRepository,
+    private val recurringTransactionRuleRepository: RecurringTransactionRuleRepository,
 ) {
     @Transactional
     open fun createDefaultAccountForUser(userId: Long): TrackingAccount {
@@ -144,15 +146,30 @@ open class TrackingAccountService(
             trackingAccountRepository.clearDefaultForUser(userId)
         }
 
+        val internalTransferNet = fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
+            .filter {
+                (it.sourceAccountId == persistedSourceAccountId && it.targetAccountId == persistedTargetAccountId) ||
+                    (it.sourceAccountId == persistedTargetAccountId && it.targetAccountId == persistedSourceAccountId)
+            }
+            .fold(0L) { total, transfer ->
+                FinancialMath.add(total, FinancialMath.subtract(transfer.targetAmountMinor, transfer.sourceAmountMinor))
+            }
+        val mergedInitialBalance = FinancialMath.add(
+            FinancialMath.add(targetAccount.initialBalanceMinor, sourceAccount.initialBalanceMinor),
+            internalTransferNet,
+        )
+
         trackingAccountRepository.update(
             targetAccount.copy(
-                initialBalanceMinor = targetAccount.initialBalanceMinor + sourceAccount.initialBalanceMinor,
+                initialBalanceMinor = mergedInitialBalance,
                 isDefault = targetAccount.isDefault || sourceAccount.isDefault,
             ),
         )
 
         fundsTransferRepository.deleteInternalTransfers(userId, persistedSourceAccountId, persistedTargetAccountId)
         transactionRepository.reassignTrackingAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
+        accountAdjustmentRepository.reassignTrackingAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
+        recurringTransactionRuleRepository.reassignTrackingAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         fundsTransferRepository.reassignSourceAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         fundsTransferRepository.reassignTargetAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         trackingAccountRepository.deleteByIdAndUserId(persistedSourceAccountId, userId)

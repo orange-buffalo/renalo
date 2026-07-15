@@ -801,7 +801,7 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                       "amountMinor": 5000,
                       "currency": "AUD",
                       "status": "SKIPPED_DUPLICATE",
-                      "reason": "Duplicate adjustment by account and amount."
+                       "reason": "Duplicate adjustment by account, date, and amount."
                     }
                   ]
                 }
@@ -809,6 +809,100 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         )
 
         accountAdjustmentRepository.findByUserId(alice.id!!).size.shouldBe(1)
+    }
+
+    @Test
+    fun treatsSameAdjustmentAmountOnDifferentDatesAsDistinct() {
+        val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Wallet", "AUD", isDefault = true)
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,Wallet,Reconciliation,,50.00,0,AUD,50.00,AUD,First
+                    2/6/26,Wallet,Reconciliation,,50.00,0,AUD,50.00,AUD,Second
+                """.trimIndent(),
+            ),
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(200)
+        accountAdjustmentRepository.findByUserId(alice.id!!).map { it.date }.sorted().shouldContainExactly(
+            LocalDate.of(2026, 6, 1),
+            LocalDate.of(2026, 6, 2),
+        )
+    }
+
+    @Test
+    fun importsExactMinorUnitsForZeroAndThreeDecimalCurrencies() {
+        val alice = saveUser("alice", UserType.USER)
+
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,Yen,Food,,123,0,JPY,123,JPY,Lunch
+                    2/6/26,Dinar,Salary,,0,1.234,KWD,1.234,KWD,Pay
+                """.trimIndent(),
+            ),
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(200)
+        transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE)
+            .single().amountMinor.shouldBe(123)
+        transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.INCOME)
+            .single().amountMinor.shouldBe(1_234)
+        trackingAccountRepository.findByUserIdOrderByName(alice.id!!).associate { it.name to it.currency }.shouldBe(
+            mapOf("Dinar" to "KWD", "Yen" to "JPY"),
+        )
+    }
+
+    @Test
+    fun rejectsMalformedOverPreciseOverflowingAndConflictingCurrencyAmountsAtomically() {
+        val invalidRows = listOf(
+            "1/6/26,Acc,Food,,12x,0,AUD,12,AUD,Bad number",
+            "1/6/26,Acc,Food,,1.001,0,AUD,1.001,AUD,Too precise",
+            "1/6/26,Acc,Food,,92233720368547758.08,0,AUD,1,AUD,Overflow",
+        )
+
+        invalidRows.forEachIndexed { index, row ->
+            val alice = saveUser("alice-$index", UserType.USER)
+            val response = api().postJson(
+                "/api/import/toshl",
+                toshlRequest(
+                    """
+                        Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                        $row
+                    """.trimIndent(),
+                ),
+                api().login("alice-$index", "password"),
+            )
+
+            response.statusCode().shouldBe(400)
+            response.body().shouldEqualJson("""{"code":"CSV_INVALID"}""")
+            trackingAccountRepository.findByUserIdOrderByName(alice.id!!).shouldBe(emptyList())
+        }
+
+        val alice = saveUser("currency-conflict", UserType.USER)
+        val response = api().postJson(
+            "/api/import/toshl",
+            toshlRequest(
+                """
+                    Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                    1/6/26,Mixed,Food,,1.00,0,AUD,1.00,AUD,First
+                    2/6/26,Mixed,Food,,1.00,0,EUR,1.00,AUD,Second
+                """.trimIndent(),
+            ),
+            api().login("currency-conflict", "password"),
+        )
+        response.statusCode().shouldBe(400)
+        response.body().shouldEqualJson("""{"code":"CSV_INVALID"}""")
+        trackingAccountRepository.findByUserIdOrderByName(alice.id!!).shouldBe(emptyList())
+        transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE).shouldBe(emptyList())
     }
 
     @Test

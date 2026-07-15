@@ -134,6 +134,41 @@ class DashboardApiTest : IntegrationTestSupport() {
         )
     }
 
+    @Test
+    fun usesEachTransferSidesAmountForCrossCurrencyBalancesAndFlows() {
+        val alice = saveUser("alice", UserType.USER)
+        val aud = saveAccount(alice, "AUD", "AUD", 100_000, isDefault = true)
+        val jpy = saveAccount(alice, "JPY", "JPY", 50_000)
+        saveTransfer(alice, aud, jpy, TestTimeProvider.DEFAULT_DATE, 12_345, 9_876)
+        saveTransfer(alice, jpy, aud, TestTimeProvider.DEFAULT_DATE.plusDays(1), 7_000, 60)
+
+        val response = api().get("/api/tracking/dashboard/accounts", api().login("alice", "password"))
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                [
+                  {
+                    "accountId": ${aud.id},
+                    "accountName": "AUD",
+                    "currency": "AUD",
+                    "totalBalanceMinor": 87655,
+                    "currentMonthInflowMinor": 0,
+                    "currentMonthOutflowMinor": 12345
+                  },
+                  {
+                    "accountId": ${jpy.id},
+                    "accountName": "JPY",
+                    "currency": "JPY",
+                    "totalBalanceMinor": 59876,
+                    "currentMonthInflowMinor": 9876,
+                    "currentMonthOutflowMinor": 0
+                  }
+                ]
+            """.trimIndent(),
+        )
+    }
+
     private fun saveUser(username: String, type: UserType): User =
         userRepository.save(User(username = username, passwordHash = passwordHasher.hash("password"), type = type))
 

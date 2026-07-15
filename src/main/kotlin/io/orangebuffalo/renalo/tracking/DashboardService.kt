@@ -35,10 +35,10 @@ class DashboardService(
                 summaries[transaction.trackingAccountId]?.apply {
                     recordActivity(transaction.date)
                     if (!transaction.date.isAfter(today)) {
-                        totalBalanceMinor += transaction.amountMinor
+                        totalBalanceMinor = FinancialMath.add(totalBalanceMinor, transaction.amountMinor)
                     }
                     if (transaction.date.isIn(currentMonth) && !transaction.date.isAfter(today)) {
-                        currentMonthInflowMinor += transaction.amountMinor
+                        currentMonthInflowMinor = FinancialMath.add(currentMonthInflowMinor, transaction.amountMinor)
                     }
                 }
             }
@@ -48,10 +48,10 @@ class DashboardService(
                 summaries[transaction.trackingAccountId]?.apply {
                     recordActivity(transaction.date)
                     if (!transaction.date.isAfter(today)) {
-                        totalBalanceMinor -= transaction.amountMinor
+                        totalBalanceMinor = FinancialMath.subtract(totalBalanceMinor, transaction.amountMinor)
                     }
                     if (transaction.date.isIn(currentMonth) && !transaction.date.isAfter(today)) {
-                        currentMonthOutflowMinor += transaction.amountMinor
+                        currentMonthOutflowMinor = FinancialMath.add(currentMonthOutflowMinor, transaction.amountMinor)
                     }
                 }
             }
@@ -61,19 +61,19 @@ class DashboardService(
                 summaries[transfer.sourceAccountId]?.apply {
                     recordActivity(transfer.date)
                     if (!transfer.date.isAfter(today)) {
-                        totalBalanceMinor -= transfer.sourceAmountMinor
+                        totalBalanceMinor = FinancialMath.subtract(totalBalanceMinor, transfer.sourceAmountMinor)
                     }
                     if (transfer.date.isIn(currentMonth) && !transfer.date.isAfter(today)) {
-                        currentMonthOutflowMinor += transfer.sourceAmountMinor
+                        currentMonthOutflowMinor = FinancialMath.add(currentMonthOutflowMinor, transfer.sourceAmountMinor)
                     }
                 }
                 summaries[transfer.targetAccountId]?.apply {
                     recordActivity(transfer.date)
                     if (!transfer.date.isAfter(today)) {
-                        totalBalanceMinor += transfer.targetAmountMinor
+                        totalBalanceMinor = FinancialMath.add(totalBalanceMinor, transfer.targetAmountMinor)
                     }
                     if (transfer.date.isIn(currentMonth) && !transfer.date.isAfter(today)) {
-                        currentMonthInflowMinor += transfer.targetAmountMinor
+                        currentMonthInflowMinor = FinancialMath.add(currentMonthInflowMinor, transfer.targetAmountMinor)
                     }
                 }
             }
@@ -81,7 +81,9 @@ class DashboardService(
         accountAdjustmentRepository.findByUserId(userId)
             .forEach { adjustment ->
                 summaries[adjustment.trackingAccountId]?.apply {
-                    totalBalanceMinor += adjustment.adjustmentAmountMinor
+                    if (!adjustment.date.isAfter(today)) {
+                        totalBalanceMinor = FinancialMath.add(totalBalanceMinor, adjustment.adjustmentAmountMinor)
+                    }
                 }
             }
 

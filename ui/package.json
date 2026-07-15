@@ -6,7 +6,8 @@
   "scripts": {
     "build": "rm -rf dist && mkdir -p dist/assets && tailwindcss -i ./src/styles.css -o ./dist/assets/styles.css --minify && bun build ./src/main.tsx --target=browser --outdir=dist --entry-naming=assets/index-[hash].[ext] --asset-naming=assets/[name]-[hash].[ext] && cp src/sw.js dist/sw.js && bun ./scripts/write-index.ts",
     "check": "biome check . && tsc --noEmit",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "test": "bun test"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.2",

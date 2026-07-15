@@ -40,7 +40,7 @@ open class ToshlImportService(
         val context = loadImportContext(userId)
         val report = mutableListOf<ToshlImportReportEntry>()
 
-        createMissingReferences(userId, context, transactionRows, reconciliationRows, reconciledTransfers)
+        createMissingReferences(userId, context, transactionRows, reconciliationRows)
         importTransactions(userId, context, transactionRows, report)
         val transferImportResult = importTransfers(userId, context, reconciledTransfers, report)
         importAdjustments(userId, context, reconciliationRows, report)
@@ -81,7 +81,7 @@ open class ToshlImportService(
             }
         val adjustmentKeys = accountAdjustmentRepository.findByUserId(userId)
             .filter { it.metadata?.get("source") == "toshl" }
-            .mapTo(mutableSetOf()) { AdjustmentImportKey(it.trackingAccountId, it.adjustmentAmountMinor) }
+            .mapTo(mutableSetOf()) { AdjustmentImportKey(it.trackingAccountId, it.date, it.adjustmentAmountMinor) }
         return ToshlImportContext(
             accountsByName = trackingAccountRepository.findByUserIdOrderByName(userId).associateByTo(mutableMapOf()) { it.name },
             expenseCategoriesByName = expenseCategoryRepository.findByUserIdOrderByName(userId).associateByTo(mutableMapOf()) { it.name },
@@ -97,16 +97,26 @@ open class ToshlImportService(
         context: ToshlImportContext,
         transactionRows: List<ToshlRow>,
         reconciliationRows: List<ToshlRow>,
-        transfers: List<ReconciledToshlTransfer>,
     ) {
         val rowsForAccounts = transactionRows + reconciliationRows
+        val accountCurrencies = rowsForAccounts.groupBy { it.account }
+            .mapValues { (_, rows) -> rows.map { it.currency }.distinct() }
+        accountCurrencies.forEach { (accountName, currencies) ->
+            if (currencies.size != 1) {
+                throw ToshlImportException("Account '$accountName' has transactions in multiple currencies")
+            }
+            val existingAccount = context.accountsByName[accountName]
+            if (existingAccount != null && existingAccount.currency != currencies.single()) {
+                throw ToshlImportException("Account '$accountName' currency does not match imported transactions")
+            }
+        }
         val missingAccounts = rowsForAccounts
             .map { it.account }
             .distinct()
             .filterNot { it in context.accountsByName }
         if (missingAccounts.isNotEmpty()) {
             val hasExistingAccounts = context.accountsByName.isNotEmpty()
-            val accountCurrencyByName = rowsForAccounts.associate { it.account to it.currency }
+            val accountCurrencyByName = accountCurrencies.mapValues { (_, currencies) -> currencies.single() }
             val accountsToSave = missingAccounts.mapIndexed { index, accountName ->
                 TrackingAccount(
                     userId = userId,
@@ -248,11 +258,11 @@ open class ToshlImportService(
                 return@mapNotNull null
             }
             val adjustmentAmountMinor = if (row.type == TransactionType.EXPENSE) -row.amountMinor else row.amountMinor
-            val key = AdjustmentImportKey(account.id!!, adjustmentAmountMinor)
+            val key = AdjustmentImportKey(account.id!!, row.date, adjustmentAmountMinor)
             if (!context.adjustmentKeys.add(key)) {
                 report += row.toReportEntry(
                     "SKIPPED_DUPLICATE",
-                    "Duplicate adjustment by account and amount.",
+                    "Duplicate adjustment by account, date, and amount.",
                 )
                 null
             } else {
@@ -289,13 +299,13 @@ open class ToshlImportService(
 
     private fun ToshlRow.amountForAccount(account: TrackingAccount): Long? = when (account.currency) {
         currency -> amountMinor
-        mainCurrency -> mainAmountMinor
+        mainCurrency -> mainAmountMinor.takeIf { it > 0 }
         else -> null
     }
 
     private fun parseRow(header: Map<String, Int>, row: List<String>, lineNumber: Int): ToshlRow {
-        val expenseAmount = value(row, header, "Expense amount", lineNumber).parseAmountOrZero()
-        val incomeAmount = value(row, header, "Income amount", lineNumber).parseAmountOrZero()
+        val expenseAmount = value(row, header, "Expense amount", lineNumber).parseAmountOrZero(lineNumber, "Expense amount")
+        val incomeAmount = value(row, header, "Income amount", lineNumber).parseAmountOrZero(lineNumber, "Income amount")
         val type = when {
             expenseAmount > BigDecimal.ZERO && incomeAmount == BigDecimal.ZERO -> TransactionType.EXPENSE
             incomeAmount > BigDecimal.ZERO && expenseAmount == BigDecimal.ZERO -> TransactionType.INCOME
@@ -304,13 +314,17 @@ open class ToshlImportService(
         val amount = if (type == TransactionType.EXPENSE) expenseAmount else incomeAmount
         val currency = value(row, header, "Currency", lineNumber).trim().uppercase()
         val mainCurrency = value(row, header, "Main currency", lineNumber).trim().uppercase()
-        val mainAmount = value(row, header, "In main currency", lineNumber).parseAmountOrZero()
+        val mainAmount = value(row, header, "In main currency", lineNumber).parseAmountOrZero(lineNumber, "In main currency")
         val description = value(row, header, "Description", lineNumber).trim()
         val tags = value(row, header, "Tags", lineNumber).trim()
 
         return ToshlRow(
             lineNumber = lineNumber,
-            date = LocalDate.parse(value(row, header, "Date", lineNumber).trim(), toshlDateFormatter),
+            date = try {
+                LocalDate.parse(value(row, header, "Date", lineNumber).trim(), toshlDateFormatter)
+            } catch (_: java.time.format.DateTimeParseException) {
+                throw ToshlImportException("Line $lineNumber has an invalid date")
+            },
             account = value(row, header, "Account", lineNumber).trim().takeIf { it.isNotBlank() }
                 ?: throw ToshlImportException("Line $lineNumber is missing account"),
             category = value(row, header, "Category", lineNumber).trim().takeIf { it.isNotBlank() }
@@ -357,11 +371,17 @@ open class ToshlImportService(
         reason = reason,
     )
 
-    private fun String.parseAmountOrZero(): BigDecimal = trim()
-        .replace(",", "")
-        .takeIf { it.isNotBlank() }
-        ?.let { BigDecimal(it) }
-        ?: BigDecimal.ZERO
+    private fun String.parseAmountOrZero(lineNumber: Int, column: String): BigDecimal {
+        val normalized = trim().replace(",", "")
+        if (normalized.isBlank()) {
+            return BigDecimal.ZERO
+        }
+        return try {
+            BigDecimal(normalized)
+        } catch (_: NumberFormatException) {
+            throw ToshlImportException("Line $lineNumber has an invalid '$column' amount")
+        }
+    }
 
     private fun BigDecimal.toMinorUnits(currencyCode: String, lineNumber: Int): Long {
         val fractionDigits = try {
@@ -369,9 +389,16 @@ open class ToshlImportService(
         } catch (_: IllegalArgumentException) {
             throw ToshlImportException("Line $lineNumber uses unsupported currency '$currencyCode'")
         }
-        return movePointRight(fractionDigits)
-            .setScale(0, RoundingMode.UNNECESSARY)
-            .longValueExact()
+        if (fractionDigits < 0) {
+            throw ToshlImportException("Line $lineNumber uses unsupported currency '$currencyCode'")
+        }
+        return try {
+            movePointRight(fractionDigits)
+                .setScale(0, RoundingMode.UNNECESSARY)
+                .longValueExact()
+        } catch (_: ArithmeticException) {
+            throw ToshlImportException("Line $lineNumber amount does not fit currency '$currencyCode'")
+        }
     }
 
     private fun parseCsv(content: String): List<List<String>> {
@@ -507,6 +534,7 @@ private data class TransferMatchKey(
 
 private data class AdjustmentImportKey(
     val trackingAccountId: Long,
+    val date: LocalDate,
     val adjustmentAmountMinor: Long,
 )
 

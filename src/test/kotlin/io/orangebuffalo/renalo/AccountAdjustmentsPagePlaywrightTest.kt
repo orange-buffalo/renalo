@@ -1,6 +1,7 @@
 package io.orangebuffalo.renalo
 
 import com.microsoft.playwright.Page
+import com.microsoft.playwright.Locator
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -79,6 +80,22 @@ class AccountAdjustmentsPagePlaywrightTest : IntegrationTestSupport() {
             AdjustmentRow("A$50.00"),
             AdjustmentRow("-A$25.50"),
         )
+        assertThat(page.getByText("Balance: A$124.50")).isVisible()
+        accountAdjustmentRepository.findByUserId(alice.id!!).size.shouldBe(2)
+
+        page.locator("input[name='targetBalance']").fill("200")
+        page.locator("input[name='adjustmentAmount']").inputValue().shouldBe("75.50")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add adjustment")).click()
+        assertThat(page.getByText("Balance: A$200.00")).isVisible()
+
+        page.getByRole(
+            AriaRole.BUTTON,
+            Page.GetByRoleOptions().setName("Delete adjustment of A\$75.50"),
+        ).click()
+        page.getByRole(AriaRole.DIALOG).getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Delete adjustment"),
+        ).click()
         assertThat(page.getByText("Balance: A$124.50")).isVisible()
         accountAdjustmentRepository.findByUserId(alice.id!!).size.shouldBe(2)
     }

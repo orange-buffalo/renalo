@@ -16,6 +16,11 @@ import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.tracking.Transaction
 import io.orangebuffalo.renalo.tracking.TransactionRepository
 import io.orangebuffalo.renalo.tracking.TransactionType
+import io.orangebuffalo.renalo.tracking.AccountAdjustment
+import io.orangebuffalo.renalo.tracking.AccountAdjustmentRepository
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRule
+import io.orangebuffalo.renalo.tracking.RecurringTransactionRuleRepository
+import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
@@ -47,6 +52,12 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var fundsTransferRepository: FundsTransferRepository
+
+    @Inject
+    lateinit var accountAdjustmentRepository: AccountAdjustmentRepository
+
+    @Inject
+    lateinit var recurringTransactionRuleRepository: RecurringTransactionRuleRepository
 
     @Test
     fun requiresRegularUserForTrackingAccounts() {
@@ -405,6 +416,51 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
         fundsTransferRepository.findById(outgoing.id!!).get().sourceAccountId.shouldBe(savings.id)
         fundsTransferRepository.findById(incoming.id!!).get().targetAccountId.shouldBe(savings.id)
         fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).size.shouldBe(2)
+    }
+
+    @Test
+    fun mergePreservesAdjustmentsRecurringRulesAndInternalTransferValue() {
+        val alice = saveUser("alice", UserType.USER)
+        val source = saveAccount(alice, "Source", "AUD", 1_000, isDefault = true)
+        val target = saveAccount(alice, "Target", "AUD", -200, isDefault = false)
+        val expenseCategory = saveExpenseCategory(alice)
+        val adjustment = accountAdjustmentRepository.save(
+            AccountAdjustment(
+                userId = alice.id!!,
+                trackingAccountId = source.id!!,
+                adjustmentAmountMinor = 75,
+                date = LocalDate.parse("2026-06-01"),
+            ),
+        )
+        val rule = recurringTransactionRuleRepository.save(
+            RecurringTransactionRule(
+                userId = alice.id!!,
+                transactionType = TransactionType.EXPENSE,
+                trackingAccountId = source.id!!,
+                categoryId = expenseCategory.id!!,
+                startDate = LocalDate.parse("2026-06-01"),
+                recurrenceFrequency = 1,
+                recurrenceInterval = RecurrenceInterval.MONTH,
+                generatedUntil = LocalDate.parse("2026-06-01"),
+                amountMinor = 100,
+            ),
+        )
+        saveTransfer(alice, source, target, 500, 450)
+        saveTransfer(alice, target, source, 200, 230)
+
+        val response = api().postJson(
+            "/api/tracking/accounts/${source.id}/merge",
+            """{"targetAccountId":${target.id}}""",
+            api().login("alice", "password"),
+        )
+
+        response.statusCode().shouldBe(204)
+        val mergedTarget = trackingAccountRepository.findById(target.id!!).get()
+        // Initial balances 1,000 - 200 plus internal transfer net (-50 + 30).
+        mergedTarget.initialBalanceMinor.shouldBe(780)
+        accountAdjustmentRepository.findById(adjustment.id!!).get().trackingAccountId.shouldBe(target.id)
+        recurringTransactionRuleRepository.findById(rule.id!!).get().trackingAccountId.shouldBe(target.id)
+        fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).shouldBe(emptyList())
     }
 
     @Test

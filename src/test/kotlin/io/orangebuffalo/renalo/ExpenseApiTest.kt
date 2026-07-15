@@ -933,6 +933,16 @@ class ExpenseApiTest : IntegrationTestSupport() {
         ).statusCode().shouldBe(400)
         api().postJson(
             "/api/tracking/transactions/EXPENSE",
+            expenseJson(aliceAccount, aliceCategory, "2026-06-15", -1, null),
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/transactions/EXPENSE",
+            recurringExpenseJson(aliceAccount, aliceCategory, "2026-06-15", 0, null, 1, "WEEK", "2026-06-22"),
+            token,
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/tracking/transactions/EXPENSE",
             expenseJson(bobAccount, aliceCategory, "2026-06-15", 1000, null),
             token,
         ).statusCode().shouldBe(400)

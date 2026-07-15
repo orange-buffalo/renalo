@@ -24,14 +24,17 @@ open class AccountAdjustmentService(
         val adjustments = accountAdjustmentRepository
             .findByUserIdAndTrackingAccountIdOrderByIdDesc(userId, trackingAccountId)
 
-        val currentBalance = computeBalance(userId, account)
-        val adjustmentSum = adjustments.sumOf { it.adjustmentAmountMinor }
+        val today = LocalDate.ofInstant(timeProvider.now(), ZoneOffset.UTC)
+        val currentBalance = computeBalance(userId, account, today)
+        val adjustmentSum = adjustments
+            .filterNot { it.date.isAfter(today) }
+            .fold(0L) { total, adjustment -> FinancialMath.add(total, adjustment.adjustmentAmountMinor) }
 
         return AccountAdjustmentsData(
             accountId = account.id ?: return null,
             accountName = account.name,
             currency = account.currency,
-            currentBalanceMinor = currentBalance + adjustmentSum,
+            currentBalanceMinor = FinancialMath.add(currentBalance, adjustmentSum),
             baseBalanceMinor = currentBalance,
             adjustments = adjustments.map { it.toResponse() },
         )
@@ -59,32 +62,36 @@ open class AccountAdjustmentService(
     }
 
     @Transactional
-    open fun deleteAdjustment(userId: Long, adjustmentId: Long): DeleteAdjustmentResult {
+    open fun deleteAdjustment(userId: Long, trackingAccountId: Long, adjustmentId: Long): DeleteAdjustmentResult {
         val adjustment = accountAdjustmentRepository.findByIdAndUserId(adjustmentId, userId)
             ?: return DeleteAdjustmentResult.NotFound
+        if (adjustment.trackingAccountId != trackingAccountId) {
+            return DeleteAdjustmentResult.NotFound
+        }
 
         accountAdjustmentRepository.delete(adjustment)
         return DeleteAdjustmentResult.Deleted
     }
 
-    private fun computeBalance(userId: Long, account: TrackingAccount): Long {
+    private fun computeBalance(userId: Long, account: TrackingAccount, asOfDate: LocalDate): Long {
         var balance = account.initialBalanceMinor
 
         transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, TransactionType.INCOME)
-            .filter { it.trackingAccountId == account.id }
-            .forEach { balance += it.amountMinor }
+            .filter { it.trackingAccountId == account.id && !it.date.isAfter(asOfDate) }
+            .forEach { balance = FinancialMath.add(balance, it.amountMinor) }
 
         transactionRepository.findByUserIdAndTypeOrderByDateDesc(userId, TransactionType.EXPENSE)
-            .filter { it.trackingAccountId == account.id }
-            .forEach { balance -= it.amountMinor }
+            .filter { it.trackingAccountId == account.id && !it.date.isAfter(asOfDate) }
+            .forEach { balance = FinancialMath.subtract(balance, it.amountMinor) }
 
         fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
+            .filterNot { it.date.isAfter(asOfDate) }
             .forEach { transfer ->
                 if (transfer.sourceAccountId == account.id) {
-                    balance -= transfer.sourceAmountMinor
+                    balance = FinancialMath.subtract(balance, transfer.sourceAmountMinor)
                 }
                 if (transfer.targetAccountId == account.id) {
-                    balance += transfer.targetAmountMinor
+                    balance = FinancialMath.add(balance, transfer.targetAmountMinor)
                 }
             }
 
