@@ -7,7 +7,6 @@ import io.orangebuffalo.renalo.time.TimeProvider
 import jakarta.inject.Singleton
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneOffset
 
 @Singleton
 open class AccountAdjustmentService(
@@ -24,7 +23,7 @@ open class AccountAdjustmentService(
         val adjustments = accountAdjustmentRepository
             .findByUserIdAndTrackingAccountIdOrderByIdDesc(userId, trackingAccountId)
 
-        val today = LocalDate.ofInstant(timeProvider.now(), ZoneOffset.UTC)
+        val today = timeProvider.today()
         val currentBalance = computeBalance(userId, account, today)
         val adjustmentSum = adjustments
             .filterNot { it.date.isAfter(today) }
@@ -54,7 +53,7 @@ open class AccountAdjustmentService(
                 userId = userId,
                 trackingAccountId = account.id ?: return CreateAdjustmentResult.AccountNotFound,
                 adjustmentAmountMinor = amountMinor,
-                date = LocalDate.ofInstant(timeProvider.now(), ZoneOffset.UTC),
+                date = timeProvider.today(),
             ),
         )
 

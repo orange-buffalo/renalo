@@ -6,7 +6,6 @@ import io.orangebuffalo.renalo.recurrence.RecurrenceSchedule
 import io.orangebuffalo.renalo.time.TimeProvider
 import jakarta.inject.Singleton
 import java.time.LocalDate
-import java.time.ZoneOffset
 
 @Singleton
 open class RecurringTransactionGenerationService(
@@ -72,7 +71,7 @@ open class RecurringTransactionGenerationService(
     }
 
     private fun targetGenerationUntil(rule: RecurringTransactionRule): LocalDate {
-        val windowEnd = RecurrenceCalculator.generationWindowEnd(LocalDate.ofInstant(timeProvider.now(), ZoneOffset.UTC))
+        val windowEnd = RecurrenceCalculator.generationWindowEnd(timeProvider.today())
         return if (rule.endDate == null || rule.endDate.isAfter(windowEnd)) {
             windowEnd
         } else {

@@ -4,7 +4,6 @@ import io.orangebuffalo.renalo.time.TimeProvider
 import jakarta.inject.Singleton
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneOffset
 
 @Singleton
 class DashboardService(
@@ -20,7 +19,7 @@ class DashboardService(
             return emptyList()
         }
 
-        val today = LocalDate.ofInstant(timeProvider.now(), ZoneOffset.UTC)
+        val today = timeProvider.today()
         val currentMonth = YearMonth.from(today)
         val summaries = accounts.associate { account ->
             val accountId = account.id ?: error("Tracking account must be persisted before dashboard summary can be built")
