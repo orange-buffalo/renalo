@@ -156,9 +156,13 @@ tasks.named("check") {
     dependsOn(uiCheck, uiTest)
 }
 
+val documentationScreenshotsEnabled = providers.environmentVariable("RENALO_DOCUMENTATION_SCREENSHOTS").orElse("false")
+
 tasks.withType<Test>().configureEach {
     dependsOn(playwrightInstall)
     environment("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")
+    environment("RENALO_DOCUMENTATION_SCREENSHOTS", documentationScreenshotsEnabled.get())
+    inputs.property("documentationScreenshotsEnabled", documentationScreenshotsEnabled)
     useJUnitPlatform()
     retry {
         maxRetries.set(3)

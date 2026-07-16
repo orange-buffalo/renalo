@@ -82,6 +82,7 @@
 - Do not add permanent mobile-specific Playwright tests unless mobile behavior is the core functional contract being changed. Temporary mobile Playwright checks may be used for verification, but remove them before finishing unless they are necessary regression coverage.
 - UI changes must be checked with the Playwright traces produced by the relevant Playwright test task; inspect the trace screenshots for visual regressions such as broken layout, missing styling, overlap, clipping, poor spacing, or inconsistent Untitled UI styling.
 - When UI trace screenshots are inspected, extract the reviewed screenshots into the project `build/` directory and include those `build/` paths in the final response so the user can review the same evidence.
+- Keep `DocumentationScreenshotsPlaywrightTest` synchronized with user-visible features and navigation changes. It is an opt-in feature tour used to regenerate desktop and mobile documentation images under `build/documentation-screenshots/`; run it with `RENALO_DOCUMENTATION_SCREENSHOTS=true ./gradlew test --tests 'io.orangebuffalo.renalo.DocumentationScreenshotsPlaywrightTest'` and keep it disabled by default.
 
 ## Testing
 
