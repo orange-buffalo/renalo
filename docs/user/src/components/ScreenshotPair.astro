@@ -21,13 +21,51 @@ const {
 
 <div class="renalo-screenshot-pair">
   <figure>
-    <Image src={desktop} alt={`${alt} on desktop`} loading="lazy" />
+    <button
+      type="button"
+      class="screenshot-preview"
+      aria-label={`Open ${alt} on desktop in image viewer`}
+      data-screenshot-caption={desktopCaption}
+    >
+      <span class="screenshot-frame">
+        <Image src={desktop} alt={`${alt} on desktop`} loading="lazy" />
+      </span>
+    </button>
     <figcaption>{desktopCaption}</figcaption>
   </figure>
   <figure class="mobile-capture">
-    <Image src={mobile} alt={`${alt} on mobile`} loading="lazy" />
+    <button
+      type="button"
+      class="screenshot-preview"
+      aria-label={`Open ${alt} on mobile in image viewer`}
+      data-screenshot-caption={mobileCaption}
+    >
+      <span class="screenshot-frame">
+        <Image src={mobile} alt={`${alt} on mobile`} loading="lazy" />
+      </span>
+    </button>
     <figcaption>{mobileCaption}</figcaption>
   </figure>
+
+  <dialog class="screenshot-lightbox" aria-label="Screenshot viewer">
+    <div class="lightbox-shell">
+      <div class="lightbox-toolbar">
+        <span class="lightbox-caption"></span>
+        <div class="lightbox-controls" aria-label="Image zoom controls">
+          <button type="button" data-zoom-out aria-label="Zoom out">−</button>
+          <button type="button" data-zoom-reset aria-label="Reset zoom">Fit</button>
+          <output class="lightbox-zoom" aria-live="polite">100%</output>
+          <button type="button" data-zoom-in aria-label="Zoom in">+</button>
+          <button type="button" data-lightbox-close class="lightbox-close">Close</button>
+        </div>
+      </div>
+      <div class="lightbox-viewport">
+        <div class="lightbox-canvas">
+          <img class="lightbox-image" alt="" />
+        </div>
+      </div>
+    </div>
+  </dialog>
 </div>
 
 <style>
@@ -44,12 +82,41 @@ const {
     margin: 0;
   }
 
-  :global(.renalo-screenshot-pair img) {
+  .screenshot-preview {
     display: block;
     width: 100%;
-    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0.75rem;
+    background: transparent;
+    cursor: zoom-in;
+  }
+
+  .screenshot-preview:focus-visible {
+    outline: 3px solid #7881bb;
+    outline-offset: 3px;
+  }
+
+  .screenshot-frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: clamp(22rem, 36vw, 30rem);
+    padding: 1rem;
     border: 1px solid #d1d7e0;
     border-radius: 0.75rem;
+    background: #f8f9fb;
+  }
+
+  :global(.screenshot-frame img) {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 100%;
+    border: 1px solid #d1d7e0;
+    border-radius: 0.5rem;
     background: #fff;
   }
 
@@ -60,14 +127,210 @@ const {
     text-align: center;
   }
 
+  .screenshot-lightbox {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #f8f9fb;
+  }
+
+  .screenshot-lightbox::backdrop {
+    background: rgb(32 38 51 / 82%);
+  }
+
+  .lightbox-shell {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+  }
+
+  .lightbox-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 4rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #d1d7e0;
+    background: #fff;
+  }
+
+  .lightbox-caption {
+    overflow: hidden;
+    color: #303846;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lightbox-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .lightbox-controls button {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid #b8bfca;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #303846;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .lightbox-controls button:hover {
+    border-color: #7881bb;
+    background: #eef0ff;
+  }
+
+  .lightbox-controls button:focus-visible {
+    outline: 3px solid #cfd3f6;
+    outline-offset: 1px;
+  }
+
+  .lightbox-controls .lightbox-close {
+    border-color: #5864ae;
+    background: #5864ae;
+    color: #fff;
+  }
+
+  .lightbox-zoom {
+    min-width: 3.5rem;
+    color: #4c5565;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .lightbox-viewport {
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 1rem;
+  }
+
+  .lightbox-canvas {
+    margin: auto;
+  }
+
+  .lightbox-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 1px solid #d1d7e0;
+    background: #fff;
+    object-fit: contain;
+  }
+
   @media (max-width: 50rem) {
     .renalo-screenshot-pair {
       grid-template-columns: 1fr;
     }
 
-    .mobile-capture {
-      width: min(100%, 22rem);
-      justify-self: center;
+    .screenshot-frame {
+      height: min(70dvh, 30rem);
+    }
+
+    .lightbox-toolbar {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .lightbox-controls {
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .lightbox-caption {
+      text-align: center;
     }
   }
 </style>
+
+<script>
+  const MIN_ZOOM = 0.5;
+  const MAX_ZOOM = 3;
+  const ZOOM_STEP = 0.25;
+
+  function initializeScreenshotPairs() {
+    document.querySelectorAll<HTMLElement>(".renalo-screenshot-pair").forEach((pair) => {
+      if (pair.dataset.viewerInitialized === "true") return;
+      pair.dataset.viewerInitialized = "true";
+
+      const dialog = pair.querySelector<HTMLDialogElement>(".screenshot-lightbox");
+      const viewport = pair.querySelector<HTMLElement>(".lightbox-viewport");
+      const canvas = pair.querySelector<HTMLElement>(".lightbox-canvas");
+      const lightboxImage = pair.querySelector<HTMLImageElement>(".lightbox-image");
+      const caption = pair.querySelector<HTMLElement>(".lightbox-caption");
+      const zoomOutput = pair.querySelector<HTMLOutputElement>(".lightbox-zoom");
+      if (!dialog || !viewport || !canvas || !lightboxImage || !caption || !zoomOutput) return;
+
+      let zoom = 1;
+      let fittedWidth = 0;
+      let fittedHeight = 0;
+
+      const renderZoom = () => {
+        canvas.style.width = `${Math.round(fittedWidth * zoom)}px`;
+        canvas.style.height = `${Math.round(fittedHeight * zoom)}px`;
+        zoomOutput.value = `${Math.round(zoom * 100)}%`;
+      };
+
+      const fitImage = () => {
+        if (!lightboxImage.naturalWidth || !lightboxImage.naturalHeight) return;
+        const availableWidth = Math.max(viewport.clientWidth - 32, 1);
+        const availableHeight = Math.max(viewport.clientHeight - 32, 1);
+        const scale = Math.min(
+          availableWidth / lightboxImage.naturalWidth,
+          availableHeight / lightboxImage.naturalHeight,
+          1,
+        );
+        fittedWidth = lightboxImage.naturalWidth * scale;
+        fittedHeight = lightboxImage.naturalHeight * scale;
+        zoom = 1;
+        renderZoom();
+        viewport.scrollTo(0, 0);
+      };
+
+      pair.querySelectorAll<HTMLButtonElement>(".screenshot-preview").forEach((preview) => {
+        preview.addEventListener("click", () => {
+          const previewImage = preview.querySelector<HTMLImageElement>("img");
+          if (!previewImage) return;
+          caption.textContent = preview.dataset.screenshotCaption ?? "Screenshot";
+          lightboxImage.alt = previewImage.alt;
+          lightboxImage.src = previewImage.currentSrc || previewImage.src;
+          dialog.showModal();
+          if (lightboxImage.complete) fitImage();
+        });
+      });
+
+      lightboxImage.addEventListener("load", fitImage);
+      pair.querySelector<HTMLButtonElement>("[data-zoom-out]")?.addEventListener("click", () => {
+        zoom = Math.max(MIN_ZOOM, zoom - ZOOM_STEP);
+        renderZoom();
+      });
+      pair.querySelector<HTMLButtonElement>("[data-zoom-in]")?.addEventListener("click", () => {
+        zoom = Math.min(MAX_ZOOM, zoom + ZOOM_STEP);
+        renderZoom();
+      });
+      pair.querySelector<HTMLButtonElement>("[data-zoom-reset]")?.addEventListener("click", fitImage);
+      pair.querySelector<HTMLButtonElement>("[data-lightbox-close]")?.addEventListener("click", () => {
+        dialog.close();
+      });
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) dialog.close();
+      });
+      window.addEventListener("resize", () => {
+        if (dialog.open) fitImage();
+      });
+    });
+  }
+
+  initializeScreenshotPairs();
+  document.addEventListener("astro:page-load", initializeScreenshotPairs);
+</script>
