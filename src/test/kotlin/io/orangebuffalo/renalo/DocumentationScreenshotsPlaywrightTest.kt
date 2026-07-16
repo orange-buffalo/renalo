@@ -457,7 +457,7 @@ private enum class DocumentationLayout(
     val width: Int,
     val height: Int,
 ) {
-    DESKTOP("desktop", 1440, 1000),
+    DESKTOP("desktop", 1100, 875),
     MOBILE("mobile", 390, 844),
 }
 
