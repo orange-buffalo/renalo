@@ -1,0 +1,30 @@
+---
+title: Categories
+description: Organize income and expenses with separate category lists, archiving, and irreversible category merges.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import expenseDesktop from "../../../assets/screenshots/desktop/13-settings-expense-categories.png";
+import expenseMobile from "../../../assets/screenshots/mobile/13-settings-expense-categories.png";
+import incomeDesktop from "../../../assets/screenshots/desktop/14-settings-income-categories.png";
+import incomeMobile from "../../../assets/screenshots/mobile/14-settings-income-categories.png";
+import mergeDesktop from "../../../assets/screenshots/desktop/18-category-merge.png";
+import mergeMobile from "../../../assets/screenshots/mobile/18-category-merge.png";
+
+Renalo keeps expense and income categories separate. This avoids mixing concepts such as groceries and salary while still giving each overview meaningful filters.
+
+<ScreenshotPair desktop={expenseDesktop} mobile={expenseMobile} alt="Expense category settings" />
+
+<ScreenshotPair desktop={incomeDesktop} mobile={incomeMobile} alt="Income category settings" />
+
+## Archive instead of delete
+
+Archived categories remain visible in Budget settings but disappear from new transaction forms and filters. Existing transactions remain linked and readable.
+
+## Merge duplicates
+
+When two categories mean the same thing, merge the source into another category of the same type. Renalo re-links every matching transaction and deletes the source.
+
+<ScreenshotPair desktop={mergeDesktop} mobile={mergeMobile} alt="Expense category merge form" />
+
+The merge action is hidden when no other active category is available. Category merges cannot be undone.

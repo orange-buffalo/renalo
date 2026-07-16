@@ -6,5 +6,8 @@ out/
 ui/dist/
 ui/node_modules/
 ui/.bun-install-cache/
+docs/user/node_modules/
+docs/user/.astro/
+docs/user/dist/
 playwright-report/
 test-results/

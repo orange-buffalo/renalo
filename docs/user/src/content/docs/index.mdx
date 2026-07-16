@@ -1,0 +1,59 @@
+---
+title: Your budget, on your infrastructure
+description: Renalo is a private, self-hosted workspace for accounts, everyday money movement, recurring entries, and clear balances.
+template: splash
+hero:
+  tagline: A focused budgeting workspace for people who want useful records without handing their financial history to an advertising platform.
+  actions:
+    - text: Install Renalo
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: Explore the features
+      link: /features/
+      icon: open-book
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+import ScreenshotPair from "../../components/ScreenshotPair.astro";
+import dashboardDesktop from "../../assets/screenshots/desktop/03-dashboard.png";
+import dashboardMobile from "../../assets/screenshots/mobile/03-dashboard.png";
+
+Renalo brings accounts, income, expenses, transfers, recurring entries, and balance corrections into one calm workspace. It is designed to run on infrastructure you control, with PostgreSQL as the durable source of truth.
+
+<ScreenshotPair desktop={dashboardDesktop} mobile={dashboardMobile} alt="Renalo account dashboard" />
+
+## Built for ownership
+
+<CardGrid>
+  <Card title="Your database" icon="database">
+    Financial records live in your PostgreSQL database. You decide where it runs, how it is backed up, and who can access it.
+  </Card>
+  <Card title="No tracking business model" icon="seti:lock">
+    Renalo is not an advertising network, data broker, or hosted analytics service. The application does not need a third-party account to manage your budget.
+  </Card>
+  <Card title="Practical money flows" icon="seti:config">
+    Track multiple currencies, transfers, recurring entries, archived reference data, manual corrections, and Toshl imports without flattening everything into one number.
+  </Card>
+  <Card title="Desktop and mobile" icon="laptop">
+    The same responsive interface works at a desk or on a phone, including compact overview cards and mobile-friendly forms.
+  </Card>
+</CardGrid>
+
+## Privacy and responsibility
+
+Self-hosting changes who is responsible for your data. Renalo does not send your budgeting records to a Renalo-operated cloud, but your deployment operator can access the database and application logs. Protect the host, use HTTPS, keep the JWT secret private, restrict database access, and maintain tested backups.
+
+Passkeys, remembered sessions, activation links, and sign-in links all depend on the security of your deployment. Treat `RENALO_PUBLIC_URL` as stable configuration: changing the public origin can make registered passkeys unusable.
+
+## Start here
+
+1. [Install Renalo with Docker or Docker Compose](/getting-started/installation/).
+2. [Capture the generated administrator credentials and create users](/getting-started/first-run/).
+3. [Create accounts and categories](/features/accounts/) before recording daily activity.
+4. [Review the feature map](/features/) for complete workflows.
+
+:::note[Developer reference]
+Implementation-level documentation, including the precise financial calculation contract, lives under `docs/developer` in the source repository.
+:::

@@ -1,0 +1,22 @@
+---
+title: Incomes
+description: Record and organize incoming transactions, including planned and recurring income.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/08-incomes-overview.png";
+import mobile from "../../../assets/screenshots/mobile/08-incomes-overview.png";
+import formDesktop from "../../../assets/screenshots/desktop/09-income-form.png";
+import formMobile from "../../../assets/screenshots/mobile/09-income-form.png";
+
+Income records add money to an account. Income categories are separate from expense categories, so labels such as salary, royalties, teaching, or sales remain meaningful.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Income overview with posted and planned entries" />
+
+## Add income
+
+Select **Add income**, then choose its date, income category, account, and amount. Notes are optional. The amount is interpreted using the selected account's currency.
+
+<ScreenshotPair desktop={formDesktop} mobile={formMobile} alt="Create income form" />
+
+Future income remains planned until its date. Planned totals stay grouped by currency; Renalo never adds unrelated currencies into one misleading number.

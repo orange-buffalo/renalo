@@ -1,0 +1,41 @@
+---
+title: Import from Toshl
+description: Prepare a Toshl CSV export, import accounts and activity, understand duplicate handling, and review unmatched transfers.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/15-settings-toshl-import.png";
+import mobile from "../../../assets/screenshots/mobile/15-settings-toshl-import.png";
+
+The Toshl importer is intended for a CSV export containing only income and expenses across the full available time span.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Toshl CSV import panel" />
+
+## Prepare the export
+
+1. Sign in to Toshl.
+2. Open **Exports and reports**.
+3. Choose CSV format.
+4. Include only **Expenses** and **Income**.
+5. Set the time span to **All time**.
+6. Generate and download the file.
+
+Upload the CSV in **Budget settings → Import**.
+
+## What Renalo imports
+
+- Missing accounts and expense/income categories.
+- Ordinary transactions with metadata identifying Toshl as the source.
+- Tags appended to transaction notes.
+- Reconciled transfer pairs as Renalo transfers.
+- Toshl reconciliation rows as dated balance adjustments.
+
+Account currencies are inferred from ordinary income/expense rows, never from transfer-only rows. Transfer sides use the original amount when it matches the account currency, or Toshl's main-currency amount only when that currency matches the account.
+
+## Duplicates and warnings
+
+Transaction duplicates use type, date, amount, and final description/notes. Transfer duplicates use date, accounts, and both side amounts. Adjustment duplicates include account, date, and signed amount.
+
+The import is transactional: malformed numeric data, unsupported precision, overflow, or conflicting account currency evidence rejects the import without partial writes. Unmatched transfer rows are not converted into misleading transactions.
+
+Download the processing report after import to inspect every original line, status, and reason.

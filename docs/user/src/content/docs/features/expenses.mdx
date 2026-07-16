@@ -1,0 +1,32 @@
+---
+title: Expenses
+description: Record, review, edit, filter, and plan outgoing transactions in Renalo.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/05-expenses-overview.png";
+import mobile from "../../../assets/screenshots/mobile/05-expenses-overview.png";
+import filtersDesktop from "../../../assets/screenshots/desktop/06-expense-filters.png";
+import filtersMobile from "../../../assets/screenshots/mobile/06-expense-filters.png";
+
+Each expense belongs to one account and one expense category. Amounts are positive values; the expense type determines that they reduce the account balance.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Expense overview with posted and planned entries" />
+
+## Record an expense
+
+1. Select **Add expense**.
+2. Choose the date, category, and account.
+3. Enter the amount in the selected account's currency.
+4. Add optional notes.
+5. Enable recurrence when this expense follows a schedule.
+
+Dates are date-only values. Today's and past entries affect current balances; future entries appear as planned activity.
+
+## Find the right entries
+
+The global date range is shared across transaction and transfer overviews. **More filters** narrows expenses by account, category, or notes, while archived accounts and categories are excluded from selectors.
+
+<ScreenshotPair desktop={filtersDesktop} mobile={filtersMobile} alt="Expense filtering controls" />
+
+On mobile, tap a compact row card to reveal secondary details and edit/delete actions; the date remains visible while collapsed.

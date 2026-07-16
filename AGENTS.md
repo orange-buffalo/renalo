@@ -84,6 +84,12 @@
 - When UI trace screenshots are inspected, extract the reviewed screenshots into the project `build/` directory and include those `build/` paths in the final response so the user can review the same evidence.
 - Keep `DocumentationScreenshotsPlaywrightTest` synchronized with user-visible features and navigation changes. It is an opt-in feature tour used to regenerate desktop and mobile documentation images under `build/documentation-screenshots/`; run it with `RENALO_DOCUMENTATION_SCREENSHOTS=true ./gradlew test --tests 'io.orangebuffalo.renalo.DocumentationScreenshotsPlaywrightTest'` and keep it disabled by default.
 
+## Documentation
+
+- User documentation is the Astro Starlight site under `docs/user`; developer references live under `docs/developer`.
+- Keep desktop and mobile feature-tour images under `docs/user/src/assets/screenshots` synchronized with `DocumentationScreenshotsPlaywrightTest` output. Use the shared `ScreenshotPair` component for responsive side-by-side presentation.
+- Verify user documentation from `docs/user` with `bun install --frozen-lockfile`, `bun run check`, and `bun run build`. The static Caddy image is built from `docs/user/Dockerfile` and published separately as `ghcr.io/orange-buffalo/renalo-docs:<version>` for releases.
+
 ## Testing
 
 - Java Playwright setup lives in reusable JUnit extension infrastructure under `src/test/java/io/orangebuffalo/renalo/test`.

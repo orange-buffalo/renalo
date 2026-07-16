@@ -2,6 +2,8 @@
 
 Renalo is a Micronaut/Kotlin budgeting application scaffold for tracking expenses and income.
 
+User installation and feature documentation is maintained as a Starlight site under [`docs/user`](docs/user). Developer references live under [`docs/developer`](docs/developer).
+
 ## Requirements
 
 - Java 25. Gradle is configured to auto-download a Java 25 toolchain when needed.
@@ -54,3 +56,25 @@ docker run --rm -p 8080:8080 \
   -e RENALO_PUBLIC_URL=http://localhost:8080 \
   ghcr.io/orange-buffalo/renalo:<version>
 ```
+
+Release documentation is published separately as:
+
+```text
+ghcr.io/orange-buffalo/renalo-docs:<version>
+```
+
+It serves the static user guide on container port `80`. Build it locally with:
+
+```bash
+docker build -t renalo-docs docs/user
+```
+
+Set the build argument `RENALO_DOCS_SITE_URL` to the final documentation origin when canonical URLs and a sitemap are required:
+
+```bash
+docker build \
+  --build-arg RENALO_DOCS_SITE_URL=https://docs.example.com \
+  -t renalo-docs docs/user
+```
+
+The release workflow reads the optional GitHub Actions repository variable `RENALO_DOCS_SITE_URL` and passes it to the documentation build. Configure that variable to the public documentation origin before publishing the image when search-engine indexing is required.

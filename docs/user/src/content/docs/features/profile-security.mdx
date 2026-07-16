@@ -1,0 +1,32 @@
+---
+title: Profile and sign-in security
+description: Change passwords, register passkeys, control password sign-in, and securely move a session to another device.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/19-profile-security.png";
+import mobile from "../../../assets/screenshots/mobile/19-profile-security.png";
+import linkDesktop from "../../../assets/screenshots/desktop/20-profile-sign-in-link.png";
+import linkMobile from "../../../assets/screenshots/mobile/20-profile-sign-in-link.png";
+
+Every user manages their sign-in methods from **My profile**.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Profile password and passkey security settings" />
+
+## Passwords and passkeys
+
+Passwords only need to be nonblank, but use a long unique value stored in a password manager. Passkeys use the device's WebAuthn authenticator and can issue the same normal access token as password sign-in.
+
+After registering at least one passkey, you may disable password sign-in. Keep a second passkey or a trusted administrator recovery path before relying on one device. Removing the final passkey automatically re-enables password sign-in.
+
+## Sign in on another device
+
+Create a five-minute, one-use sign-in link, then copy it or scan its QR code on the other device. A valid link signs in the same user and directs them to register a passkey there.
+
+<ScreenshotPair desktop={linkDesktop} mobile={linkMobile} alt="Profile sign-in link and QR code" />
+
+Sign-in links live only in application memory, expire after five minutes, and do not survive restart. In a multi-instance deployment, a link must return to the instance that created it unless session routing is configured.
+
+:::caution
+Anyone holding a live sign-in link can access the account. Share it only through a trusted channel and never publish its QR code.
+:::

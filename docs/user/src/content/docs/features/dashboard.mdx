@@ -1,0 +1,28 @@
+---
+title: Dashboard
+description: Read per-account balances and current-month inflow and outflow, then quickly record new activity.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/03-dashboard.png";
+import mobile from "../../../assets/screenshots/mobile/03-dashboard.png";
+import menuDesktop from "../../../assets/screenshots/desktop/04-dashboard-record-new.png";
+import menuMobile from "../../../assets/screenshots/mobile/04-dashboard-record-new.png";
+
+The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Renalo dashboard with account balance cards" />
+
+## What the numbers mean
+
+**Total balance** starts with the account's opening balance, adds posted income and incoming transfers, subtracts posted expenses and outgoing transfers, and includes manual balance adjustments. Activity after today is excluded.
+
+**Inflow** includes this month's posted income and incoming transfer amount for that account. **Outflow** includes posted expenses and outgoing transfers. Transfers use the amount belonging to each side's account currency.
+
+Archived accounts are absent from the dashboard but keep their records.
+
+## Record something quickly
+
+Use **Record new** to open an expense, income, or transfer form without first visiting its overview.
+
+<ScreenshotPair desktop={menuDesktop} mobile={menuMobile} alt="Dashboard Record new menu" />

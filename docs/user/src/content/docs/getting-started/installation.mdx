@@ -1,0 +1,125 @@
+---
+title: Install with Docker
+description: Deploy Renalo with PostgreSQL using Docker or Docker Compose and configure its public origin and authentication secret safely.
+---
+
+import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+
+Renalo is published as `ghcr.io/orange-buffalo/renalo:<version>`. Use an explicit numeric version from the [GitHub releases](https://github.com/orange-buffalo/renalo/releases); Renalo does not publish a floating `latest` tag.
+
+## Required configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `JDBC_URL` | PostgreSQL JDBC URL, such as `jdbc:postgresql://postgres:5432/renalo` |
+| `JDBC_USER` | PostgreSQL user |
+| `JDBC_PASSWORD` | PostgreSQL password |
+| `RENALO_JWT_SECRET` | Stable secret used to sign access tokens |
+| `RENALO_PUBLIC_URL` | Exact externally reachable origin, such as `https://budget.example.com` |
+| `RENALO_DEFAULT_ADMIN_USERNAME` | Optional first administrator username; defaults to `admin` |
+
+Generate a strong JWT secret once and store it in your secret manager:
+
+```bash
+openssl rand -base64 64
+```
+
+Do not regenerate it at every container start. Rotating it signs users out, while persisted remembered sessions must be revoked separately if the rotation responds to a compromise.
+
+<Tabs>
+  <TabItem label="Docker Compose">
+
+Create `.env`:
+
+```dotenv
+RENALO_VERSION=0.2.0
+POSTGRES_PASSWORD=replace-with-a-long-random-password
+RENALO_JWT_SECRET=replace-with-openssl-output
+RENALO_PUBLIC_URL=https://budget.example.com
+```
+
+Create `compose.yml`:
+
+```yaml
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: renalo
+      POSTGRES_USER: renalo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U renalo -d renalo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  renalo:
+    image: ghcr.io/orange-buffalo/renalo:${RENALO_VERSION}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JDBC_URL: jdbc:postgresql://postgres:5432/renalo
+      JDBC_USER: renalo
+      JDBC_PASSWORD: ${POSTGRES_PASSWORD}
+      RENALO_JWT_SECRET: ${RENALO_JWT_SECRET}
+      RENALO_PUBLIC_URL: ${RENALO_PUBLIC_URL}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  postgres-data:
+```
+
+Start and inspect the first-run logs:
+
+```bash
+docker compose up -d
+docker compose logs -f renalo
+```
+
+  </TabItem>
+  <TabItem label="Docker CLI">
+
+When PostgreSQL already exists:
+
+```bash
+docker run -d \
+  --name renalo \
+  --restart unless-stopped \
+  -p 127.0.0.1:8080:8080 \
+  -e JDBC_URL=jdbc:postgresql://database.example:5432/renalo \
+  -e JDBC_USER=renalo \
+  -e JDBC_PASSWORD='replace-me' \
+  -e RENALO_JWT_SECRET='replace-me' \
+  -e RENALO_PUBLIC_URL=https://budget.example.com \
+  ghcr.io/orange-buffalo/renalo:<version>
+```
+
+On native Linux, a host database may require `--add-host=host.docker.internal:host-gateway`. Prefer a private container network or private database endpoint over exposing PostgreSQL publicly.
+
+  </TabItem>
+</Tabs>
+
+## Put HTTPS in front
+
+Terminate TLS with a reverse proxy such as Caddy, Traefik, or nginx. Forward requests to port `8080` and set `RENALO_PUBLIC_URL` to the browser-facing HTTPS origin, with no trailing application path.
+
+:::caution[Keep the public origin stable]
+Passkeys are bound to the site origin. Changing from HTTP to HTTPS, changing the hostname, or moving to a different port can make existing passkeys unusable. Configure the final public URL before users register them.
+:::
+
+## Database lifecycle
+
+Renalo runs Flyway migrations automatically at startup. It does **not** create PostgreSQL backups. Back up the database volume with PostgreSQL-aware tooling such as `pg_dump`, test restores regularly, and take a backup before upgrades.
+
+Upgrade by backing up PostgreSQL, changing the explicit image version, and restarting the Renalo container. Review release notes before crossing versions.
+
+<Aside type="note" title="First start">
+On an empty database, start one Renalo instance first. It creates an administrator and logs the generated password once. Capture it before scaling to multiple instances.
+</Aside>

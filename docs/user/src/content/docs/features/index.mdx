@@ -1,0 +1,39 @@
+---
+title: Feature map
+description: Understand how Renalo accounts, transactions, transfers, recurring entries, settings, imports, security, and administration fit together.
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+Renalo keeps financial records attached to a regular user. Start with accounts and categories, then record money moving into, out of, or between those accounts.
+
+<CardGrid>
+  <Card title="Daily records" icon="list-format">
+    [Expenses](/features/expenses/), [incomes](/features/incomes/), and [transfers](/features/transfers/) describe everyday money movement.
+  </Card>
+  <Card title="Balances" icon="chart-bar">
+    The [dashboard](/features/dashboard/) combines opening balances, posted transactions, transfers, and [adjustments](/features/adjustments/).
+  </Card>
+  <Card title="Planning" icon="calendar">
+    [Recurring entries](/features/recurring-entries/) create scheduled income and expenses while preserving deliberately edited occurrences.
+  </Card>
+  <Card title="Reference data" icon="seti:config">
+    [Accounts](/features/accounts/) own currencies. [Categories](/features/categories/) organize income and expenses independently.
+  </Card>
+  <Card title="Bring existing history" icon="download">
+    The [Toshl importer](/features/toshl-import/) creates missing reference data, detects duplicates, and reconciles transfers.
+  </Card>
+  <Card title="Access and administration" icon="seti:lock">
+    [Profile security](/features/profile-security/) covers passkeys and sign-in links. [User administration](/features/user-administration/) covers invitations and lifecycle.
+  </Card>
+</CardGrid>
+
+## Core calculation policy
+
+- Money is stored as integer minor units in each account's currency.
+- Current balances include posted activity through the current UTC date, inclusive.
+- Future activity is planned and does not affect today's balance.
+- Cross-currency transfer sides retain separate amounts; Renalo does not combine currencies into one total.
+- Financial arithmetic fails on integer overflow instead of silently wrapping.
+
+The complete implementation contract is in `docs/developer/FinancialCalculations.md` in the source repository.

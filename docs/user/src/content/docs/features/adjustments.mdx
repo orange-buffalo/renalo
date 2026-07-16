@@ -1,0 +1,21 @@
+---
+title: Balance adjustments
+description: Correct an account balance without inventing an income, expense, or transfer.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/16-account-adjustments.png";
+import mobile from "../../../assets/screenshots/mobile/16-account-adjustments.png";
+
+Use an adjustment when the real account balance differs from Renalo because of an opening error, rounding correction, or activity that should not be represented as a transaction.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Account balance adjustments" />
+
+Enter either:
+
+- a signed adjustment amount, or
+- the desired target balance, from which Renalo derives the required adjustment.
+
+Positive adjustments increase the account balance; negative adjustments reduce it. They affect total balance but not income, expense, inflow, or outflow reports.
+
+Current balance is calculated through today in UTC and excludes future-dated records. Deleting an adjustment removes its effect. Add a clear explanation so later reviewers understand why the correction exists.

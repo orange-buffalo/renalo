@@ -23,6 +23,12 @@ jobs:
           distribution: temurin
           java-version: "25"
       - uses: gradle/actions/setup-gradle@v5
+      - name: Install documentation dependencies
+        working-directory: docs/user
+        run: bun install --frozen-lockfile
+      - name: Check and build documentation
+        working-directory: docs/user
+        run: bun run check && bun run build
       - name: Build
         run: ./gradlew build
       - name: Upload Playwright traces
@@ -34,6 +40,12 @@ jobs:
           if-no-files-found: ignore
       - name: Build container image tarball
         run: ./gradlew --no-configuration-cache jibBuildTar
+      - name: Build documentation container image
+        run: |
+          docker build \
+            --build-arg RENALO_DOCS_SITE_URL="${{ vars.RENALO_DOCS_SITE_URL }}" \
+            --tag renalo-docs:ci \
+            docs/user
       - name: Detect release version
         id: release_version
         if: ${{ github.ref == 'refs/heads/main' }}
@@ -60,3 +72,10 @@ jobs:
       - name: Publish release image
         if: ${{ github.ref == 'refs/heads/main' && steps.release_version.outputs.is_release == 'true' }}
         run: ./gradlew --no-configuration-cache jib
+      - name: Publish release documentation image
+        if: ${{ github.ref == 'refs/heads/main' && steps.release_version.outputs.is_release == 'true' }}
+        env:
+          VERSION: ${{ steps.release_version.outputs.version }}
+        run: |
+          docker tag renalo-docs:ci "ghcr.io/orange-buffalo/renalo-docs:${VERSION}"
+          docker push "ghcr.io/orange-buffalo/renalo-docs:${VERSION}"

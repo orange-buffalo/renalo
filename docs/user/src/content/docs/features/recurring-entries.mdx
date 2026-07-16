@@ -1,0 +1,30 @@
+---
+title: Recurring entries
+description: Configure recurring expenses and incomes and understand occurrence-specific editing behavior.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/07-expense-recurring-form.png";
+import mobile from "../../../assets/screenshots/mobile/07-expense-recurring-form.png";
+
+Recurring entries work for both expenses and incomes. Choose a familiar interval or configure a custom schedule, frequency, and optional end condition.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Recurring expense schedule form" />
+
+## Generated occurrences
+
+Renalo creates ordinary transaction rows for scheduled dates. Future occurrences appear as planned activity and do not affect today's balance. Generation runs at explicit write/job boundaries and is safe to run repeatedly.
+
+## Editing a series
+
+When editing or deleting a generated occurrence, choose the intended scope:
+
+- **This occurrence only** changes just the selected date.
+- **This and following occurrences** keeps earlier history and changes the remainder.
+- **All occurrences** updates the full series where permitted.
+
+An occurrence edited by a user becomes locked so later schedule generation does not overwrite that deliberate change. Explicit scoped edits can still target locked occurrences.
+
+:::tip
+Use notes to explain exceptions, such as a temporarily higher subscription or a skipped lesson. This makes a series easier to audit later.
+:::

@@ -1,0 +1,34 @@
+---
+title: User administration
+description: Create users and administrators, distribute activation links, manage inactive accounts, and understand deletion boundaries.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/21-user-management.png";
+import mobile from "../../../assets/screenshots/mobile/21-user-management.png";
+import createDesktop from "../../../assets/screenshots/desktop/22-create-user.png";
+import createMobile from "../../../assets/screenshots/mobile/22-create-user.png";
+import inactiveDesktop from "../../../assets/screenshots/desktop/23-edit-inactive-user.png";
+import inactiveMobile from "../../../assets/screenshots/mobile/23-edit-inactive-user.png";
+
+Administrators manage local Renalo users. Renalo has no external identity-provider requirement and no public self-registration flow.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Renalo user management table" />
+
+## Create a user
+
+Choose a username and either regular-user or administrator type. New users are inactive and receive no preset password.
+
+<ScreenshotPair desktop={createDesktop} mobile={createMobile} alt="Create Renalo user form" />
+
+Open the inactive user and copy the activation link. It expires after 24 hours; regenerate it when necessary.
+
+<ScreenshotPair desktop={inactiveDesktop} mobile={inactiveMobile} alt="Inactive user activation controls" />
+
+## Operational guidance
+
+- Send activation links through a trusted channel.
+- Deactivate or remove access promptly when a user leaves.
+- User deletion is destructive and can cascade through user-owned records.
+- Do not delete an administrator to recover access; follow the [administrator recovery procedure](/getting-started/admin-recovery/).
+- Authentication changes may not immediately invalidate already-issued 30-minute JWTs. Revoke remembered sessions and rotate the JWT secret during a security incident.

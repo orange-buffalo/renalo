@@ -1,0 +1,26 @@
+---
+title: Transfers
+description: Move money between Renalo accounts, including transfers between different currencies.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/10-transfers-overview.png";
+import mobile from "../../../assets/screenshots/mobile/10-transfers-overview.png";
+import formDesktop from "../../../assets/screenshots/desktop/11-transfer-cross-currency-form.png";
+import formMobile from "../../../assets/screenshots/mobile/11-transfer-cross-currency-form.png";
+
+Transfers connect two accounts without pretending that money was earned or spent. The source side contributes outflow and the target side contributes inflow on the dashboard.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Funds transfer overview" />
+
+## Same currency
+
+Enter one amount. Renalo stores the same minor-unit value on both sides.
+
+## Different currencies
+
+Enter the actual amount leaving the source and arriving at the target. The exchange-rate field helps calculate one from the other, but the two account amounts are authoritative.
+
+<ScreenshotPair desktop={formDesktop} mobile={formMobile} alt="Cross-currency transfer form" />
+
+The displayed rate means one source-currency unit equals the shown target-currency amount. Renalo rounds the derived target to the target currency's smallest unit and rejects unsafe values rather than silently losing precision.

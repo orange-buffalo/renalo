@@ -1,0 +1,32 @@
+---
+title: Accounts
+description: Configure account currencies and opening balances, archive unused accounts, merge duplicates, and maintain clean histories.
+---
+
+import ScreenshotPair from "../../../components/ScreenshotPair.astro";
+import desktop from "../../../assets/screenshots/desktop/12-settings-accounts.png";
+import mobile from "../../../assets/screenshots/mobile/12-settings-accounts.png";
+import mergeDesktop from "../../../assets/screenshots/desktop/17-account-merge.png";
+import mergeMobile from "../../../assets/screenshots/mobile/17-account-merge.png";
+
+An account owns its currency and opening balance. Every transaction, transfer side, adjustment, and recurring rule points to an account.
+
+<ScreenshotPair desktop={desktop} mobile={mobile} alt="Tracking accounts in Budget settings" />
+
+## Opening balance and currency
+
+Set the opening balance to the account balance immediately before the activity you will record. Currency controls the interpretation and display of every stored minor-unit amount linked to the account.
+
+Changing an existing account's currency **relabels stored amounts; it does not convert them**. Use that operation only to correct configuration, and review all linked data afterward.
+
+## Default and archived accounts
+
+Exactly one active account is the default used by new forms. Archiving hides an account from the dashboard, forms, and filters while preserving all history. Unarchive it from Budget settings when needed.
+
+## Merge duplicate accounts
+
+Merging moves transactions, external transfers, adjustments, and recurring rules to another account of the same currency, then removes the source account. Internal transfers between the pair are folded into the merged opening value to preserve the combined balance.
+
+<ScreenshotPair desktop={mergeDesktop} mobile={mergeMobile} alt="Tracking account merge summary" />
+
+Account merges are irreversible. Review the linked-record summary and target account carefully.

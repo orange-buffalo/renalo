@@ -1,0 +1,89 @@
+---
+title: Administrator recovery
+description: Safely recover a Renalo administrator through PostgreSQL and the built-in activation workflow without deleting financial data.
+---
+
+If every administrator sign-in method is lost, recover the existing administrator instead of deleting it. Deleting a user can cascade into user-owned data.
+
+:::danger[Back up and control writes]
+Take a PostgreSQL backup first. Perform recovery while application writes are stopped or controlled, and verify every returned row before committing.
+:::
+
+## Create a one-time activation token
+
+Generate a token outside SQL:
+
+```bash
+openssl rand -hex 32
+```
+
+Connect with `psql`, then run the following transaction after replacing the variables:
+
+```sql
+\set ON_ERROR_STOP on
+\set admin_username 'admin'
+\set activation_token 'PASTE_THE_64_CHARACTER_HEX_TOKEN_HERE'
+
+BEGIN;
+
+SELECT id, username, type, active, password_sign_in_disabled
+FROM users
+WHERE username = :'admin_username'
+  AND type = 'ADMIN'
+FOR UPDATE;
+
+UPDATE users
+SET active = FALSE,
+    password_sign_in_disabled = FALSE
+WHERE username = :'admin_username'
+  AND type = 'ADMIN'
+RETURNING id, username;
+
+DELETE FROM remember_me_tokens
+WHERE user_id = (
+    SELECT id FROM users
+    WHERE username = :'admin_username' AND type = 'ADMIN'
+);
+
+DELETE FROM user_activation_tokens
+WHERE user_id = (
+    SELECT id FROM users
+    WHERE username = :'admin_username' AND type = 'ADMIN'
+);
+
+INSERT INTO user_activation_tokens (user_id, token, expires_at)
+SELECT id, :'activation_token', CURRENT_TIMESTAMP + INTERVAL '24 hours'
+FROM users
+WHERE username = :'admin_username' AND type = 'ADMIN'
+RETURNING token, expires_at;
+
+COMMIT;
+```
+
+The `SELECT`, `UPDATE`, and `INSERT ... RETURNING` statements must each identify exactly one administrator. Otherwise roll back and investigate.
+
+Open:
+
+```text
+https://your-renalo-origin.example/activate-account?token=<activation_token>
+```
+
+Renalo will hash the new password, reactivate the account, and delete the one-time token.
+
+## If compromise is suspected
+
+Password recovery does not revoke passkeys. Remove them as part of an incident response if necessary:
+
+```sql
+DELETE FROM passkey_credentials
+WHERE user_id = (SELECT id FROM users WHERE username = :'admin_username' AND type = 'ADMIN');
+
+DELETE FROM passkey_challenges
+WHERE user_id = (SELECT id FROM users WHERE username = :'admin_username' AND type = 'ADMIN');
+```
+
+Rotate `RENALO_JWT_SECRET` to invalidate active JWTs and revoke remembered sessions. Active access tokens can otherwise remain valid for up to 30 minutes. Restart all instances to invalidate any in-memory sign-in links.
+
+## Do not trigger bootstrap by deletion
+
+Do not delete the administrator merely to make Renalo generate another one. User deletion is destructive, foreign keys may cascade, and concurrent empty-admin startup can race. The activation flow preserves ownership and leaves an auditable recovery path.
