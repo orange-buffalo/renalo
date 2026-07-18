@@ -112,6 +112,9 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/expenses")
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Grouping: Group by date"))).isVisible()
+        assertThat(page.locator("[data-testid^='expense-group-date-']").first()).containsText("Today")
+        assertThat(page.locator("[data-testid^='expense-group-date-']").first()).containsText("58.98 AUD")
         if (layout == DocumentationLayout.MOBILE) {
             page.locator("[data-testid^='expense-row-']").first().click()
         }
@@ -135,6 +138,9 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/incomes")
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Incomes"))).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Grouping: Group by date"))).isVisible()
+        assertThat(page.locator("[data-testid^='income-group-date-']").first()).containsText("Today")
+        assertThat(page.locator("[data-testid^='income-group-date-']").first()).containsText("750.00 AUD")
         if (layout == DocumentationLayout.MOBILE) {
             page.locator("[data-testid^='income-row-']").first().click()
         }

@@ -332,15 +332,20 @@ input {
 
 .transaction-filter-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 10px;
+}
+
+.transaction-filter-row .date-filter-panel {
+  margin-bottom: 0;
 }
 
 .transaction-filter-actions {
   display: flex;
   flex-shrink: 0;
-  align-items: flex-start;
+  align-items: center;
   gap: 4px;
 }
 
@@ -708,10 +713,6 @@ input {
 
   .transaction-more-filters-label {
     display: none;
-  }
-
-  .transaction-more-filters [aria-label="More filters"] {
-    transform: translateY(-3px);
   }
 
   .date-filter-control {
