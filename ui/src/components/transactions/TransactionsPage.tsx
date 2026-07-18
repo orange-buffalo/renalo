@@ -1,4 +1,4 @@
-import { Plus } from "@untitledui/icons";
+import { ChevronDown, Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
@@ -32,6 +32,7 @@ import {
   TableCard,
 } from "@/components/untitled/application/table/table";
 import { Button } from "@/components/untitled/base/buttons/button";
+import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import {
   RadioButton,
   RadioGroup,
@@ -58,7 +59,16 @@ export type TransactionsPageConfig = {
   plannedGroupLabel: string;
   rowTestIdPrefix: string;
   deleteDialogDataTestId: string;
+  groupingStorageKey: string;
 };
+
+type TransactionGrouping = "plain" | "date" | "category";
+
+const groupingOptions: { id: TransactionGrouping; label: string }[] = [
+  { id: "plain", label: "Plain list" },
+  { id: "date", label: "Group by date" },
+  { id: "category", label: "Group by category" },
+];
 
 export function TransactionsPage({
   config,
@@ -79,10 +89,21 @@ export function TransactionsPage({
     useState<RecurringTransactionDeleteScope>("THIS_OCCURRENCE_ONLY");
   const [deletingTransactionId, setDeletingTransactionId] = useState<number>();
   const [showPlannedTransactions, setShowPlannedTransactions] = useState(false);
+  const [grouping, setGrouping] = useState<TransactionGrouping>(() =>
+    loadTransactionGrouping(config.groupingStorageKey),
+  );
 
   const transactionRows = transactions
-    ? groupPlannedTransactions(transactions, showPlannedTransactions)
+    ? groupTransactionRows(
+        groupPlannedTransactions(transactions, showPlannedTransactions),
+        grouping,
+      )
     : undefined;
+
+  function changeGrouping(nextGrouping: TransactionGrouping) {
+    setGrouping(nextGrouping);
+    window.localStorage.setItem(config.groupingStorageKey, nextGrouping);
+  }
 
   useEffect(() => {
     let isActive = true;
@@ -188,13 +209,19 @@ export function TransactionsPage({
           value={transactionDateFilter}
           onChange={setTransactionDateFilter}
         />
-        <TransactionMoreFilters
-          value={secondaryFilters}
-          categories={categories}
-          accounts={accounts}
-          categoryLabel={config.categoryColumnLabel}
-          onChange={setSecondaryFilters}
-        />
+        <div className="transaction-filter-actions">
+          <TransactionGroupingSelector
+            value={grouping}
+            onChange={changeGrouping}
+          />
+          <TransactionMoreFilters
+            value={secondaryFilters}
+            categories={categories}
+            accounts={accounts}
+            categoryLabel={config.categoryColumnLabel}
+            onChange={setSecondaryFilters}
+          />
+        </div>
       </div>
       <section className="standard-page-panel user-management-panel">
         <TableCard.Root size="sm">
@@ -231,7 +258,16 @@ export function TransactionsPage({
               </Table.Header>
               <Table.Body>
                 {transactionRows?.map((row) =>
-                  row.kind === "planned" ? (
+                  row.kind === "group" ? (
+                    <Table.Row
+                      id={`group-${row.key}`}
+                      key={`group-${row.key}`}
+                      className="transaction-group-row"
+                      data-testid={`${config.itemLabel}-group-${row.key}`}
+                    >
+                      <Table.Cell colSpan={6}>{row.label}</Table.Cell>
+                    </Table.Row>
+                  ) : row.kind === "planned" ? (
                     <Table.Row
                       id="planned-transactions"
                       key="planned-transactions"
@@ -381,7 +417,8 @@ export function TransactionsPage({
 
 type TransactionRow =
   | { kind: "transaction"; transaction: Transaction }
-  | { kind: "planned"; amounts: PlannedAmount[] };
+  | { kind: "planned"; amounts: PlannedAmount[] }
+  | { kind: "group"; key: string; label: string };
 
 type PlannedAmount = {
   currency: string;
@@ -432,6 +469,107 @@ function groupPlannedTransactions(
       .filter((transaction) => !plannedTransactions.includes(transaction))
       .map((transaction) => ({ kind: "transaction", transaction }) as const),
   ];
+}
+
+function groupTransactionRows(
+  rows: TransactionRow[],
+  grouping: TransactionGrouping,
+): TransactionRow[] {
+  if (grouping === "plain") {
+    return rows;
+  }
+
+  const result: TransactionRow[] = rows.filter((row) => row.kind === "planned");
+  const groups = new Map<
+    string,
+    { label: string; transactions: Transaction[] }
+  >();
+
+  for (const row of rows) {
+    if (row.kind !== "transaction") {
+      continue;
+    }
+
+    const key =
+      grouping === "date"
+        ? row.transaction.date
+        : String(row.transaction.category.id);
+    const group = groups.get(key) ?? {
+      label:
+        grouping === "date"
+          ? formatTransactionDate(row.transaction.date)
+          : row.transaction.category.name,
+      transactions: [],
+    };
+    group.transactions.push(row.transaction);
+    groups.set(key, group);
+  }
+
+  for (const [key, group] of groups) {
+    result.push({
+      kind: "group",
+      key: `${grouping}-${key}`,
+      label: `${group.label} (${group.transactions.length})`,
+    });
+    result.push(
+      ...group.transactions.map(
+        (transaction) => ({ kind: "transaction", transaction }) as const,
+      ),
+    );
+  }
+
+  return result;
+}
+
+function TransactionGroupingSelector({
+  value,
+  onChange,
+}: {
+  value: TransactionGrouping;
+  onChange: (value: TransactionGrouping) => void;
+}) {
+  const selectedOption = groupingOptions.find((option) => option.id === value);
+  if (!selectedOption) {
+    return null;
+  }
+
+  return (
+    <Dropdown.Root>
+      <Button
+        aria-label={`Grouping: ${selectedOption.label}`}
+        color="tertiary"
+        size="sm"
+        iconTrailing={ChevronDown}
+      >
+        <span className="transaction-grouping-label">
+          {selectedOption.label}
+        </span>
+      </Button>
+      <Dropdown.Popover className="w-52" placement="bottom right">
+        <Dropdown.Menu
+          aria-label="Transaction grouping"
+          selectionMode="single"
+          selectedKeys={[value]}
+          onAction={(key) => onChange(String(key) as TransactionGrouping)}
+        >
+          {groupingOptions.map((option) => (
+            <Dropdown.Item
+              key={option.id}
+              id={option.id}
+              label={option.label}
+            />
+          ))}
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown.Root>
+  );
+}
+
+function loadTransactionGrouping(storageKey: string): TransactionGrouping {
+  const storedValue = window.localStorage.getItem(storageKey);
+  return groupingOptions.some((option) => option.id === storedValue)
+    ? (storedValue as TransactionGrouping)
+    : "date";
 }
 
 function formatTransactionDate(isoDate: string) {

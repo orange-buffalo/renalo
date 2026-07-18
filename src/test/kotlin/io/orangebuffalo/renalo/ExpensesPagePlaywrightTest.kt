@@ -257,6 +257,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("More filters"))).isVisible()
         assertThat(page.getByText("More filters", Page.GetByTextOptions().setExact(true))).not().isVisible()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        assertThat(page.locator("[data-testid^='expense-group-']").getByText("Today (1)")).isVisible()
 
         val expenseCard = page.locator("[data-testid='expense-row-${expense.id}']")
         assertThat(expenseCard).isVisible()

@@ -27,6 +27,7 @@ const expenseTransactionsPageConfig: TransactionsPageConfig = {
   plannedGroupLabel: "Planned expenses",
   rowTestIdPrefix: "expense-row",
   deleteDialogDataTestId: "delete-expense-overlay",
+  groupingStorageKey: "renalo.expenses.tableGrouping",
 };
 
 export function ExpensesPage() {
