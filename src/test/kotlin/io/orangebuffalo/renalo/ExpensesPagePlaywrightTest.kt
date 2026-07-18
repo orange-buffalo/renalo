@@ -283,7 +283,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun groupsFutureExpensesUntilViewed(page: Page) {
+    fun showsPlannedExpensesImmediatelyWhenSummaryCardIsTappedOnMobile(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         val groceries = saveCategory(alice, "Groceries")
@@ -292,19 +292,20 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE.plusDays(2), 5500, "Planned rent")
         saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE.plusDays(1), 2100, "Planned groceries")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
 
         page.navigate(server.url.toString() + "/expenses")
 
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Planned expenses", "A$76.00", "", "", "", "view"),
-            ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
+            ExpenseRow("Groceries", "A$12.34", "Today", "", "", "edit delete"),
         )
 
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("View all planned expenses")).click()
+        page.locator("[data-testid='expense-row-planned']").click()
         page.shouldEventuallyContainExpenseRows(
-            ExpenseRow("Rent", "A$55.00", "Jun 16", "Main", "Planned rent", "edit delete"),
-            ExpenseRow("Groceries", "A$21.00", "Jun 15", "Main", "Planned groceries", "edit delete"),
-            ExpenseRow("Groceries", "A$12.34", "Today", "Main", "Milk", "edit delete"),
+            ExpenseRow("Rent", "A$55.00", "Jun 16", "", "", "edit delete"),
+            ExpenseRow("Groceries", "A$21.00", "Jun 15", "", "", "edit delete"),
+            ExpenseRow("Groceries", "A$12.34", "Today", "", "", "edit delete"),
         )
     }
 

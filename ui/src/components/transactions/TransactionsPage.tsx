@@ -284,6 +284,7 @@ export function TransactionsPage({
                       id="planned-transactions"
                       key="planned-transactions"
                       data-testid={`${config.rowTestIdPrefix}-planned`}
+                      onAction={() => setShowPlannedTransactions(true)}
                     >
                       <Table.Cell>
                         <span className="transaction-planned-label">
