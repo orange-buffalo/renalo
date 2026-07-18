@@ -2,7 +2,7 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 
 export default defineConfig({
-  site: process.env.RENALO_DOCS_SITE_URL || undefined,
+  site: process.env.RENALO_DOCS_SITE_URL || "https://renalo-docs.orange-buffalo.io",
   output: "static",
   integrations: [
     starlight({

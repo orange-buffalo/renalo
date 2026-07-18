@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://renalo-docs.orange-buffalo.io/sitemap-index.xml
