@@ -359,6 +359,19 @@ input {
   font-weight: 600;
 }
 
+.transaction-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.transaction-group-amounts {
+  flex-shrink: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .transaction-more-filters {
   display: flex;
   justify-content: flex-end;
@@ -691,12 +704,6 @@ input {
 
   .transaction-filter-actions {
     align-items: center;
-  }
-
-  .transaction-grouping-label {
-    max-width: 7.5rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .transaction-more-filters-label {
@@ -1047,7 +1054,7 @@ input {
   }
 
   .responsive-table tbody tr.transaction-group-row + tr {
-    margin-top: 0;
+    margin-top: 8px;
   }
 
   .responsive-table tbody tr.transaction-group-row > td:first-of-type {

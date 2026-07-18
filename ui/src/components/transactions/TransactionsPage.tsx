@@ -1,4 +1,4 @@
-import { ChevronDown, Plus } from "@untitledui/icons";
+import { LayersThree01, Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
@@ -37,7 +37,7 @@ import {
   RadioButton,
   RadioGroup,
 } from "@/components/untitled/base/radio-buttons/radio-buttons";
-import { formatMoney } from "@/utils/money";
+import { formatMoney, formatMoneyInput } from "@/utils/money";
 
 export type TransactionsPageConfig = {
   api: TransactionApiConfig;
@@ -265,7 +265,19 @@ export function TransactionsPage({
                       className="transaction-group-row"
                       data-testid={`${config.itemLabel}-group-${row.key}`}
                     >
-                      <Table.Cell colSpan={6}>{row.label}</Table.Cell>
+                      <Table.Cell colSpan={6}>
+                        <div className="transaction-group-heading">
+                          <span>{row.label}</span>
+                          <span className="transaction-group-amounts">
+                            {row.amounts
+                              .map(
+                                (amount) =>
+                                  `${formatMoneyInput(amount.amountMinor, amount.currency)} ${amount.currency}`,
+                              )
+                              .join(", ")}
+                          </span>
+                        </div>
+                      </Table.Cell>
                     </Table.Row>
                   ) : row.kind === "planned" ? (
                     <Table.Row
@@ -418,7 +430,7 @@ export function TransactionsPage({
 type TransactionRow =
   | { kind: "transaction"; transaction: Transaction }
   | { kind: "planned"; amounts: PlannedAmount[] }
-  | { kind: "group"; key: string; label: string };
+  | { kind: "group"; key: string; label: string; amounts: PlannedAmount[] };
 
 type PlannedAmount = {
   currency: string;
@@ -506,10 +518,22 @@ function groupTransactionRows(
   }
 
   for (const [key, group] of groups) {
+    const amountsByCurrency = new Map<string, number>();
+    for (const transaction of group.transactions) {
+      const currency = transaction.trackingAccount.currency;
+      amountsByCurrency.set(
+        currency,
+        (amountsByCurrency.get(currency) ?? 0) + transaction.amountMinor,
+      );
+    }
     result.push({
       kind: "group",
       key: `${grouping}-${key}`,
-      label: `${group.label} (${group.transactions.length})`,
+      label: group.label,
+      amounts: Array.from(amountsByCurrency, ([currency, amountMinor]) => ({
+        currency,
+        amountMinor,
+      })),
     });
     result.push(
       ...group.transactions.map(
@@ -539,12 +563,8 @@ function TransactionGroupingSelector({
         aria-label={`Grouping: ${selectedOption.label}`}
         color="tertiary"
         size="sm"
-        iconTrailing={ChevronDown}
-      >
-        <span className="transaction-grouping-label">
-          {selectedOption.label}
-        </span>
-      </Button>
+        iconLeading={LayersThree01}
+      />
       <Dropdown.Popover className="w-52" placement="bottom right">
         <Dropdown.Menu
           aria-label="Transaction grouping"
