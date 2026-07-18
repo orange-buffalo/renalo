@@ -26,8 +26,11 @@ open class RecurringTransactionGenerationService(
     }
 
     @Transactional
-    open fun generateForRule(rule: RecurringTransactionRule): RecurringTransactionGenerationResult {
-        val targetGenerationUntil = targetGenerationUntil(rule)
+    open fun generateForRule(
+        rule: RecurringTransactionRule,
+        currentDate: LocalDate = timeProvider.today(),
+    ): RecurringTransactionGenerationResult {
+        val targetGenerationUntil = targetGenerationUntil(rule, currentDate)
         if (!rule.generatedUntil.isBefore(targetGenerationUntil)) {
             return RecurringTransactionGenerationResult(ruleId = rule.id, generatedUntil = rule.generatedUntil)
         }
@@ -70,8 +73,8 @@ open class RecurringTransactionGenerationService(
         )
     }
 
-    private fun targetGenerationUntil(rule: RecurringTransactionRule): LocalDate {
-        val windowEnd = RecurrenceCalculator.generationWindowEnd(timeProvider.today())
+    private fun targetGenerationUntil(rule: RecurringTransactionRule, currentDate: LocalDate): LocalDate {
+        val windowEnd = RecurrenceCalculator.generationWindowEnd(currentDate)
         return if (rule.endDate == null || rule.endDate.isAfter(windowEnd)) {
             windowEnd
         } else {

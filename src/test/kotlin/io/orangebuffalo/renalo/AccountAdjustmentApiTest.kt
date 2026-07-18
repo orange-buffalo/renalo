@@ -147,6 +147,55 @@ class AccountAdjustmentApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun usesClientTimezoneForAdjustmentDateAndBalanceCutoff() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 10_000, isDefault = true)
+        val incomeCategory = saveIncomeCategory(alice)
+        saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, 5_000, TestTimeProvider.DEFAULT_DATE)
+        val token = api().login("alice", "password")
+
+        val createResponse = api().postJson(
+            "/api/tracking/accounts/${main.id}/adjustments",
+            """{"adjustmentAmountMinor": 2500}""",
+            token,
+            "Pacific/Honolulu",
+        )
+        val listResponse = api().get(
+            "/api/tracking/accounts/${main.id}/adjustments",
+            token,
+            "Pacific/Honolulu",
+        )
+
+        createResponse.statusCode().shouldBe(201)
+        val saved = accountAdjustmentRepository.findByUserId(alice.id!!).single()
+        saved.date.shouldBe(TestTimeProvider.DEFAULT_DATE.minusDays(1))
+        listResponse.statusCode().shouldBe(200)
+        listResponse.body().shouldEqualJson(
+            """
+                {
+                  "accountId": ${main.id},
+                  "accountName": "Main",
+                  "currency": "AUD",
+                  "currentBalanceMinor": 12500,
+                  "baseBalanceMinor": 10000,
+                  "adjustments": [{
+                    "id": ${saved.id},
+                    "adjustmentAmountMinor": 2500,
+                    "date": "${TestTimeProvider.DEFAULT_DATE.minusDays(1)}",
+                    "createdAt": "${createdAtFormatter.format(saved.createdAt!!)}"
+                  }]
+                }
+            """.trimIndent(),
+        )
+        api().postJson(
+            "/api/tracking/accounts/${main.id}/adjustments",
+            """{"adjustmentAmountMinor": 100}""",
+            token,
+            "not-a-timezone",
+        ).statusCode().shouldBe(400)
+    }
+
+    @Test
     fun rejectsZeroAdjustment() {
         val alice = saveUser("alice", UserType.USER)
         val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)

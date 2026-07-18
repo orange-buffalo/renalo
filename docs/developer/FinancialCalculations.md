@@ -7,7 +7,7 @@ Unless a section says otherwise:
 - A tracking account's ISO currency determines how its minor units are interpreted.
 - Income, expense, transfer, and recurring amounts must be positive. Their direction determines whether they add to or subtract from a balance.
 - Initial balances and account adjustments may be positive, zero, or negative.
-- "Current" means as of the current UTC date, inclusive.
+- For browser-driven APIs, "current" means as of the date of the shared current instant in the browser's IANA timezone, inclusive. The browser sends this zone in `X-Time-Zone`; missing headers fall back to UTC and invalid zone IDs are rejected.
 - Future-dated financial records do not affect a current balance.
 - Monetary integer arithmetic must be exact. Overflow or underflow must fail; it must never wrap to another value.
 - Amounts in different currencies are never summed into one total.
@@ -94,6 +94,8 @@ If the user entered `12.34` and switches from AUD to JPY before saving, the inpu
 ### Business rules
 
 A recurring rule stores one positive amount. Newly generated occurrences copy that amount. Generation is idempotent for each rule and instance date.
+
+Recurring writes derive their rolling generation window from today in the browser timezone supplied through `X-Time-Zone`. The scheduled generation job has no browser context and uses UTC as its operational timezone.
 
 Scoped edits behave as follows:
 
@@ -262,7 +264,7 @@ total balance        21500
 
 ### Business rules
 
-The current month is the UTC calendar month containing today.
+The current month is the calendar month containing today in the browser's IANA timezone.
 
 ```text
 inflow = current-month nonfuture income
@@ -287,7 +289,7 @@ outflow = 4000 + 7000 = 11000
 
 - Previous-month records affect total balance but not current-month flow.
 - Future records in the current month affect neither balance nor flow until their date.
-- Month boundaries and today are inclusive under UTC dates.
+- Month boundaries and today are inclusive under browser-local dates.
 
 ### Coverage
 

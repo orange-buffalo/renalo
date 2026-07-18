@@ -3,7 +3,6 @@ package io.orangebuffalo.renalo.tracking
 import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.micronaut.transaction.annotation.Transactional
-import io.orangebuffalo.renalo.time.TimeProvider
 import jakarta.inject.Singleton
 import java.time.Instant
 import java.time.LocalDate
@@ -14,19 +13,21 @@ open class AccountAdjustmentService(
     private val trackingAccountRepository: TrackingAccountRepository,
     private val transactionRepository: TransactionRepository,
     private val fundsTransferRepository: FundsTransferRepository,
-    private val timeProvider: TimeProvider,
 ) {
-    open fun getAdjustmentsWithBalance(userId: Long, trackingAccountId: Long): AccountAdjustmentsData? {
+    open fun getAdjustmentsWithBalance(
+        userId: Long,
+        trackingAccountId: Long,
+        currentDate: LocalDate,
+    ): AccountAdjustmentsData? {
         val account = trackingAccountRepository.findByIdAndUserId(trackingAccountId, userId)
             ?: return null
 
         val adjustments = accountAdjustmentRepository
             .findByUserIdAndTrackingAccountIdOrderByIdDesc(userId, trackingAccountId)
 
-        val today = timeProvider.today()
-        val currentBalance = computeBalance(userId, account, today)
+        val currentBalance = computeBalance(userId, account, currentDate)
         val adjustmentSum = adjustments
-            .filterNot { it.date.isAfter(today) }
+            .filterNot { it.date.isAfter(currentDate) }
             .fold(0L) { total, adjustment -> FinancialMath.add(total, adjustment.adjustmentAmountMinor) }
 
         return AccountAdjustmentsData(
@@ -40,7 +41,12 @@ open class AccountAdjustmentService(
     }
 
     @Transactional
-    open fun createAdjustment(userId: Long, trackingAccountId: Long, amountMinor: Long): CreateAdjustmentResult {
+    open fun createAdjustment(
+        userId: Long,
+        trackingAccountId: Long,
+        amountMinor: Long,
+        currentDate: LocalDate,
+    ): CreateAdjustmentResult {
         if (amountMinor == 0L) {
             return CreateAdjustmentResult.InvalidAmount
         }
@@ -53,7 +59,7 @@ open class AccountAdjustmentService(
                 userId = userId,
                 trackingAccountId = account.id ?: return CreateAdjustmentResult.AccountNotFound,
                 adjustmentAmountMinor = amountMinor,
-                date = timeProvider.today(),
+                date = currentDate,
             ),
         )
 

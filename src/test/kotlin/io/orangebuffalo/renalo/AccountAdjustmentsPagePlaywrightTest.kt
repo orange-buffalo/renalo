@@ -10,6 +10,7 @@ import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestAuthTokens
+import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.test.shouldEventually
 import io.orangebuffalo.renalo.tracking.AccountAdjustmentRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
@@ -19,6 +20,9 @@ import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import org.junit.jupiter.api.Test
 
 @MicronautTest(transactional = false)
@@ -57,28 +61,41 @@ class AccountAdjustmentsPagePlaywrightTest : IntegrationTestSupport() {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", 10000, isDefault = true)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        var requestTimeZone: String? = null
+        page.onRequest { request ->
+            if (request.url().endsWith("/settings/accounts/${main.id}/adjustments").not() &&
+                request.url().endsWith("/api/tracking/accounts/${main.id}/adjustments")
+            ) {
+                requestTimeZone = request.headers()["x-time-zone"]
+            }
+        }
 
         page.navigate(server.url.toString() + "/settings/accounts/${main.id}/adjustments")
+        val browserTimeZone = page.evaluate("Intl.DateTimeFormat().resolvedOptions().timeZone") as String
+        val browserDate = TestTimeProvider.DEFAULT_TIME.atZone(ZoneId.of(browserTimeZone)).toLocalDate()
+        val displayDate = browserDate.format(DateTimeFormatter.ofPattern("d MMM uuuu", Locale.UK))
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Adjustments — Main"))).isVisible()
         assertThat(page.getByText("Balance: A$100.00")).isVisible()
+        requestTimeZone.shouldBe(browserTimeZone)
 
         page.locator("input[name='adjustmentAmount']").fill("50")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add adjustment")).click()
 
         page.shouldEventuallyContainAdjustmentRowsInAnyOrder(
-            AdjustmentRow("A$50.00"),
+            AdjustmentRow("A$50.00", displayDate),
         )
         assertThat(page.getByText("Balance: A$150.00")).isVisible()
         accountAdjustmentRepository.findByUserId(alice.id!!).size.shouldBe(1)
         accountAdjustmentRepository.findByUserId(alice.id!!).first().adjustmentAmountMinor.shouldBe(5000)
+        accountAdjustmentRepository.findByUserId(alice.id!!).first().date.shouldBe(browserDate)
 
         page.locator("input[name='adjustmentAmount']").fill("-25.50")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add adjustment")).click()
 
         page.shouldEventuallyContainAdjustmentRowsInAnyOrder(
-            AdjustmentRow("A$50.00"),
-            AdjustmentRow("-A$25.50"),
+            AdjustmentRow("A$50.00", displayDate),
+            AdjustmentRow("-A$25.50", displayDate),
         )
         assertThat(page.getByText("Balance: A$124.50")).isVisible()
         accountAdjustmentRepository.findByUserId(alice.id!!).size.shouldBe(2)
@@ -169,6 +186,7 @@ class AccountAdjustmentsPagePlaywrightTest : IntegrationTestSupport() {
         return rows.map { cells ->
             AdjustmentRow(
                 amount = cells.getOrElse(0) { "" },
+                date = cells.getOrElse(1) { "" },
             )
         }
     }
@@ -182,4 +200,5 @@ class AccountAdjustmentsPagePlaywrightTest : IntegrationTestSupport() {
 
 private data class AdjustmentRow(
     val amount: String,
+    val date: String,
 )

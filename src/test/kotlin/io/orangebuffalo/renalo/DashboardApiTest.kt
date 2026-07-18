@@ -169,6 +169,47 @@ class DashboardApiTest : IntegrationTestSupport() {
         )
     }
 
+    @Test
+    fun calculatesCurrentBalanceAndMonthInTheClientTimezone() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 10_000, isDefault = true)
+        val incomeCategory = saveIncomeCategory(alice, "Salary")
+        saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, TestTimeProvider.DEFAULT_DATE.minusDays(1), 2_000)
+        saveTransaction(alice, main, incomeCategory, TransactionType.INCOME, TestTimeProvider.DEFAULT_DATE, 3_000)
+        val token = api().login("alice", "password")
+
+        val honoluluResponse = api().get("/api/tracking/dashboard/accounts", token, "Pacific/Honolulu")
+        val utcResponse = api().get("/api/tracking/dashboard/accounts", token, "UTC")
+
+        honoluluResponse.statusCode().shouldBe(200)
+        honoluluResponse.body().shouldEqualJson(
+            """
+                [{
+                  "accountId": ${main.id},
+                  "accountName": "Main",
+                  "currency": "AUD",
+                  "totalBalanceMinor": 12000,
+                  "currentMonthInflowMinor": 2000,
+                  "currentMonthOutflowMinor": 0
+                }]
+            """.trimIndent(),
+        )
+        utcResponse.statusCode().shouldBe(200)
+        utcResponse.body().shouldEqualJson(
+            """
+                [{
+                  "accountId": ${main.id},
+                  "accountName": "Main",
+                  "currency": "AUD",
+                  "totalBalanceMinor": 15000,
+                  "currentMonthInflowMinor": 5000,
+                  "currentMonthOutflowMinor": 0
+                }]
+            """.trimIndent(),
+        )
+        api().get("/api/tracking/dashboard/accounts", token, "not-a-timezone").statusCode().shouldBe(400)
+    }
+
     private fun saveUser(username: String, type: UserType): User =
         userRepository.save(User(username = username, passwordHash = passwordHasher.hash("password"), type = type))
 

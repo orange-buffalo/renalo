@@ -31,7 +31,7 @@ Renalo keeps financial records attached to a regular user. Start with accounts a
 ## Core calculation policy
 
 - Money is stored as integer minor units in each account's currency.
-- Current balances include posted activity through the current UTC date, inclusive.
+- Current balances include posted activity through today in your browser's timezone, inclusive.
 - Future activity is planned and does not affect today's balance.
 - Cross-currency transfer sides retain separate amounts; Renalo does not combine currencies into one total.
 - Financial arithmetic fails on integer overflow instead of silently wrapping.
