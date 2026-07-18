@@ -21,20 +21,22 @@ open class IncomeCategoryService(
         )
     }
 
-    fun listCategories(userId: Long, includeArchived: Boolean): List<IncomeCategory> {
+    fun listCategories(userId: Long, includeArchived: Boolean): List<IncomeCategoryOverview> {
         val categories = if (includeArchived) {
             incomeCategoryRepository.findByUserIdOrderByName(userId)
         } else {
             incomeCategoryRepository.findByUserIdAndArchivedFalseOrderByName(userId)
         }
 
-        val lastUsedDates = transactionRepository.findCategoryUsage(userId, TransactionType.INCOME)
-            .associate { it.categoryId to it.lastUsedDate }
+        val usageByCategoryId = transactionRepository.findCategoryUsage(userId, TransactionType.INCOME)
+            .associateBy { it.categoryId }
 
         return categories.sortedWith(
-            compareByDescending<IncomeCategory> { lastUsedDates[it.id] }
+            compareByDescending<IncomeCategory> { usageByCategoryId[it.id]?.lastUsedDate }
                 .thenBy { it.name },
-        )
+        ).map { category ->
+            IncomeCategoryOverview(category, usageByCategoryId[category.id]?.entriesCount ?: 0)
+        }
     }
 
     fun findCategory(userId: Long, categoryId: Long): IncomeCategory? =
@@ -123,6 +125,11 @@ open class IncomeCategoryService(
 
 data class SaveIncomeCategoryRequest(
     val name: String,
+)
+
+data class IncomeCategoryOverview(
+    val category: IncomeCategory,
+    val entriesCount: Long,
 )
 
 data class MergeIncomeCategoryRequest(

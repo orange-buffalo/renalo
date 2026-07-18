@@ -66,7 +66,12 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
         val bob = saveUser("bob", UserType.USER)
         val groceries = saveCategory(alice, "Groceries")
         val rent = saveCategory(alice, "Rent")
-        saveCategory(bob, "Bob category")
+        val bobCategory = saveCategory(bob, "Bob category")
+        val aliceAccount = saveAccount(alice)
+        saveTransaction(alice, aliceAccount, groceries, TransactionType.EXPENSE, 1_000)
+        saveTransaction(alice, aliceAccount, groceries, TransactionType.EXPENSE, 2_000)
+        saveTransaction(alice, aliceAccount, saveIncomeCategory(alice), TransactionType.INCOME, 3_000)
+        saveTransaction(bob, saveAccount(bob), bobCategory, TransactionType.EXPENSE, 4_000)
 
         val response = api().get("/api/tracking/expense-categories", api().login("alice", "password"))
 
@@ -77,12 +82,14 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
                   {
                     "id": ${groceries.id},
                     "name": "Groceries",
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 2
                   },
                   {
                     "id": ${rent.id},
                     "name": "Rent",
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 0
                   }
                 ]
             """.trimIndent(),
@@ -106,7 +113,8 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
                   {
                     "id": ${groceries.id},
                     "name": "Groceries",
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 0
                   }
                 ]
             """.trimIndent(),
@@ -118,12 +126,14 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
                   {
                     "id": ${groceries.id},
                     "name": "Groceries",
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 0
                   },
                   {
                     "id": ${oldCategory.id},
                     "name": "Old",
-                    "archived": true
+                    "archived": true,
+                    "entriesCount": 0
                   }
                 ]
             """.trimIndent(),

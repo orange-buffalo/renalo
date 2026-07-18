@@ -9,6 +9,10 @@ export type TrackingAccount = {
   archived: boolean;
 };
 
+export type TrackingAccountOverview = TrackingAccount & {
+  entriesCount: number;
+};
+
 export type SaveTrackingAccount = {
   name: string;
   currency: string;
@@ -30,7 +34,7 @@ export function fetchTrackingAccounts(options?: { includeArchived?: boolean }) {
     params.set("includeArchived", "true");
   }
   const query = params.toString();
-  return apiRequest<TrackingAccount[]>(
+  return apiRequest<TrackingAccountOverview[]>(
     `/api/tracking/accounts${query ? `?${query}` : ""}`,
   );
 }

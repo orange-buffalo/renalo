@@ -135,6 +135,26 @@ data class TrackingAccountResponse(
     val archived: Boolean,
 )
 
+private fun TrackingAccountOverview.toResponse() = TrackingAccountOverviewResponse(
+    id = account.id ?: error("Tracking account must be persisted before it can be returned"),
+    name = account.name,
+    currency = account.currency,
+    initialBalanceMinor = account.initialBalanceMinor,
+    isDefault = account.isDefault,
+    archived = account.archived,
+    entriesCount = entriesCount,
+)
+
+data class TrackingAccountOverviewResponse(
+    val id: Long,
+    val name: String,
+    val currency: String,
+    val initialBalanceMinor: Long,
+    val isDefault: Boolean,
+    val archived: Boolean,
+    val entriesCount: Long,
+)
+
 private fun TrackingAccountMergeSummary.toResponse() = TrackingAccountMergeSummaryResponse(
     sourceAccount = sourceAccount.toResponse(),
     expensesCount = expensesCount,

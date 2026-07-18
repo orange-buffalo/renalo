@@ -129,6 +129,20 @@ data class ExpenseCategoryResponse(
     val archived: Boolean,
 )
 
+private fun ExpenseCategoryOverview.toResponse() = ExpenseCategoryOverviewResponse(
+    id = category.id ?: error("Expense category must be persisted before it can be returned"),
+    name = category.name,
+    archived = category.archived,
+    entriesCount = entriesCount,
+)
+
+data class ExpenseCategoryOverviewResponse(
+    val id: Long,
+    val name: String,
+    val archived: Boolean,
+    val entriesCount: Long,
+)
+
 private fun ExpenseCategoryMergeSummary.toResponse() = ExpenseCategoryMergeSummaryResponse(
     sourceCategory = sourceCategory.toResponse(),
     expensesCount = expensesCount,

@@ -129,6 +129,20 @@ data class IncomeCategoryResponse(
     val archived: Boolean,
 )
 
+private fun IncomeCategoryOverview.toResponse() = IncomeCategoryOverviewResponse(
+    id = category.id ?: error("Income category must be persisted before it can be returned"),
+    name = category.name,
+    archived = category.archived,
+    entriesCount = entriesCount,
+)
+
+data class IncomeCategoryOverviewResponse(
+    val id: Long,
+    val name: String,
+    val archived: Boolean,
+    val entriesCount: Long,
+)
+
 private fun IncomeCategoryMergeSummary.toResponse() = IncomeCategoryMergeSummaryResponse(
     sourceCategory = sourceCategory.toResponse(),
     incomesCount = incomesCount,

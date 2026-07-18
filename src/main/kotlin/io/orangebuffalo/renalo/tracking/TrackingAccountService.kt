@@ -29,12 +29,18 @@ open class TrackingAccountService(
         )
     }
 
-    fun listAccounts(userId: Long, includeArchived: Boolean): List<TrackingAccount> =
-        if (includeArchived) {
+    fun listAccounts(userId: Long, includeArchived: Boolean): List<TrackingAccountOverview> {
+        val accounts = if (includeArchived) {
             trackingAccountRepository.findByUserIdOrderByName(userId)
         } else {
             trackingAccountRepository.findByUserIdAndArchivedFalseOrderByName(userId)
         }
+        val usageByAccountId = trackingAccountRepository.findUsage(userId).associateBy { it.accountId }
+
+        return accounts.map { account ->
+            TrackingAccountOverview(account, usageByAccountId[account.id]?.entriesCount ?: 0)
+        }
+    }
 
     fun findAccount(userId: Long, accountId: Long): TrackingAccount? =
         trackingAccountRepository.findByIdAndUserId(accountId, userId)
@@ -190,6 +196,11 @@ data class SaveTrackingAccountRequest(
     val currency: String,
     val initialBalanceMinor: Long = 0,
     val isDefault: Boolean = false,
+)
+
+data class TrackingAccountOverview(
+    val account: TrackingAccount,
+    val entriesCount: Long,
 )
 
 data class MergeTrackingAccountRequest(

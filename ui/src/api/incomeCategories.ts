@@ -6,6 +6,10 @@ export type IncomeCategory = {
   archived: boolean;
 };
 
+export type IncomeCategoryOverview = IncomeCategory & {
+  entriesCount: number;
+};
+
 export type SaveIncomeCategory = {
   name: string;
 };
@@ -18,7 +22,7 @@ export type IncomeCategoryMergeSummary = {
 
 export function fetchIncomeCategories(options?: { includeArchived?: boolean }) {
   const query = options?.includeArchived ? "?includeArchived=true" : "";
-  return apiRequest<IncomeCategory[]>(
+  return apiRequest<IncomeCategoryOverview[]>(
     `/api/tracking/income-categories${query}`,
   );
 }

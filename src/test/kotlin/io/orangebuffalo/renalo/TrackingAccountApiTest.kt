@@ -84,7 +84,19 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
         val bob = saveUser("bob", UserType.USER)
         val aliceMain = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
         val aliceSavings = saveAccount(alice, "Savings", "EUR", 12345, isDefault = false)
-        saveAccount(bob, "Bob account", "USD", 999, isDefault = true)
+        val bobAccount = saveAccount(bob, "Bob account", "USD", 999, isDefault = true)
+        saveTransaction(alice, aliceMain, saveExpenseCategory(alice), TransactionType.EXPENSE, 1_000)
+        saveTransaction(alice, aliceMain, saveIncomeCategory(alice), TransactionType.INCOME, 2_000)
+        saveTransfer(alice, aliceMain, aliceSavings, 300, 200)
+        accountAdjustmentRepository.save(
+            AccountAdjustment(
+                userId = alice.id!!,
+                trackingAccountId = aliceMain.id!!,
+                adjustmentAmountMinor = 100,
+                date = LocalDate.parse("2026-06-01"),
+            ),
+        )
+        saveTransaction(bob, bobAccount, saveExpenseCategory(bob), TransactionType.EXPENSE, 9_999)
 
         val response = api().get("/api/tracking/accounts", api().login("alice", "password"))
 
@@ -98,7 +110,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                     "currency": "AUD",
                     "initialBalanceMinor": 0,
                     "isDefault": true,
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 4
                   },
                   {
                     "id": ${aliceSavings.id},
@@ -106,7 +119,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                     "currency": "EUR",
                     "initialBalanceMinor": 12345,
                     "isDefault": false,
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 1
                   }
                 ]
             """.trimIndent(),
@@ -133,7 +147,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                     "currency": "AUD",
                     "initialBalanceMinor": 0,
                     "isDefault": true,
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 0
                   }
                 ]
             """.trimIndent(),
@@ -148,7 +163,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                     "currency": "AUD",
                     "initialBalanceMinor": 0,
                     "isDefault": true,
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 0
                   },
                   {
                     "id": ${archived.id},
@@ -156,7 +172,8 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
                     "currency": "AUD",
                     "initialBalanceMinor": 123,
                     "isDefault": false,
-                    "archived": true
+                    "archived": true,
+                    "entriesCount": 0
                   }
                 ]
             """.trimIndent(),

@@ -62,7 +62,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
     fun managesAccountsFromSettingsPage(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
-        saveAccount(alice, "Savings", "EUR", 12345, isDefault = false)
+        val savings = saveAccount(alice, "Savings", "EUR", 12345, isDefault = false)
+        saveTransfer(alice, main, savings, 100, 60)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/settings")
@@ -75,8 +76,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Accounts")).click()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()
         page.shouldEventuallyContainRows(
-            AccountRow("Main", "AUD", "A$0.00", "Default", "Active", "archive merge adjust edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge adjust edit"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "Active", "archive merge adjust edit", "1"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge adjust edit", "1"),
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add new account")).click()
@@ -92,8 +93,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         cash.isDefault.shouldBe(false)
         page.shouldEventuallyContainRows(
             AccountRow("Cash", "AUD", "A$42.00", "No", "Active", "archive merge adjust edit"),
-            AccountRow("Main", "AUD", "A$0.00", "Default", "Active", "archive merge adjust edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge adjust edit"),
+            AccountRow("Main", "AUD", "A$0.00", "Default", "Active", "archive merge adjust edit", "1"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge adjust edit", "1"),
         )
 
         page.locator("[data-testid='account-row-${main.id}']")
@@ -114,8 +115,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         trackingAccountRepository.findById(main.id!!).get().name.shouldBe("Everyday")
         page.shouldEventuallyContainRows(
             AccountRow("Cash", "AUD", "A$42.00", "No", "Active", "archive merge adjust edit"),
-            AccountRow("Everyday", "AUD", "A$0.00", "Default", "Active", "archive merge adjust edit"),
-            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge adjust edit"),
+            AccountRow("Everyday", "AUD", "A$0.00", "Default", "Active", "archive merge adjust edit", "1"),
+            AccountRow("Savings", "EUR", "€123.45", "No", "Active", "archive merge adjust edit", "1"),
         )
     }
 
@@ -144,7 +145,10 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         mainCard.click()
 
         val initialBalanceDetail = mainCard.locator("[data-mobile-label='Initial balance']")
+        val entriesDetail = mainCard.locator("[data-mobile-label='Entries']")
         assertThat(initialBalanceDetail).isVisible()
+        assertThat(entriesDetail).isVisible()
+        entriesDetail.evaluate("element => getComputedStyle(element, '::before').content").shouldBe("\"Entries\"")
         initialBalanceDetail.evaluate("element => getComputedStyle(element, '::before').content").shouldBe("\"Initial balance\"")
         assertThat(mainCard.getByText("A$0.00")).isVisible()
         assertThat(mainCard.getByText("Default")).isVisible()
@@ -319,6 +323,13 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         val alice = saveUser("alice")
         val groceries = saveCategory(alice, "Groceries")
         saveCategory(alice, "Rent")
+        saveTransaction(
+            alice,
+            saveAccount(alice, "Main", "AUD", 0, isDefault = true),
+            groceries,
+            TransactionType.EXPENSE,
+            1_000,
+        )
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/settings?tab=expense-categories")
@@ -326,7 +337,7 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Expense Categories"))).isVisible()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expense categories"))).isVisible()
         page.shouldEventuallyContainCategoryRows(
-            CategoryRow("Groceries", "Active", "archive merge edit"),
+            CategoryRow("Groceries", "Active", "archive merge edit", "1"),
             CategoryRow("Rent", "Active", "archive merge edit"),
         )
 
@@ -345,7 +356,7 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             "Utilities",
         )
         page.shouldEventuallyContainCategoryRows(
-            CategoryRow("Groceries", "Active", "archive merge edit"),
+            CategoryRow("Groceries", "Active", "archive merge edit", "1"),
             CategoryRow("Rent", "Active", "archive merge edit"),
             CategoryRow("Utilities", "Active", "archive merge edit"),
         )
@@ -360,7 +371,7 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         expenseCategoryRepository.findById(groceries.id!!).get().name.shouldBe("Food")
         page.shouldEventuallyContainCategoryRows(
-            CategoryRow("Food", "Active", "archive merge edit"),
+            CategoryRow("Food", "Active", "archive merge edit", "1"),
             CategoryRow("Rent", "Active", "archive merge edit"),
             CategoryRow("Utilities", "Active", "archive merge edit"),
         )
@@ -392,7 +403,7 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Expense Categories"))).isVisible()
         expenseCategoryRepository.findByIdAndUserId(groceries.id!!, alice.id!!).shouldBe(null)
         transactionRepository.findById(expense.id!!).get().categoryId.shouldBe(food.id)
-        page.shouldEventuallyContainCategoryRows(CategoryRow("Food", "Active", "archive edit"))
+        page.shouldEventuallyContainCategoryRows(CategoryRow("Food", "Active", "archive edit", "1"))
     }
 
     @Test
@@ -461,7 +472,14 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
     fun managesIncomeCategoriesFromSettingsPage(page: Page) {
         val alice = saveUser("alice")
         val salary = saveIncomeCategory(alice, "Salary")
-        saveIncomeCategory(alice, "Interest")
+        val interest = saveIncomeCategory(alice, "Interest")
+        saveTransaction(
+            alice,
+            saveAccount(alice, "Main", "AUD", 0, isDefault = true),
+            interest,
+            TransactionType.INCOME,
+            1_000,
+        )
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/settings?tab=income-categories")
@@ -469,7 +487,7 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Income Categories"))).isVisible()
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Income categories"))).isVisible()
         page.shouldEventuallyContainIncomeCategoryRows(
-            CategoryRow("Interest", "Active", "archive merge edit"),
+            CategoryRow("Interest", "Active", "archive merge edit", "1"),
             CategoryRow("Salary", "Active", "archive merge edit"),
         )
 
@@ -488,8 +506,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             "Salary",
         )
         page.shouldEventuallyContainIncomeCategoryRows(
+            CategoryRow("Interest", "Active", "archive merge edit", "1"),
             CategoryRow("Bonus", "Active", "archive merge edit"),
-            CategoryRow("Interest", "Active", "archive merge edit"),
             CategoryRow("Salary", "Active", "archive merge edit"),
         )
 
@@ -503,8 +521,8 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Budget settings"))).isVisible()
         incomeCategoryRepository.findById(salary.id!!).get().name.shouldBe("Payroll")
         page.shouldEventuallyContainIncomeCategoryRows(
+            CategoryRow("Interest", "Active", "archive merge edit", "1"),
             CategoryRow("Bonus", "Active", "archive merge edit"),
-            CategoryRow("Interest", "Active", "archive merge edit"),
             CategoryRow("Payroll", "Active", "archive merge edit"),
         )
     }
@@ -534,7 +552,7 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TAB, Page.GetByRoleOptions().setName("Income Categories"))).isVisible()
         incomeCategoryRepository.findByIdAndUserId(salary.id!!, alice.id!!).shouldBe(null)
         transactionRepository.findById(income.id!!).get().categoryId.shouldBe(payroll.id)
-        page.shouldEventuallyContainIncomeCategoryRows(CategoryRow("Payroll", "Active", "archive edit"))
+        page.shouldEventuallyContainIncomeCategoryRows(CategoryRow("Payroll", "Active", "archive edit", "1"))
     }
 
     @Test
@@ -693,10 +711,11 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
             AccountRow(
                 name = cells.getOrElse(0) { "" },
                 currency = cells.getOrElse(1) { "" },
-                initialBalance = cells.getOrElse(2) { "" },
-                default = cells.getOrElse(3) { "" },
-                status = cells.getOrElse(4) { "" },
-                action = cells.getOrElse(5) { "" },
+                entries = cells.getOrElse(2) { "" },
+                initialBalance = cells.getOrElse(3) { "" },
+                default = cells.getOrElse(4) { "" },
+                status = cells.getOrElse(5) { "" },
+                action = cells.getOrElse(6) { "" },
             )
         }
     }
@@ -723,8 +742,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         return rows.map { cells ->
             CategoryRow(
                 name = cells.getOrElse(0) { "" },
-                status = cells.getOrElse(1) { "" },
-                action = cells.getOrElse(2) { "" },
+                entries = cells.getOrElse(1) { "" },
+                status = cells.getOrElse(2) { "" },
+                action = cells.getOrElse(3) { "" },
             )
         }
     }
@@ -751,8 +771,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         return rows.map { cells ->
             CategoryRow(
                 name = cells.getOrElse(0) { "" },
-                status = cells.getOrElse(1) { "" },
-                action = cells.getOrElse(2) { "" },
+                entries = cells.getOrElse(1) { "" },
+                status = cells.getOrElse(2) { "" },
+                action = cells.getOrElse(3) { "" },
             )
         }
     }
@@ -779,10 +800,12 @@ private data class AccountRow(
     val default: String,
     val status: String,
     val action: String,
+    val entries: String = "0",
 )
 
 private data class CategoryRow(
     val name: String,
     val status: String,
     val action: String,
+    val entries: String = "0",
 )
