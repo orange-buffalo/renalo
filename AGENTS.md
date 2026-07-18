@@ -87,6 +87,7 @@
 ## Documentation
 
 - User documentation is the Astro Starlight site under `docs/user`; developer references live under `docs/developer`.
+- Every user-facing change must update the relevant user documentation in the same task. When the changed UI appears in the feature tour, also update `DocumentationScreenshotsPlaywrightTest`, regenerate its desktop and mobile screenshots, and replace the corresponding images under `docs/user/src/assets/screenshots`; do not leave documentation or screenshots describing the previous behavior.
 - Keep desktop and mobile feature-tour images under `docs/user/src/assets/screenshots` synchronized with `DocumentationScreenshotsPlaywrightTest` output. Use the shared `ScreenshotPair` component for responsive side-by-side presentation.
 - Verify user documentation from `docs/user` with `bun install --frozen-lockfile`, `bun run check`, and `bun run build`. The static Caddy image is built from `docs/user/Dockerfile` and published separately as `ghcr.io/orange-buffalo/renalo-docs:<version>` for releases.
 

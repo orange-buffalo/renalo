@@ -27,6 +27,7 @@ const incomeTransactionsPageConfig: TransactionsPageConfig = {
   plannedGroupLabel: "Planned incomes",
   rowTestIdPrefix: "income-row",
   deleteDialogDataTestId: "delete-income-overlay",
+  groupingStorageKey: "renalo.incomes.tableGrouping",
 };
 
 export function IncomesPage() {

@@ -332,9 +332,49 @@ input {
 
 .transaction-filter-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 10px;
+}
+
+.transaction-filter-row .date-filter-panel {
+  margin-bottom: 0;
+}
+
+.transaction-filter-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.transaction-group-row {
+  height: 36px;
+  background: #f2f4f7;
+}
+
+.transaction-group-row:hover {
+  background: #f2f4f7;
+}
+
+.transaction-group-row > td {
+  color: #4b5058;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.transaction-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.transaction-group-amounts {
+  flex-shrink: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .transaction-more-filters {
@@ -667,12 +707,12 @@ input {
     justify-content: flex-end;
   }
 
-  .transaction-more-filters-label {
-    display: none;
+  .transaction-filter-actions {
+    align-items: center;
   }
 
-  .transaction-more-filters [aria-label="More filters"] {
-    transform: translateY(-3px);
+  .transaction-more-filters-label {
+    display: none;
   }
 
   .date-filter-control {
@@ -997,6 +1037,31 @@ input {
   .responsive-table tbody [data-mobile-role="actions"] > * {
     width: 100%;
     justify-content: space-evenly;
+  }
+
+  .responsive-table tbody tr.transaction-group-row {
+    display: block;
+    margin-top: 18px;
+    padding: 0 2px 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    cursor: default;
+  }
+
+  .responsive-table tbody tr.transaction-group-row:first-child {
+    margin-top: 0;
+  }
+
+  .responsive-table tbody tr.transaction-group-row + tr {
+    margin-top: 8px;
+  }
+
+  .responsive-table tbody tr.transaction-group-row > td:first-of-type {
+    color: #4b5058;
+    font-size: 0.8125rem;
+    font-weight: 600;
   }
 }
 

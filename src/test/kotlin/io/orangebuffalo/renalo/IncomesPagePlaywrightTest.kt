@@ -323,6 +323,45 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         )
     }
 
+    @Test
+    fun groupsTransactionsAndPersistsEachPageSelectionIndependently(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val usdAccount = saveAccount(alice, "USD account", "USD", isDefault = false)
+        val salary = saveCategory(alice, "Salary")
+        val bonus = saveCategory(alice, "Bonus")
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 123400, "Pay")
+        saveIncome(alice, main, bonus, TestTimeProvider.DEFAULT_DATE.minusDays(1), 25000, "Bonus")
+        saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 4200, "Side project")
+        saveIncome(alice, usdAccount, salary, TestTimeProvider.DEFAULT_DATE, 1000, "USD project")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1200, "Supplies")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/incomes")
+
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Grouping: Group by date"))).isVisible()
+        page.shouldEventuallyContainTransactionGroups("income", "Today 1,276.00 AUD, 10.00 USD", "Yesterday 250.00 AUD")
+
+        selectGrouping(page, "Group by date", "Group by category")
+        page.shouldEventuallyContainTransactionGroups("income", "Salary 1,276.00 AUD, 10.00 USD", "Bonus 250.00 AUD")
+        page.evaluate("window.localStorage.getItem('renalo.incomes.tableGrouping')").shouldBe("category")
+
+        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Expenses")).click()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Grouping: Group by date"))).isVisible()
+        page.shouldEventuallyContainTransactionGroups("expense", "Today 12.00 AUD")
+
+        selectGrouping(page, "Group by date", "Plain list")
+        page.shouldEventuallyContainTransactionGroups("expense")
+        page.reload()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Grouping: Plain list"))).isVisible()
+        page.shouldEventuallyContainTransactionGroups("expense")
+
+        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Incomes")).click()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Grouping: Group by category"))).isVisible()
+        page.shouldEventuallyContainTransactionGroups("income", "Salary 1,276.00 AUD, 10.00 USD", "Bonus 250.00 AUD")
+    }
+
     private fun saveUser(username: String): User = userRepository.save(
         User(
             username = username,
@@ -424,6 +463,20 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             .click()
         dropdownOption(page, option).click()
         page.keyboard().press("Escape")
+    }
+
+    private fun selectGrouping(page: Page, currentGrouping: String, nextGrouping: String) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Grouping: $currentGrouping")).click()
+        page.getByText(nextGrouping, Page.GetByTextOptions().setExact(true)).click()
+    }
+
+    private fun Page.shouldEventuallyContainTransactionGroups(prefix: String, vararg expectedLabels: String) {
+        shouldEventually {
+            val labels = locator("[data-testid^='$prefix-group-']").allInnerTexts().map {
+                it.trim().replace(Regex("\\s+"), " ")
+            }
+            labels.shouldContainExactly(*expectedLabels)
+        }
     }
 
     @Test
