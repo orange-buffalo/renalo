@@ -1,6 +1,7 @@
 import { Plus } from "@untitledui/icons";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { ApiError } from "@/api/client";
 import {
   archiveExpenseCategory,
   type ExpenseCategory,
@@ -62,7 +63,8 @@ export function SettingsPage() {
   const [expenseCategoriesError, setExpenseCategoriesError] =
     useState<string>();
   const [incomeCategoriesError, setIncomeCategoriesError] = useState<string>();
-  const [toshlImportError, setToshlImportError] = useState<string>();
+  const [toshlImportError, setToshlImportError] =
+    useState<ToshlImportFailure>();
   const [isImportingToshl, setIsImportingToshl] = useState(false);
   const [confirmingArchiveAccount, setConfirmingArchiveAccount] =
     useState<TrackingAccount>();
@@ -78,7 +80,9 @@ export function SettingsPage() {
 
   const handleToshlImport = async () => {
     if (!toshlFile) {
-      setToshlImportError("Choose the CSV export from Toshl before importing.");
+      setToshlImportError({
+        summary: "Choose the CSV export from Toshl before importing.",
+      });
       return;
     }
 
@@ -88,10 +92,8 @@ export function SettingsPage() {
     try {
       setToshlResult(await importToshlCsv(await toshlFile.text()));
       setToshlFile(undefined);
-    } catch {
-      setToshlImportError(
-        "Toshl CSV could not be imported. Check the file format and try again.",
-      );
+    } catch (caughtError) {
+      setToshlImportError(toToshlImportFailure(caughtError));
     } finally {
       setIsImportingToshl(false);
     }
@@ -710,7 +712,12 @@ export function SettingsPage() {
 
             {toshlImportError && (
               <Alert tone="error" title="Import failed">
-                <p>{toshlImportError}</p>
+                <p>{toshlImportError.summary}</p>
+                {toshlImportError.details && (
+                  <p>
+                    <strong>Details:</strong> {toshlImportError.details}
+                  </p>
+                )}
               </Alert>
             )}
 
@@ -844,6 +851,30 @@ function formatUnmatchedTransferSummary(result: ToshlImportResult) {
     return "1 transfer row could not be matched.";
   }
   return `${result.warnings.length} transfer rows could not be matched.`;
+}
+
+type ToshlImportFailure = {
+  summary: string;
+  details?: string;
+};
+
+function toToshlImportFailure(caughtError: unknown): ToshlImportFailure {
+  if (!(caughtError instanceof ApiError)) {
+    return {
+      summary:
+        "Toshl CSV could not be imported. Check the file format and try again.",
+    };
+  }
+
+  return {
+    summary:
+      caughtError.status >= 500
+        ? "Toshl CSV could not be imported because the server encountered an error. Check the application logs."
+        : "Toshl CSV could not be imported. Correct the reported problem and try again.",
+    details:
+      caughtError.details ??
+      `HTTP ${caughtError.status}${caughtError.code ? ` (${caughtError.code})` : ""}`,
+  };
 }
 
 function escapeCsvValue(value: string) {

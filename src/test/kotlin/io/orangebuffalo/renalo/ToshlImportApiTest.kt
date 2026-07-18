@@ -652,7 +652,12 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         val alice = saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")
 
-        api().postJson("/api/import/toshl", toshlRequest(""), token).statusCode().shouldBe(400)
+        api().postJson("/api/import/toshl", toshlRequest(""), token).also { response ->
+            response.statusCode().shouldBe(400)
+            response.body().shouldEqualJson(
+                """{"code":"CSV_EMPTY","details":"CSV file is empty"}""",
+            )
+        }
         api().postJson(
             "/api/import/toshl",
             toshlRequest(
@@ -662,7 +667,12 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                 """.trimIndent(),
             ),
             token,
-        ).statusCode().shouldBe(400)
+        ).also { response ->
+            response.statusCode().shouldBe(400)
+            response.body().shouldEqualJson(
+                """{"code":"CSV_INVALID","details":"Line 2 must contain either an expense amount or an income amount"}""",
+            )
+        }
         api().postJson(
             "/api/import/toshl",
             toshlRequest(
@@ -672,7 +682,12 @@ class ToshlImportApiTest : IntegrationTestSupport() {
                 """.trimIndent(),
             ),
             token,
-        ).statusCode().shouldBe(400)
+        ).also { response ->
+            response.statusCode().shouldBe(400)
+            response.body().shouldEqualJson(
+                """{"code":"CSV_INVALID","details":"Line 2 uses unsupported currency 'NOPE'"}""",
+            )
+        }
     }
 
     @Test
@@ -864,12 +879,15 @@ class ToshlImportApiTest : IntegrationTestSupport() {
     @Test
     fun rejectsMalformedOverPreciseOverflowingAndConflictingCurrencyAmountsAtomically() {
         val invalidRows = listOf(
-            "1/6/26,Acc,Food,,12x,0,AUD,12,AUD,Bad number",
-            "1/6/26,Acc,Food,,1.001,0,AUD,1.001,AUD,Too precise",
-            "1/6/26,Acc,Food,,92233720368547758.08,0,AUD,1,AUD,Overflow",
+            "1/6/26,Acc,Food,,12x,0,AUD,12,AUD,Bad number" to
+                "Line 2 has an invalid 'Expense amount' amount",
+            "1/6/26,Acc,Food,,1.001,0,AUD,1.001,AUD,Too precise" to
+                "Line 2 amount does not fit currency 'AUD'",
+            "1/6/26,Acc,Food,,92233720368547758.08,0,AUD,1,AUD,Overflow" to
+                "Line 2 amount does not fit currency 'AUD'",
         )
 
-        invalidRows.forEachIndexed { index, row ->
+        invalidRows.forEachIndexed { index, (row, details) ->
             val alice = saveUser("alice-$index", UserType.USER)
             val response = api().postJson(
                 "/api/import/toshl",
@@ -883,7 +901,9 @@ class ToshlImportApiTest : IntegrationTestSupport() {
             )
 
             response.statusCode().shouldBe(400)
-            response.body().shouldEqualJson("""{"code":"CSV_INVALID"}""")
+            response.body().shouldEqualJson(
+                """{"code":"CSV_INVALID","details":"$details"}""",
+            )
             trackingAccountRepository.findByUserIdOrderByName(alice.id!!).shouldBe(emptyList())
         }
 
@@ -900,7 +920,9 @@ class ToshlImportApiTest : IntegrationTestSupport() {
             api().login("currency-conflict", "password"),
         )
         response.statusCode().shouldBe(400)
-        response.body().shouldEqualJson("""{"code":"CSV_INVALID"}""")
+        response.body().shouldEqualJson(
+            """{"code":"CSV_INVALID","details":"Account 'Mixed' has transactions in multiple currencies"}""",
+        )
         trackingAccountRepository.findByUserIdOrderByName(alice.id!!).shouldBe(emptyList())
         transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE).shouldBe(emptyList())
     }

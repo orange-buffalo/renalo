@@ -20,17 +20,18 @@ class ImportController(
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
         if (request.csvContent.isBlank()) {
-            return HttpResponse.badRequest(ToshlImportErrorResponse("CSV_EMPTY"))
+            return HttpResponse.badRequest(ToshlImportErrorResponse("CSV_EMPTY", "CSV file is empty"))
         }
 
         return try {
             HttpResponse.ok(toshlImportService.import(user.id!!, request.csvContent))
-        } catch (_: ToshlImportException) {
-            HttpResponse.badRequest(ToshlImportErrorResponse("CSV_INVALID"))
+        } catch (exception: ToshlImportException) {
+            HttpResponse.badRequest(ToshlImportErrorResponse("CSV_INVALID", exception.message ?: "CSV file is invalid"))
         }
     }
 }
 
 data class ToshlImportErrorResponse(
     val code: String,
+    val details: String,
 )

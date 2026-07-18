@@ -575,6 +575,31 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByText("Some transfers could not be matched")).not().isVisible()
     }
 
+    @Test
+    fun showsToshlImportFailureDetails(page: Page) {
+        saveUser("alice")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        val csvFile = Files.createTempFile("invalid-toshl-import", ".csv")
+        Files.writeString(
+            csvFile,
+            """
+                Date,Account,Category,Tags,Expense amount,Income amount,Currency,In main currency,Main currency,Description
+                not-a-date,Cash,Food,,12.34,0,AUD,12.34,AUD,Lunch
+            """.trimIndent(),
+        )
+
+        page.navigate(server.url.toString() + "/settings?tab=import")
+        page.locator("input[type='file']").setInputFiles(csvFile)
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Import").setExact(true)).click()
+
+        val importError = page.getByRole(AriaRole.ALERT).filter(Locator.FilterOptions().setHasText("Import failed"))
+        assertThat(importError).containsText(
+            "Toshl CSV could not be imported. Correct the reported problem and try again.",
+        )
+        assertThat(importError).containsText("Details: Line 2 has an invalid date")
+        importError.scrollIntoViewIfNeeded()
+    }
+
     private fun saveUser(username: String): User = userRepository.save(
         User(
             username = username,

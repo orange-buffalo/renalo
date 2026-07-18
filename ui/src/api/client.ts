@@ -6,6 +6,7 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly code?: string,
+    readonly details?: string,
   ) {
     super(message);
   }
@@ -40,10 +41,12 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}) {
       clearAuthToken();
       redirectToLoginForExpiredSession();
     }
+    const errorBody = await readErrorBody(response);
     throw new ApiError(
       "API request failed",
       response.status,
-      await readErrorCode(response),
+      errorBody?.code,
+      errorBody?.details ?? errorBody?.message,
     );
   }
 
@@ -71,15 +74,18 @@ export function redirectToLoginForExpiredSession() {
   window.location.assign(expiredSessionLoginPath);
 }
 
-async function readErrorCode(response: Response) {
+async function readErrorBody(response: Response) {
   const contentType = response.headers.get("Content-Type");
   if (!contentType?.includes("application/json")) {
     return undefined;
   }
 
   try {
-    const body = (await response.json()) as { code?: string };
-    return body.code;
+    return (await response.json()) as {
+      code?: string;
+      details?: string;
+      message?: string;
+    };
   } catch {
     return undefined;
   }
