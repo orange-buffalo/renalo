@@ -5,6 +5,7 @@ import { ApiError } from "@/api/client";
 import {
   archiveExpenseCategory,
   type ExpenseCategory,
+  type ExpenseCategoryOverview,
   fetchExpenseCategories,
   unarchiveExpenseCategory,
 } from "@/api/expenseCategories";
@@ -13,12 +14,14 @@ import {
   archiveIncomeCategory,
   fetchIncomeCategories,
   type IncomeCategory,
+  type IncomeCategoryOverview,
   unarchiveIncomeCategory,
 } from "@/api/incomeCategories";
 import {
   archiveTrackingAccount,
   fetchTrackingAccounts,
   type TrackingAccount,
+  type TrackingAccountOverview,
   unarchiveTrackingAccount,
 } from "@/api/trackingAccounts";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
@@ -53,10 +56,11 @@ export function SettingsPage() {
     requestedTab === "import"
       ? requestedTab
       : "accounts";
-  const [accounts, setAccounts] = useState<TrackingAccount[]>();
+  const [accounts, setAccounts] = useState<TrackingAccountOverview[]>();
   const [expenseCategories, setExpenseCategories] =
-    useState<ExpenseCategory[]>();
-  const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>();
+    useState<ExpenseCategoryOverview[]>();
+  const [incomeCategories, setIncomeCategories] =
+    useState<IncomeCategoryOverview[]>();
   const [toshlFile, setToshlFile] = useState<File>();
   const [toshlResult, setToshlResult] = useState<ToshlImportResult>();
   const [accountsError, setAccountsError] = useState<string>();
@@ -127,7 +131,9 @@ export function SettingsPage() {
       );
       setAccounts((currentAccounts) =>
         currentAccounts?.map((account) =>
-          account.id === archivedAccount.id ? archivedAccount : account,
+          account.id === archivedAccount.id
+            ? { ...account, ...archivedAccount }
+            : account,
         ),
       );
       setConfirmingArchiveAccount(undefined);
@@ -146,7 +152,7 @@ export function SettingsPage() {
       setAccounts((currentAccounts) =>
         currentAccounts?.map((currentAccount) =>
           currentAccount.id === unarchivedAccount.id
-            ? unarchivedAccount
+            ? { ...currentAccount, ...unarchivedAccount }
             : currentAccount,
         ),
       );
@@ -176,7 +182,9 @@ export function SettingsPage() {
         );
         setExpenseCategories((currentCategories) =>
           currentCategories?.map((category) =>
-            category.id === archivedCategory.id ? archivedCategory : category,
+            category.id === archivedCategory.id
+              ? { ...category, ...archivedCategory }
+              : category,
           ),
         );
         setConfirmingArchiveCategory(undefined);
@@ -195,7 +203,9 @@ export function SettingsPage() {
         );
         setIncomeCategories((currentCategories) =>
           currentCategories?.map((category) =>
-            category.id === archivedCategory.id ? archivedCategory : category,
+            category.id === archivedCategory.id
+              ? { ...category, ...archivedCategory }
+              : category,
           ),
         );
         setConfirmingArchiveCategory(undefined);
@@ -217,7 +227,7 @@ export function SettingsPage() {
       setExpenseCategories((currentCategories) =>
         currentCategories?.map((currentCategory) =>
           currentCategory.id === unarchivedCategory.id
-            ? unarchivedCategory
+            ? { ...currentCategory, ...unarchivedCategory }
             : currentCategory,
         ),
       );
@@ -238,7 +248,7 @@ export function SettingsPage() {
       setIncomeCategories((currentCategories) =>
         currentCategories?.map((currentCategory) =>
           currentCategory.id === unarchivedCategory.id
-            ? unarchivedCategory
+            ? { ...currentCategory, ...unarchivedCategory }
             : currentCategory,
         ),
       );
@@ -370,6 +380,7 @@ export function SettingsPage() {
                 <Table.Header>
                   <Table.Head id="name" label="Name" isRowHeader />
                   <Table.Head id="currency" label="Currency" />
+                  <Table.Head id="entries" label="Entries" />
                   <Table.Head id="initialBalance" label="Initial balance" />
                   <Table.Head id="default" label="Default" />
                   <Table.Head id="status" label="Status" />
@@ -389,6 +400,9 @@ export function SettingsPage() {
                     >
                       <Table.Cell>{account.name}</Table.Cell>
                       <Table.Cell>{account.currency}</Table.Cell>
+                      <Table.Cell mobileLabel="Entries">
+                        {account.entriesCount}
+                      </Table.Cell>
                       <Table.Cell mobileLabel="Initial balance">
                         {formatMoney(
                           account.initialBalanceMinor,
@@ -485,6 +499,7 @@ export function SettingsPage() {
               <Table aria-label="Expense categories" size="sm">
                 <Table.Header>
                   <Table.Head id="name" label="Name" isRowHeader />
+                  <Table.Head id="entries" label="Entries" />
                   <Table.Head id="status" label="Status" />
                   <Table.Head
                     id="actions"
@@ -501,6 +516,9 @@ export function SettingsPage() {
                       data-testid={`expense-category-row-${category.id}`}
                     >
                       <Table.Cell>{category.name}</Table.Cell>
+                      <Table.Cell mobileLabel="Entries">
+                        {category.entriesCount}
+                      </Table.Cell>
                       <Table.Cell mobileLabel="Status">
                         <BadgeWithDot
                           color={category.archived ? "gray" : "success"}
@@ -590,6 +608,7 @@ export function SettingsPage() {
               <Table aria-label="Income categories" size="sm">
                 <Table.Header>
                   <Table.Head id="name" label="Name" isRowHeader />
+                  <Table.Head id="entries" label="Entries" />
                   <Table.Head id="status" label="Status" />
                   <Table.Head
                     id="actions"
@@ -606,6 +625,9 @@ export function SettingsPage() {
                       data-testid={`income-category-row-${category.id}`}
                     >
                       <Table.Cell>{category.name}</Table.Cell>
+                      <Table.Cell mobileLabel="Entries">
+                        {category.entriesCount}
+                      </Table.Cell>
                       <Table.Cell mobileLabel="Status">
                         <BadgeWithDot
                           color={category.archived ? "gray" : "success"}

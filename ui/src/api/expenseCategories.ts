@@ -6,6 +6,10 @@ export type ExpenseCategory = {
   archived: boolean;
 };
 
+export type ExpenseCategoryOverview = ExpenseCategory & {
+  entriesCount: number;
+};
+
 export type SaveExpenseCategory = {
   name: string;
 };
@@ -20,7 +24,7 @@ export function fetchExpenseCategories(options?: {
   includeArchived?: boolean;
 }) {
   const query = options?.includeArchived ? "?includeArchived=true" : "";
-  return apiRequest<ExpenseCategory[]>(
+  return apiRequest<ExpenseCategoryOverview[]>(
     `/api/tracking/expense-categories${query}`,
   );
 }

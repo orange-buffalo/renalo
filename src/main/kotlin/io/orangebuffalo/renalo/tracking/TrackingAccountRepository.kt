@@ -1,9 +1,16 @@
 package io.orangebuffalo.renalo.tracking
 
+import io.micronaut.core.annotation.Introspected
 import io.micronaut.data.annotation.Query
 import io.micronaut.data.jdbc.annotation.JdbcRepository
 import io.micronaut.data.model.query.builder.sql.Dialect
 import io.micronaut.data.repository.CrudRepository
+
+@Introspected
+data class TrackingAccountUsage(
+    val accountId: Long,
+    val entriesCount: Long,
+)
 
 @JdbcRepository(dialect = Dialect.POSTGRES)
 interface TrackingAccountRepository : CrudRepository<TrackingAccount, Long> {
@@ -19,4 +26,29 @@ interface TrackingAccountRepository : CrudRepository<TrackingAccount, Long> {
 
     @Query("UPDATE tracking_accounts SET is_default = FALSE WHERE user_id = :userId")
     fun clearDefaultForUser(userId: Long)
+
+    @Query(
+        """
+            SELECT account_id, COUNT(*) AS entries_count
+            FROM (
+                SELECT tracking_account_id AS account_id
+                FROM transactions
+                WHERE user_id = :userId
+                UNION ALL
+                SELECT source_account_id AS account_id
+                FROM funds_transfers
+                WHERE user_id = :userId
+                UNION ALL
+                SELECT target_account_id AS account_id
+                FROM funds_transfers
+                WHERE user_id = :userId
+                UNION ALL
+                SELECT tracking_account_id AS account_id
+                FROM account_adjustments
+                WHERE user_id = :userId
+            ) account_entries
+            GROUP BY account_id
+        """,
+    )
+    fun findUsage(userId: Long): List<TrackingAccountUsage>
 }

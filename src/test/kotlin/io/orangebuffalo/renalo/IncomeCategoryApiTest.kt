@@ -66,7 +66,12 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
         val bob = saveUser("bob", UserType.USER)
         val salary = saveCategory(alice, "Salary")
         val interest = saveCategory(alice, "Interest")
-        saveCategory(bob, "Bob category")
+        val bobCategory = saveCategory(bob, "Bob category")
+        val aliceAccount = saveAccount(alice)
+        saveTransaction(alice, aliceAccount, interest, TransactionType.INCOME, 1_000)
+        saveTransaction(alice, aliceAccount, interest, TransactionType.INCOME, 2_000)
+        saveTransaction(alice, aliceAccount, saveExpenseCategory(alice), TransactionType.EXPENSE, 3_000)
+        saveTransaction(bob, saveAccount(bob), bobCategory, TransactionType.INCOME, 4_000)
 
         val response = api().get("/api/tracking/income-categories", api().login("alice", "password"))
 
@@ -77,12 +82,14 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
                   {
                     "id": ${interest.id},
                     "name": "Interest",
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 2
                   },
                   {
                     "id": ${salary.id},
                     "name": "Salary",
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 0
                   }
                 ]
             """.trimIndent(),
@@ -106,7 +113,8 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
                   {
                     "id": ${salary.id},
                     "name": "Salary",
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 0
                   }
                 ]
             """.trimIndent(),
@@ -118,12 +126,14 @@ class IncomeCategoryApiTest : IntegrationTestSupport() {
                   {
                     "id": ${oldCategory.id},
                     "name": "Old",
-                    "archived": true
+                    "archived": true,
+                    "entriesCount": 0
                   },
                   {
                     "id": ${salary.id},
                     "name": "Salary",
-                    "archived": false
+                    "archived": false,
+                    "entriesCount": 0
                   }
                 ]
             """.trimIndent(),
