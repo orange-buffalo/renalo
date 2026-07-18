@@ -17,10 +17,6 @@ import { Button } from "@/components/untitled/base/buttons/button";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { formatMoney } from "@/utils/money";
 
-const currentMonthName = new Intl.DateTimeFormat(undefined, {
-  month: "long",
-}).format(new Date());
-
 export function TrackingPage() {
   const navigate = useNavigate();
   const [accountSummaries, setAccountSummaries] = useState<
@@ -28,7 +24,6 @@ export function TrackingPage() {
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
-
   useEffect(() => {
     let isActive = true;
 
@@ -144,6 +139,10 @@ function DashboardQuickAddButton({
 }
 
 function AccountSummaryCard({ summary }: { summary: AccountDashboardSummary }) {
+  const currentMonthName = new Intl.DateTimeFormat(undefined, {
+    month: "long",
+  }).format(new Date());
+
   return (
     <article
       className="dashboard-account-card"

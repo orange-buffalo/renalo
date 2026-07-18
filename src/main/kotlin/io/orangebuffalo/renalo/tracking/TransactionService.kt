@@ -86,13 +86,18 @@ open class TransactionService(
         transactionRepository.findByIdAndUserIdAndType(transactionId, userId, type)?.toDetails(userId, type)
 
     @Transactional
-    open fun createTransaction(userId: Long, type: TransactionType, request: SaveTransactionRequest): SaveTransactionResult {
+    open fun createTransaction(
+        userId: Long,
+        type: TransactionType,
+        request: SaveTransactionRequest,
+        currentDate: LocalDate,
+    ): SaveTransactionResult {
         val recurrence = request.recurrence
         return if (recurrence == null) {
             saveTransaction(userId, type, null, request)?.let { SaveTransactionResult.Saved(it) }
                 ?: SaveTransactionResult.BadRequest
         } else {
-            createRecurringTransaction(userId, type, request, recurrence)
+            createRecurringTransaction(userId, type, request, recurrence, currentDate)
         }
     }
 
@@ -102,12 +107,13 @@ open class TransactionService(
         type: TransactionType,
         transactionId: Long,
         request: SaveTransactionRequest,
+        currentDate: LocalDate,
     ): SaveTransactionResult {
         val existingTransaction = transactionRepository.findByIdAndUserIdAndType(transactionId, userId, type)
             ?: return SaveTransactionResult.BadRequest
 
         if (existingTransaction.recurringRuleId != null) {
-            return updateRecurringTransaction(userId, type, existingTransaction, request)
+            return updateRecurringTransaction(userId, type, existingTransaction, request, currentDate)
         }
 
         return saveTransaction(userId, type, existingTransaction, request)?.let { SaveTransactionResult.Saved(it) }
@@ -215,6 +221,7 @@ open class TransactionService(
         type: TransactionType,
         request: SaveTransactionRequest,
         recurrence: SaveTransactionRecurrenceRequest,
+        currentDate: LocalDate,
     ): SaveTransactionResult {
         if (request.amountMinor <= 0 || recurrence.frequency <= 0 || recurrence.endDate?.isBefore(request.date) == true) {
             return SaveTransactionResult.BadRequest
@@ -240,7 +247,7 @@ open class TransactionService(
             ),
         )
 
-        recurringTransactionGenerationService.generateForRule(rule)
+        recurringTransactionGenerationService.generateForRule(rule, currentDate)
         val firstTransaction = transactionRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, request.date)
             ?: error("Recurring transaction generation did not create the first occurrence for rule ${rule.id}")
 
@@ -252,6 +259,7 @@ open class TransactionService(
         type: TransactionType,
         existingTransaction: Transaction,
         request: SaveTransactionRequest,
+        currentDate: LocalDate,
     ): SaveTransactionResult {
         val scope = request.recurringEditScope ?: return SaveTransactionResult.BadRequest
         val rule = recurringTransactionRuleRepository.findByIdAndUserIdAndTransactionType(
@@ -299,7 +307,7 @@ open class TransactionService(
                 )
                 recurringTransactionRuleRepository.update(rule.copy(endDate = instanceDate.minusDays(1)))
                 reassignFollowingTransactionsToNewRule(rule.id!!, newRule, instanceDate, request.amountMinor, notes, existingTransaction.id!!)
-                recurringTransactionGenerationService.generateForRule(newRule)
+                recurringTransactionGenerationService.generateForRule(newRule, currentDate)
                 val savedTransaction = transactionRepository.findById(existingTransaction.id!!).orElseThrow()
                 SaveTransactionResult.Saved(TransactionDetails(savedTransaction, account, category, newRule))
             }

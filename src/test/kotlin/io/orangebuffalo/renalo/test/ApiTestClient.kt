@@ -34,18 +34,20 @@ class ApiTestClient(
         return match!!.groupValues[1]
     }
 
-    fun get(path: String, token: String?): HttpResponse<String> {
+    fun get(path: String, token: String?, timeZone: String? = null): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI.create(server.url.toString() + path)).GET()
+        addTimeZone(builder, timeZone)
         if (token != null) {
             builder.header("Authorization", "Bearer $token")
         }
         return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
     }
 
-    fun postJson(path: String, body: String, token: String?): HttpResponse<String> {
+    fun postJson(path: String, body: String, token: String?, timeZone: String? = null): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI.create(server.url.toString() + path))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body))
+        addTimeZone(builder, timeZone)
         if (token != null) {
             builder.header("Authorization", "Bearer $token")
         }
@@ -76,10 +78,11 @@ class ApiTestClient(
         return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
     }
 
-    fun patchJson(path: String, body: String, token: String?): HttpResponse<String> {
+    fun patchJson(path: String, body: String, token: String?, timeZone: String? = null): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI.create(server.url.toString() + path))
             .header("Content-Type", "application/json")
             .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
+        addTimeZone(builder, timeZone)
         if (token != null) {
             builder.header("Authorization", "Bearer $token")
         }
@@ -106,5 +109,11 @@ class ApiTestClient(
 
     companion object {
         private val tokenRegex = Regex("\"token\"\\s*:\\s*\"([^\"]+)\"")
+    }
+
+    private fun addTimeZone(builder: HttpRequest.Builder, timeZone: String?) {
+        if (timeZone != null) {
+            builder.header("X-Time-Zone", timeZone)
+        }
     }
 }

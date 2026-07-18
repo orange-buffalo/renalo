@@ -512,6 +512,7 @@ class ExpenseApiTest : IntegrationTestSupport() {
                         endDate = endDate?.toString(),
                     ),
                     token,
+                    "Pacific/Honolulu",
                 ).statusCode().shouldBe(201)
 
                 val rule = recurringExpenseRuleRepository.findAll().single { it.id !in existingRuleIds }
@@ -520,12 +521,13 @@ class ExpenseApiTest : IntegrationTestSupport() {
                 val generatedDates = expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
                     .map { it.recurringInstanceDate }
                 if (endDate == null) {
+                    rule.generatedUntil.shouldBe(TestTimeProvider.DEFAULT_DATE.minusDays(1).plusMonths(12))
                     generatedDates.take(3).shouldContainExactly(
                         startDate,
                         startDate.plusWeeks(1),
                         startDate.plusWeeks(2),
                     )
-                    generatedDates.last()!!.isAfter(TestTimeProvider.DEFAULT_DATE.plusYears(1)).shouldBe(false)
+                    generatedDates.last()!!.isAfter(TestTimeProvider.DEFAULT_DATE.minusDays(1).plusYears(1)).shouldBe(false)
                 } else {
                     generatedDates.shouldContainExactly(
                         startDate,

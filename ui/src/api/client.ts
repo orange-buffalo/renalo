@@ -27,6 +27,10 @@ export function clearAuthToken() {
 export async function apiRequest<T>(path: string, options: RequestInit = {}) {
   const token = getAuthToken();
   const headers = new Headers(options.headers);
+  headers.set(
+    "X-Time-Zone",
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  );
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }

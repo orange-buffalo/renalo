@@ -5,6 +5,7 @@ import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Delete
 import io.micronaut.http.annotation.Get
+import io.micronaut.http.annotation.Header
 import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
 import io.micronaut.http.annotation.QueryValue
@@ -13,6 +14,9 @@ import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
 import io.orangebuffalo.renalo.recurrence.RecurrenceDescriptionFormatter
 import io.orangebuffalo.renalo.recurrence.RecurrenceSchedule
+import io.orangebuffalo.renalo.time.CLIENT_TIME_ZONE_HEADER
+import io.orangebuffalo.renalo.time.TimeProvider
+import io.orangebuffalo.renalo.time.parseClientTimeZone
 import io.orangebuffalo.renalo.user.UserRepository
 import java.time.LocalDate
 
@@ -21,6 +25,7 @@ import java.time.LocalDate
 class TransactionController(
     private val userRepository: UserRepository,
     private val transactionService: TransactionService,
+    private val timeProvider: TimeProvider,
 ) {
     @Get("/{type}")
     fun listTransactions(
@@ -73,11 +78,15 @@ class TransactionController(
         type: TransactionType,
         authentication: Authentication,
         @Body request: SaveTransactionRequest,
+        @Header(CLIENT_TIME_ZONE_HEADER) timeZone: String?,
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
+        val clientTimeZone = parseClientTimeZone(timeZone) ?: return HttpResponse.badRequest<Any>()
 
-        return when (val result = transactionService.createTransaction(user.id!!, type, request)) {
+        return when (
+            val result = transactionService.createTransaction(user.id!!, type, request, timeProvider.today(clientTimeZone))
+        ) {
             is SaveTransactionResult.Saved -> HttpResponse.created(result.transaction.toResponse())
             SaveTransactionResult.BadRequest -> HttpResponse.badRequest<Any>()
         }
@@ -89,16 +98,19 @@ class TransactionController(
         transactionId: Long,
         authentication: Authentication,
         @Body request: SaveTransactionRequest,
+        @Header(CLIENT_TIME_ZONE_HEADER) timeZone: String?,
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
         val existingTransaction = transactionService.findTransaction(user.id!!, type, transactionId)
             ?: return HttpResponse.notFound<Any>()
+        val clientTimeZone = parseClientTimeZone(timeZone) ?: return HttpResponse.badRequest<Any>()
         return when (val result = transactionService.updateTransaction(
             user.id!!,
             type,
             existingTransaction.transaction.id!!,
             request,
+            timeProvider.today(clientTimeZone),
         )) {
             is SaveTransactionResult.Saved -> HttpResponse.ok(result.transaction.toResponse())
             SaveTransactionResult.BadRequest -> HttpResponse.badRequest<Any>()

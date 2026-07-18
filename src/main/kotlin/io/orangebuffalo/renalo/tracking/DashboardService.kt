@@ -1,6 +1,5 @@
 package io.orangebuffalo.renalo.tracking
 
-import io.orangebuffalo.renalo.time.TimeProvider
 import jakarta.inject.Singleton
 import java.time.LocalDate
 import java.time.YearMonth
@@ -11,16 +10,14 @@ class DashboardService(
     private val transactionRepository: TransactionRepository,
     private val fundsTransferRepository: FundsTransferRepository,
     private val accountAdjustmentRepository: AccountAdjustmentRepository,
-    private val timeProvider: TimeProvider,
 ) {
-    fun getAccountSummaries(userId: Long): List<AccountDashboardSummary> {
+    fun getAccountSummaries(userId: Long, currentDate: LocalDate): List<AccountDashboardSummary> {
         val accounts = trackingAccountRepository.findByUserIdAndArchivedFalseOrderByName(userId)
         if (accounts.isEmpty()) {
             return emptyList()
         }
 
-        val today = timeProvider.today()
-        val currentMonth = YearMonth.from(today)
+        val currentMonth = YearMonth.from(currentDate)
         val summaries = accounts.associate { account ->
             val accountId = account.id ?: error("Tracking account must be persisted before dashboard summary can be built")
             accountId to MutableAccountDashboardSummary(
@@ -33,10 +30,10 @@ class DashboardService(
             .forEach { transaction ->
                 summaries[transaction.trackingAccountId]?.apply {
                     recordActivity(transaction.date)
-                    if (!transaction.date.isAfter(today)) {
+                    if (!transaction.date.isAfter(currentDate)) {
                         totalBalanceMinor = FinancialMath.add(totalBalanceMinor, transaction.amountMinor)
                     }
-                    if (transaction.date.isIn(currentMonth) && !transaction.date.isAfter(today)) {
+                    if (transaction.date.isIn(currentMonth) && !transaction.date.isAfter(currentDate)) {
                         currentMonthInflowMinor = FinancialMath.add(currentMonthInflowMinor, transaction.amountMinor)
                     }
                 }
@@ -46,10 +43,10 @@ class DashboardService(
             .forEach { transaction ->
                 summaries[transaction.trackingAccountId]?.apply {
                     recordActivity(transaction.date)
-                    if (!transaction.date.isAfter(today)) {
+                    if (!transaction.date.isAfter(currentDate)) {
                         totalBalanceMinor = FinancialMath.subtract(totalBalanceMinor, transaction.amountMinor)
                     }
-                    if (transaction.date.isIn(currentMonth) && !transaction.date.isAfter(today)) {
+                    if (transaction.date.isIn(currentMonth) && !transaction.date.isAfter(currentDate)) {
                         currentMonthOutflowMinor = FinancialMath.add(currentMonthOutflowMinor, transaction.amountMinor)
                     }
                 }
@@ -59,19 +56,19 @@ class DashboardService(
             .forEach { transfer ->
                 summaries[transfer.sourceAccountId]?.apply {
                     recordActivity(transfer.date)
-                    if (!transfer.date.isAfter(today)) {
+                    if (!transfer.date.isAfter(currentDate)) {
                         totalBalanceMinor = FinancialMath.subtract(totalBalanceMinor, transfer.sourceAmountMinor)
                     }
-                    if (transfer.date.isIn(currentMonth) && !transfer.date.isAfter(today)) {
+                    if (transfer.date.isIn(currentMonth) && !transfer.date.isAfter(currentDate)) {
                         currentMonthOutflowMinor = FinancialMath.add(currentMonthOutflowMinor, transfer.sourceAmountMinor)
                     }
                 }
                 summaries[transfer.targetAccountId]?.apply {
                     recordActivity(transfer.date)
-                    if (!transfer.date.isAfter(today)) {
+                    if (!transfer.date.isAfter(currentDate)) {
                         totalBalanceMinor = FinancialMath.add(totalBalanceMinor, transfer.targetAmountMinor)
                     }
-                    if (transfer.date.isIn(currentMonth) && !transfer.date.isAfter(today)) {
+                    if (transfer.date.isIn(currentMonth) && !transfer.date.isAfter(currentDate)) {
                         currentMonthInflowMinor = FinancialMath.add(currentMonthInflowMinor, transfer.targetAmountMinor)
                     }
                 }
@@ -80,7 +77,7 @@ class DashboardService(
         accountAdjustmentRepository.findByUserId(userId)
             .forEach { adjustment ->
                 summaries[adjustment.trackingAccountId]?.apply {
-                    if (!adjustment.date.isAfter(today)) {
+                    if (!adjustment.date.isAfter(currentDate)) {
                         totalBalanceMinor = FinancialMath.add(totalBalanceMinor, adjustment.adjustmentAmountMinor)
                     }
                 }
