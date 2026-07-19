@@ -18,6 +18,10 @@ data class Transaction(
     val categoryId: Long,
     val date: LocalDate,
     val amountMinor: Long,
+    val defaultCurrencyAmountMinor: Long? = null,
+    val defaultCurrency: String? = null,
+    val defaultCurrencyConversionSource: DefaultCurrencyConversionSource = DefaultCurrencyConversionSource.UNAVAILABLE,
+    val defaultCurrencyConversionTransferId: Long? = null,
     val notes: String? = null,
     @field:TypeDef(type = DataType.JSON)
     val metadata: Map<String, String>? = null,
@@ -29,4 +33,10 @@ data class Transaction(
 enum class TransactionType {
     INCOME,
     EXPENSE,
+}
+
+enum class DefaultCurrencyConversionSource {
+    SAME_CURRENCY,
+    ACTUAL_TRANSFER,
+    UNAVAILABLE,
 }

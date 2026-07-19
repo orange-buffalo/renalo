@@ -12,6 +12,7 @@ open class RecurringTransactionGenerationService(
     private val recurringTransactionRuleRepository: RecurringTransactionRuleRepository,
     private val recurringTransactionSkipRepository: RecurringTransactionSkipRepository,
     private val transactionRepository: TransactionRepository,
+    private val transactionDefaultCurrencyService: TransactionDefaultCurrencyService,
     private val timeProvider: TimeProvider,
 ) {
     fun generateForActiveRules(): RecurringTransactionGenerationSummary {
@@ -63,6 +64,7 @@ open class RecurringTransactionGenerationService(
                 lastGeneratedAt = timeProvider.now(),
             ),
         )
+        transactionDefaultCurrencyService.recalculateForUser(rule.userId)
 
         return RecurringTransactionGenerationResult(
             ruleId = rule.id,

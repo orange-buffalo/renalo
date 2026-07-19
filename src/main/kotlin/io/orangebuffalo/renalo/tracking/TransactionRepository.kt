@@ -18,6 +18,8 @@ data class CategoryUsage(
 interface TransactionRepository : CrudRepository<Transaction, Long> {
     fun findByUserIdAndTypeOrderByDateDesc(userId: Long, type: TransactionType): List<Transaction>
 
+    fun findByUserIdOrderByDateAsc(userId: Long): List<Transaction>
+
     fun findByUserIdAndTypeAndDateBetweenOrderByDateDesc(
         userId: Long,
         type: TransactionType,

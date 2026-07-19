@@ -17,6 +17,7 @@ open class ToshlImportService(
     private val transactionRepository: TransactionRepository,
     private val fundsTransferRepository: FundsTransferRepository,
     private val accountAdjustmentRepository: AccountAdjustmentRepository,
+    private val transactionDefaultCurrencyService: TransactionDefaultCurrencyService,
 ) {
     @Transactional
     open fun import(userId: Long, csvContent: String): ToshlImportResult {
@@ -50,6 +51,7 @@ open class ToshlImportService(
             report += row.toReportEntry("UNMATCHED_TRANSFER", "Transfer row could not be matched with its opposite side.")
         }
         val warningRows = unreconciledTransfers + transferImportResult.unmatchedRows
+        transactionDefaultCurrencyService.recalculateForUser(userId)
 
         return ToshlImportResult(
             importedExpenses = report.count { it.status == "IMPORTED" && it.reason == "Imported as expense." },

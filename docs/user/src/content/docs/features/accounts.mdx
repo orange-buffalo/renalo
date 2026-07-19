@@ -21,7 +21,11 @@ Changing an existing account's currency **relabels stored amounts; it does not c
 
 ## Default and archived accounts
 
-Exactly one active account is the default used by new forms. Archiving hides an account from the dashboard, forms, and filters while preserving all history. Unarchive it from Budget settings when needed.
+Exactly one account is the default used by new forms. Its currency is also the comparison currency for transaction analytics. When you nominate an account with another currency as the default, Renalo recalculates the comparison value of your complete income and expense history.
+
+The comparison value is separate from each transaction's original amount and does not change account balances. Same-currency transactions keep the same minor-unit amount. Foreign transactions use evidence from your actual cross-currency transfers when available; if there is no matching transfer, Renalo leaves the comparison value unavailable rather than guessing from an external market rate.
+
+Archiving hides an account from the dashboard, forms, and filters while preserving all history. Unarchive it from Budget settings when needed.
 
 ## Merge duplicate accounts
 

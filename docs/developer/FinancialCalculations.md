@@ -10,7 +10,7 @@ Unless a section says otherwise:
 - For browser-driven APIs, "current" means as of the date of the shared current instant in the browser's IANA timezone, inclusive. The browser sends this zone in `X-Time-Zone`; missing headers fall back to UTC and invalid zone IDs are rejected.
 - Future-dated financial records do not affect a current balance.
 - Monetary integer arithmetic must be exact. Overflow or underflow must fail; it must never wrap to another value.
-- Amounts in different currencies are never summed into one total.
+- Raw account balances and currency-grouped totals never sum amounts from different currencies. Transaction analytics may use the default-currency projection defined in section 19.
 
 ## 1. Currency Precision, Formatting, and Input
 
@@ -157,7 +157,7 @@ AUD account: -AUD 100.00
 JPY account: +JPY 9,500
 ```
 
-The two integers are not directly comparable and are never combined.
+The two integers are not directly comparable as raw amounts and are never combined in account balances. Their ratio can provide actual-transfer evidence for the default-currency transaction projection defined in section 19.
 
 ### Edge cases
 
@@ -659,3 +659,87 @@ Long.MIN_VALUE - 1 = error
 - `FinancialMathTest`
 - overflow-related parser tests in `ui/src/utils/money.test.ts`
 - Toshl out-of-range tests in `ToshlImportApiTest`
+
+## 19. Transaction Values in the Default Currency
+
+### Business rules
+
+Every income and expense has a persisted, rebuildable projection into the currency of the user's current default account. This projection supports future analytics; it does not change the transaction's original account, amount, currency, or balance effect.
+
+The transaction stores:
+
+- the projected default-currency minor-unit amount, which is nullable;
+- the current default currency code;
+- a source of `SAME_CURRENCY`, `ACTUAL_TRANSFER`, or `UNAVAILABLE`;
+- the selected transfer ID when the source is `ACTUAL_TRANSFER`.
+
+For a transaction whose account currency matches the current default currency:
+
+```text
+defaultCurrencyAmountMinor = amountMinor
+source = SAME_CURRENCY
+```
+
+For a foreign-currency transaction, only direct transfer evidence between that foreign currency and the current default currency is eligible. The persisted transfer-side amounts are authoritative. No standalone market rate is persisted.
+
+Eligible transfers are ranked deterministically in this order:
+
+1. Expected cash-flow direction and date side. Income prefers foreign-to-default transfers on or after the income date. Expense prefers default-to-foreign transfers on or before the expense date. Expected-direction transfers on the other date side rank next, followed by opposite-direction transfers.
+2. A transfer using the transaction's foreign account.
+3. A transfer whose foreign-side amount exactly equals the transaction amount.
+4. Smallest absolute date distance from the transaction.
+5. Lowest transfer ID.
+
+This prioritizes actual cash flow. In particular, foreign income followed by an exact transfer into the default currency receives exactly the transfer's default-side value.
+
+The selected transfer converts minor units as follows:
+
+```text
+projected = roundHalfUp(
+    transaction foreign minor × transfer default minor
+    / transfer foreign minor
+)
+```
+
+The calculation uses arbitrary-precision integers, rounds to the nearest default-currency minor unit with positive half ties upward, and then converts exactly to `Long`. A projected value can be zero when the result is below half of one default-currency minor unit. A result outside the `Long` range fails instead of wrapping.
+
+If no direct transfer evidence exists:
+
+```text
+defaultCurrencyAmountMinor = null
+source = UNAVAILABLE
+```
+
+Renalo does not currently call an external exchange-rate provider as a fallback. Making transaction writes depend on a free unauthenticated service would introduce availability, currency-coverage, and historical-rate revision risks. `UNAVAILABLE` keeps the missing evidence explicit and leaves room for a later persisted fallback with defined provenance.
+
+The fields are a cache, not an immutable historical quote. The user's complete transaction history is restated under current account currencies and the current default currency after relevant writes, including transaction create/update, transfer create/update/delete, account create/update/merge, recurring generation, and Toshl import. Startup also rebuilds regular-user projections so migrated or interrupted data converges. Changing an account currency therefore follows section 10: linked integers are first reinterpreted under the new current currency, then projections are rebuilt.
+
+### Examples
+
+A USD income stores `10000`. Two days later, the user transfers exactly USD `10000` into an AUD account and receives AUD `15789`:
+
+```text
+projected = 10000 × 15789 / 10000 = 15789 AUD minor units
+source = ACTUAL_TRANSFER
+```
+
+An expense of USD `3000` is funded one day earlier by a transfer of AUD `6000` that delivers USD `3000`:
+
+```text
+projected = 3000 × 6000 / 3000 = 6000 AUD minor units
+```
+
+### Edge cases
+
+- Transfer evidence can come from another account in the same foreign currency, but same-account evidence ranks first within the same flow rank.
+- Account and default-currency changes restate all history rather than preserving values in the previous default currency.
+- Deleting the selected transfer may select another eligible transfer or make the value unavailable.
+- Imported ordinary Toshl `main amount` values are not market-rate fallback evidence. Reconciled imported transfers participate like manually created transfers.
+- Dashboard balances and existing currency-grouped totals continue to use original account amounts; they do not consume this projection.
+
+### Coverage
+
+- `TransactionDefaultCurrencyServiceTest`
+- valuation write hooks in `ExpenseApiTest`, `FundsTransferApiTest`, and `TrackingAccountApiTest`
+- recurring generation in `RecurringExpenseGenerationServiceTest`
+- Toshl import in `ToshlImportApiTest`

@@ -24,3 +24,5 @@ Enter the actual amount leaving the source and arriving at the target. The excha
 <ScreenshotPair desktop={formDesktop} mobile={formMobile} alt="Cross-currency transfer form" />
 
 The displayed rate means one source-currency unit equals the shown target-currency amount. Renalo rounds the derived target to the target currency's smallest unit and rejects unsafe values rather than silently losing precision.
+
+Renalo also uses those authoritative transfer amounts as evidence when representing foreign-currency income and expenses in your default account's currency for analytics. For example, if foreign income is later transferred in full to the default currency, its comparison value is the amount that actually arrived. Renalo does not substitute an external average market rate when there is no matching transfer.

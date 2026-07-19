@@ -11,6 +11,7 @@ open class TrackingAccountService(
     private val fundsTransferRepository: FundsTransferRepository,
     private val accountAdjustmentRepository: AccountAdjustmentRepository,
     private val recurringTransactionRuleRepository: RecurringTransactionRuleRepository,
+    private val transactionDefaultCurrencyService: TransactionDefaultCurrencyService,
 ) {
     @Transactional
     open fun createDefaultAccountForUser(userId: Long): TrackingAccount {
@@ -18,7 +19,7 @@ open class TrackingAccountService(
             return trackingAccountRepository.findByUserIdOrderByName(userId).first()
         }
 
-        return trackingAccountRepository.save(
+        val account = trackingAccountRepository.save(
             TrackingAccount(
                 userId = userId,
                 name = "Main",
@@ -27,6 +28,8 @@ open class TrackingAccountService(
                 isDefault = true,
             ),
         )
+        transactionDefaultCurrencyService.recalculateForUser(userId)
+        return account
     }
 
     fun listAccounts(userId: Long, includeArchived: Boolean): List<TrackingAccountOverview> {
@@ -81,7 +84,7 @@ open class TrackingAccountService(
             trackingAccountRepository.clearDefaultForUser(userId)
         }
 
-        return trackingAccountRepository.save(
+        val account = trackingAccountRepository.save(
             TrackingAccount(
                 userId = userId,
                 name = name,
@@ -91,6 +94,8 @@ open class TrackingAccountService(
                 archived = false,
             ),
         )
+        transactionDefaultCurrencyService.recalculateForUser(userId)
+        return account
     }
 
     @Transactional
@@ -108,7 +113,7 @@ open class TrackingAccountService(
             trackingAccountRepository.clearDefaultForUser(userId)
         }
 
-        return trackingAccountRepository.update(
+        val updatedAccount = trackingAccountRepository.update(
             account.copy(
                 name = name,
                 currency = currency,
@@ -116,6 +121,8 @@ open class TrackingAccountService(
                 isDefault = shouldBeDefault,
             ),
         )
+        transactionDefaultCurrencyService.recalculateForUser(userId)
+        return updatedAccount
     }
 
     @Transactional
@@ -179,6 +186,7 @@ open class TrackingAccountService(
         fundsTransferRepository.reassignSourceAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         fundsTransferRepository.reassignTargetAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         trackingAccountRepository.deleteByIdAndUserId(persistedSourceAccountId, userId)
+        transactionDefaultCurrencyService.recalculateForUser(userId)
 
         return TrackingAccountMergeResult.MERGED
     }

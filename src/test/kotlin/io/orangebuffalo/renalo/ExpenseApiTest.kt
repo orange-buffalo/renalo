@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
 import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.tracking.Transaction
 import io.orangebuffalo.renalo.tracking.TransactionType
@@ -302,6 +303,10 @@ class ExpenseApiTest : IntegrationTestSupport() {
 
         createResponse.statusCode().shouldBe(201)
         val expense = expenseRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE).single()
+        expense.defaultCurrencyAmountMinor.shouldBe(1_234)
+        expense.defaultCurrency.shouldBe("AUD")
+        expense.defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+        expense.defaultCurrencyConversionTransferId.shouldBe(null)
         createResponse.body().shouldEqualJson(
             """
                 {
@@ -347,7 +352,13 @@ class ExpenseApiTest : IntegrationTestSupport() {
                 }
             """.trimIndent(),
         )
-        expenseRepository.findById(expense.id!!).get().trackingAccountId.shouldBe(savings.id)
+        expenseRepository.findById(expense.id!!).get().apply {
+            trackingAccountId.shouldBe(savings.id)
+            defaultCurrencyAmountMinor.shouldBe(null)
+            defaultCurrency.shouldBe("AUD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.UNAVAILABLE)
+            defaultCurrencyConversionTransferId.shouldBe(null)
+        }
 
         api().delete("/api/tracking/transactions/EXPENSE/${expense.id}", token).statusCode().shouldBe(204)
         expenseRepository.findById(expense.id!!).isPresent.shouldBe(false)

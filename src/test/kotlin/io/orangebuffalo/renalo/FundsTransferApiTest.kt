@@ -5,10 +5,14 @@ import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
 import io.orangebuffalo.renalo.tracking.FundsTransfer
 import io.orangebuffalo.renalo.tracking.FundsTransferRepository
 import io.orangebuffalo.renalo.tracking.TrackingAccount
 import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
@@ -28,6 +32,9 @@ class FundsTransferApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var fundsTransferRepository: FundsTransferRepository
+
+    @Inject
+    lateinit var transactionRepository: TransactionRepository
 
     @Inject
     lateinit var passwordHasher: PasswordHasher
@@ -298,6 +305,55 @@ class FundsTransferApiTest : IntegrationTestSupport() {
         val transfer = fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).single()
         transfer.sourceAmountMinor.shouldBe(1)
         transfer.targetAmountMinor.shouldBe(1)
+    }
+
+    @Test
+    fun recalculatesDefaultCurrencyValuesAfterTransferWrites() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", isDefault = true)
+        val usd = saveAccount(alice, "USD", "USD")
+        val income = transactionRepository.save(
+            Transaction(
+                userId = alice.id!!,
+                type = TransactionType.INCOME,
+                trackingAccountId = usd.id!!,
+                categoryId = 1,
+                date = LocalDate.parse("2026-06-10"),
+                amountMinor = 10_000,
+            ),
+        )
+        val token = api().login("alice", "password")
+
+        api().postJson(
+            "/api/tracking/funds-transfers",
+            """
+                {"sourceAccountId":${usd.id},"targetAccountId":${main.id},"sourceAmountMinor":10000,"targetAmountMinor":15000,"date":"2026-06-11"}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(201)
+        val transfer = fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).single()
+        transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(15_000)
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.ACTUAL_TRANSFER)
+            defaultCurrencyConversionTransferId.shouldBe(transfer.id)
+        }
+
+        api().patchJson(
+            "/api/tracking/funds-transfers/${transfer.id}",
+            """
+                {"sourceAccountId":${usd.id},"targetAccountId":${main.id},"sourceAmountMinor":10000,"targetAmountMinor":16000,"date":"2026-06-11"}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(200)
+        transactionRepository.findById(income.id!!).get().defaultCurrencyAmountMinor.shouldBe(16_000)
+
+        api().delete("/api/tracking/funds-transfers/${transfer.id}", token).statusCode().shouldBe(204)
+        transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(null)
+            defaultCurrency.shouldBe("AUD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.UNAVAILABLE)
+            defaultCurrencyConversionTransferId.shouldBe(null)
+        }
     }
 
     @Test

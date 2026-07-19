@@ -10,6 +10,7 @@ import javax.sql.DataSource
 open class FundsTransferService(
     private val fundsTransferRepository: FundsTransferRepository,
     private val trackingAccountRepository: TrackingAccountRepository,
+    private val transactionDefaultCurrencyService: TransactionDefaultCurrencyService,
     private val dataSource: DataSource,
 ) {
     @Transactional(readOnly = true)
@@ -23,7 +24,9 @@ open class FundsTransferService(
     @Transactional
     open fun createTransfer(userId: Long, request: SaveFundsTransferRequest): SaveFundsTransferResult {
         val transfer = buildTransfer(userId, request) ?: return SaveFundsTransferResult.BadRequest
-        return SaveFundsTransferResult.Saved(fundsTransferRepository.save(transfer).toDetails(userId) ?: return SaveFundsTransferResult.BadRequest)
+        val savedTransfer = fundsTransferRepository.save(transfer)
+        transactionDefaultCurrencyService.recalculateForUser(userId)
+        return SaveFundsTransferResult.Saved(savedTransfer.toDetails(userId) ?: return SaveFundsTransferResult.BadRequest)
     }
 
     @Transactional
@@ -32,7 +35,9 @@ open class FundsTransferService(
             ?: return SaveFundsTransferResult.NotFound
         val transfer = buildTransfer(userId, request)?.copy(id = existingTransfer.id)
             ?: return SaveFundsTransferResult.BadRequest
-        return SaveFundsTransferResult.Saved(fundsTransferRepository.update(transfer).toDetails(userId) ?: return SaveFundsTransferResult.BadRequest)
+        val savedTransfer = fundsTransferRepository.update(transfer)
+        transactionDefaultCurrencyService.recalculateForUser(userId)
+        return SaveFundsTransferResult.Saved(savedTransfer.toDetails(userId) ?: return SaveFundsTransferResult.BadRequest)
     }
 
     @Transactional
@@ -40,6 +45,7 @@ open class FundsTransferService(
         val transfer = fundsTransferRepository.findByIdAndUserId(transferId, userId)
             ?: return DeleteFundsTransferResult.NotFound
         fundsTransferRepository.delete(transfer)
+        transactionDefaultCurrencyService.recalculateForUser(userId)
         return DeleteFundsTransferResult.Deleted
     }
 

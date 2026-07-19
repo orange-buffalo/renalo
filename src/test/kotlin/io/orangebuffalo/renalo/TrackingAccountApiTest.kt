@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.FundsTransfer
@@ -284,6 +285,44 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
         )
         trackingAccountRepository.findById(main.id!!).get().isDefault.shouldBe(false)
         trackingAccountRepository.findById(savings.id!!).get().isDefault.shouldBe(true)
+    }
+
+    @Test
+    fun restatesTransactionValuesWhenTheDefaultAccountChanges() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        val usd = saveAccount(alice, "USD", "USD", 0, isDefault = false)
+        val income = saveTransaction(alice, usd, saveIncomeCategory(alice), TransactionType.INCOME, 1_000)
+        val conversion = saveTransfer(alice, usd, main, 1_000, 1_500)
+        val token = api().login("alice", "password")
+
+        api().postJson(
+            "/api/tracking/accounts",
+            """
+                {"name":"USD Default","currency":"USD","initialBalanceMinor":0,"isDefault":true}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(201)
+        transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(1_000)
+            defaultCurrency.shouldBe("USD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+            defaultCurrencyConversionTransferId.shouldBe(null)
+        }
+
+        api().patchJson(
+            "/api/tracking/accounts/${main.id}",
+            """
+                {"name":"Main","currency":"AUD","initialBalanceMinor":0,"isDefault":true}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(200)
+        transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(1_500)
+            defaultCurrency.shouldBe("AUD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.ACTUAL_TRANSFER)
+            defaultCurrencyConversionTransferId.shouldBe(conversion.id)
+        }
     }
 
     @Test
