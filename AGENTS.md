@@ -10,6 +10,7 @@
 
 ## Git
 
+- Use the project skill at `.agents/skills/renalo-dependency-update/SKILL.md` for comprehensive dependency updates, including PR creation, CI remediation, and the guarded squash-merge policy.
 - When a commit is requested, use a Conventional Commit message, for example `feat: add user management table` or `fix: correct auth bootstrap loading state`.
 - When the user requests changes, then provides feedback, commit the already-completed changes before starting the feedback changes unless the user explicitly says not to. Default flow: user requests work, agent implements it, user provides feedback, agent commits completed work, then agent addresses the feedback.
 - Do not commit newly written code in the same turn it is produced. Leave fresh changes uncommitted for user review, then commit those reviewed changes on the next turn before starting additional feedback work, unless the user explicitly asks to commit immediately.

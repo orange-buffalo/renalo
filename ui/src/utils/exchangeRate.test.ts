@@ -12,16 +12,10 @@ describe("parseExchangeRate", () => {
     expect(parseExchangeRate(" 1,25 ")).toBe(1.25);
   });
 
-  test.each([
-    "",
-    "0",
-    "-1",
-    "1e-3",
-    "1,234.56",
-    "1.2.3",
-    "rate 2",
-  ])("rejects invalid rate %s", (rate: string) =>
-    expect(parseExchangeRate(rate)).toBeUndefined());
+  test.each(["", "0", "-1", "1e-3", "1,234.56", "1.2.3", "rate 2"])(
+    "rejects invalid rate %s",
+    (rate: string) => expect(parseExchangeRate(rate)).toBeUndefined(),
+  );
 });
 
 describe("calculateTargetAmountMinor", () => {
