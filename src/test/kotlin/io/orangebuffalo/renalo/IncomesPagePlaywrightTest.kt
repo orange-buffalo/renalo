@@ -305,7 +305,15 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         val bonus = saveCategory(alice, "Bonus")
         saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 123400, "Pay")
         saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE.plusDays(2), 10000, "Planned pay")
-        saveIncome(alice, savings, bonus, TestTimeProvider.DEFAULT_DATE.plusDays(1), 20000, "Planned bonus")
+        saveIncome(
+            alice,
+            savings,
+            bonus,
+            TestTimeProvider.DEFAULT_DATE.plusDays(1),
+            20000,
+            "Planned bonus",
+            defaultCurrencyAmountMinor = 33000,
+        )
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/incomes")
@@ -320,7 +328,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         )
         page.shouldEventuallyContainChartPoints(
             ChartPoint("2099-06-14", "AUD", 123400),
-            ChartPoint("2099-06-15", "EUR", 20000),
+            ChartPoint("2099-06-15", "AUD", 33000),
             ChartPoint("2099-06-16", "AUD", 10000),
         )
 
@@ -419,6 +427,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         date: LocalDate,
         amountMinor: Long,
         notes: String?,
+        defaultCurrencyAmountMinor: Long? = if (account.currency == "AUD") amountMinor else null,
     ): Transaction = transactionRepository.save(
         Transaction(
             userId = user.id!!,
@@ -427,6 +436,8 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             categoryId = category.id!!,
             date = date,
             amountMinor = amountMinor,
+            defaultCurrencyAmountMinor = defaultCurrencyAmountMinor,
+            defaultCurrency = "AUD",
             notes = notes,
         ),
     )
@@ -446,6 +457,8 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             categoryId = category.id!!,
             date = date,
             amountMinor = amountMinor,
+            defaultCurrencyAmountMinor = amountMinor,
+            defaultCurrency = "AUD",
             notes = notes,
         ),
     )

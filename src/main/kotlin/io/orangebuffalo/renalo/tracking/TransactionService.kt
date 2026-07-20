@@ -99,6 +99,8 @@ open class TransactionService(
             FROM transactions t
             ${timeSeriesJoins(type)}
             WHERE ${queryFilter.whereClause}
+              AND t.default_currency_amount_minor IS NOT NULL
+              AND t.default_currency = default_account.currency
         """.trimIndent()
         dataSource.connection.use { connection ->
             connection.prepareStatement(sql).use { statement ->
@@ -125,13 +127,15 @@ open class TransactionService(
         }
         val sql = """
             SELECT $bucketExpression AS bucket,
-                   a.currency,
-                   SUM(t.amount_minor) AS amount_minor
+                   default_account.currency,
+                   SUM(t.default_currency_amount_minor) AS amount_minor
             FROM transactions t
             ${timeSeriesJoins(type)}
             WHERE ${queryFilter.whereClause}
-            GROUP BY bucket, a.currency
-            ORDER BY bucket, a.currency
+              AND t.default_currency_amount_minor IS NOT NULL
+              AND t.default_currency = default_account.currency
+            GROUP BY bucket, default_account.currency
+            ORDER BY bucket
         """.trimIndent()
         dataSource.connection.use { connection ->
             connection.prepareStatement(sql).use { statement ->
@@ -158,6 +162,7 @@ open class TransactionService(
         }
         return """
             JOIN tracking_accounts a ON a.id = t.tracking_account_id AND a.user_id = t.user_id
+            JOIN tracking_accounts default_account ON default_account.user_id = t.user_id AND default_account.is_default = TRUE
             JOIN $categoryTable c ON c.id = t.category_id AND c.user_id = t.user_id
         """.trimIndent()
     }

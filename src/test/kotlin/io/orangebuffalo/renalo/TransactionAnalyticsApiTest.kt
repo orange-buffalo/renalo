@@ -54,7 +54,7 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun groupsFilteredExpensesByDayAndCurrency() {
+    fun groupsFilteredExpensesByDayInDefaultCurrency() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)
         val main = saveAccount(alice, "Main", "AUD", true)
@@ -64,7 +64,26 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
         val salary = saveIncomeCategory(alice, "Salary")
         saveTransaction(alice, TransactionType.EXPENSE, main, groceries.id!!, "2026-06-01", 1200, "Coffee beans")
         saveTransaction(alice, TransactionType.EXPENSE, main, groceries.id!!, "2026-06-01", 800, "BEANS and coffee")
-        saveTransaction(alice, TransactionType.EXPENSE, usd, groceries.id!!, "2026-06-01", 300, "Coffee beans")
+        saveTransaction(
+            alice,
+            TransactionType.EXPENSE,
+            usd,
+            groceries.id!!,
+            "2026-06-01",
+            300,
+            "Coffee beans",
+            defaultCurrencyAmountMinor = 450,
+        )
+        saveTransaction(
+            alice,
+            TransactionType.EXPENSE,
+            usd,
+            groceries.id!!,
+            "2026-06-01",
+            700,
+            "Coffee beans unavailable",
+            defaultCurrencyAmountMinor = null,
+        )
         saveTransaction(alice, TransactionType.EXPENSE, main, groceries.id!!, "2026-06-05", 400, "Coffee only")
         saveTransaction(alice, TransactionType.EXPENSE, main, rent.id!!, "2026-06-02", 500, "Coffee beans")
         saveTransaction(alice, TransactionType.INCOME, main, salary.id!!, "2026-06-01", 9999, "Coffee beans")
@@ -88,8 +107,7 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
                   "from": "2026-06-01",
                   "to": "2026-06-10",
                   "points": [
-                    { "bucket": "2026-06-01", "currency": "AUD", "amountMinor": 2000 },
-                    { "bucket": "2026-06-01", "currency": "USD", "amountMinor": 300 }
+                    { "bucket": "2026-06-01", "currency": "AUD", "amountMinor": 2450 }
                   ]
                 }
             """.trimIndent(),
@@ -100,7 +118,29 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
     fun selectsCalendarWeekAndMonthGranularities() {
         val alice = saveUser("alice", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD", true)
+        val foreignAccount = saveAccount(alice, "US account", "USD")
         val category = saveExpenseCategory(alice, "General")
+        saveTransaction(
+            alice,
+            TransactionType.EXPENSE,
+            foreignAccount,
+            category.id!!,
+            "2025-01-01",
+            500,
+            null,
+            defaultCurrencyAmountMinor = null,
+        )
+        saveTransaction(
+            alice,
+            TransactionType.EXPENSE,
+            foreignAccount,
+            category.id!!,
+            "2025-02-01",
+            600,
+            null,
+            defaultCurrencyAmountMinor = 600,
+            defaultCurrency = "USD",
+        )
         saveTransaction(alice, TransactionType.EXPENSE, account, category.id!!, "2026-01-06", 100, null)
         saveTransaction(alice, TransactionType.EXPENSE, account, category.id!!, "2026-01-11", 200, null)
         saveTransaction(alice, TransactionType.EXPENSE, account, category.id!!, "2026-03-10", 300, null)
@@ -245,6 +285,8 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
         date: String,
         amountMinor: Long,
         notes: String?,
+        defaultCurrencyAmountMinor: Long? = amountMinor,
+        defaultCurrency: String = "AUD",
     ): Transaction = transactionRepository.save(
         Transaction(
             userId = user.id!!,
@@ -253,6 +295,8 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
             categoryId = categoryId,
             date = LocalDate.parse(date),
             amountMinor = amountMinor,
+            defaultCurrencyAmountMinor = defaultCurrencyAmountMinor,
+            defaultCurrency = defaultCurrency,
             notes = notes,
         ),
     )

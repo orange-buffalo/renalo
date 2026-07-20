@@ -760,13 +760,14 @@ projected = 3000 × 6000 / 3000 = 6000 AUD minor units
 
 ### Business rules
 
-Expense and income time series use the same inclusive date, category, account, and notes predicates as their transaction tables. Aggregation happens in PostgreSQL and groups by both calendar bucket and account currency:
+Expense and income time series use the same inclusive date, category, account, and notes predicates as their transaction tables. Aggregation happens in PostgreSQL over available transaction projections in the current default account currency:
 
 ```text
-time-series total[bucket, currency] = sum(amountMinor for matching rows)
+time-series total[bucket, default currency] =
+    sum(defaultCurrencyAmountMinor for matching available rows)
 ```
 
-Unlike currencies are never combined. Archived accounts and categories remain represented when linked to historical transactions, matching table behavior.
+Same-currency transactions contribute their original amount through their `SAME_CURRENCY` projection. Foreign-currency transactions contribute the persisted value derived from actual transfer evidence. Transactions with an `UNAVAILABLE` projection are omitted rather than mixed as raw foreign amounts or guessed with an external rate. Archived accounts and categories remain represented when linked to historical transactions, matching table behavior.
 
 Automatic granularity chooses the largest calendar unit that still provides at least ten inclusive buckets: month first, then Monday-based week, then day. Explicit day, week, and month grouping is also supported for reusable analytics surfaces. Sparse database results are returned with effective range bounds so the UI can display zero-valued calendar gaps without loading individual transactions.
 
@@ -774,6 +775,7 @@ Automatic granularity chooses the largest calendar unit that still provides at l
 
 - All-time requests derive their effective bounds from the first and last matching valid transactions.
 - Empty all-time results have no bounds; an empty bounded request retains its requested bounds.
+- Transactions without an available projection do not extend all-time chart bounds.
 - PostgreSQL `SUM(bigint)` results are converted with exact `Long` semantics and fail on overflow.
 - Time-series reads do not generate recurring transactions; already persisted recurring occurrences participate like ordinary rows.
 - Future transactions are included when they fall inside the selected overview range, matching the table.

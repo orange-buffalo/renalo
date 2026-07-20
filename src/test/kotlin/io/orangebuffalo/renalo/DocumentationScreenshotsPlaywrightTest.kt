@@ -418,6 +418,8 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
             },
             date = date,
             amountMinor = amountMinor,
+            defaultCurrencyAmountMinor = amountMinor,
+            defaultCurrency = "AUD",
             notes = notes,
             recurringRuleId = recurringRule?.id,
             recurringInstanceDate = recurringRule?.let { date },
