@@ -817,12 +817,12 @@ input {
   }
 
   .transaction-chart-header {
-    padding: 16px 16px 0;
+    padding: 12px 12px 0;
   }
 
   .transaction-chart-grid {
-    gap: 16px;
-    padding: 16px;
+    gap: 12px;
+    padding: 12px;
   }
 
   .transaction-chart-canvas {
