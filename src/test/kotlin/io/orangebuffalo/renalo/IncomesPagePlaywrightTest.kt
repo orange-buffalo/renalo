@@ -314,6 +314,15 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             IncomeRow("Planned incomes", "A$100.00 €200.00", "", "", "", "view"),
             IncomeRow("Salary", "A$1,234.00", "Today", "Main", "Pay", "edit delete"),
         )
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Hide chart"))).hasAttribute(
+            "aria-pressed",
+            "true",
+        )
+        page.shouldEventuallyContainChartPoints(
+            ChartPoint("2099-06-14", "AUD", 123400),
+            ChartPoint("2099-06-15", "EUR", 20000),
+            ChartPoint("2099-06-16", "AUD", 10000),
+        )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("View all planned incomes")).click()
         page.shouldEventuallyContainIncomeRows(
@@ -476,6 +485,19 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
                 it.trim().replace(Regex("\\s+"), " ")
             }
             labels.shouldContainExactly(*expectedLabels)
+        }
+    }
+
+    private fun Page.shouldEventuallyContainChartPoints(vararg expectedPoints: ChartPoint) {
+        shouldEventually {
+            @Suppress("UNCHECKED_CAST")
+            val points = locator("[data-testid='transaction-chart-point']").evaluateAll(
+                "points => points.map(point => [point.dataset.bucket, point.dataset.currency, point.dataset.amountMinor].join('|'))",
+            ) as List<String>
+            points.map { point ->
+                val (bucket, currency, amountMinor) = point.split("|")
+                ChartPoint(bucket, currency, amountMinor.toLong())
+            }.shouldContainExactly(*expectedPoints)
         }
     }
 
@@ -653,6 +675,12 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         val account: String,
         val notes: String,
         val action: String,
+    )
+
+    private data class ChartPoint(
+        val bucket: String,
+        val currency: String,
+        val amountMinor: Long,
     )
 
     private data class ExpenseRow(

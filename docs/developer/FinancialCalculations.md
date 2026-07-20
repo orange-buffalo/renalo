@@ -755,3 +755,30 @@ projected = 3000 × 6000 / 3000 = 6000 AUD minor units
 - valuation write hooks in `ExpenseApiTest`, `FundsTransferApiTest`, and `TrackingAccountApiTest`
 - recurring generation in `RecurringExpenseGenerationServiceTest`
 - Toshl import in `ToshlImportApiTest`
+
+## 20. Transaction Time-Series Analytics
+
+### Business rules
+
+Expense and income time series use the same inclusive date, category, account, and notes predicates as their transaction tables. Aggregation happens in PostgreSQL and groups by both calendar bucket and account currency:
+
+```text
+time-series total[bucket, currency] = sum(amountMinor for matching rows)
+```
+
+Unlike currencies are never combined. Archived accounts and categories remain represented when linked to historical transactions, matching table behavior.
+
+Automatic granularity chooses the largest calendar unit that still provides at least ten inclusive buckets: month first, then Monday-based week, then day. Explicit day, week, and month grouping is also supported for reusable analytics surfaces. Sparse database results are returned with effective range bounds so the UI can display zero-valued calendar gaps without loading individual transactions.
+
+### Edge cases
+
+- All-time requests derive their effective bounds from the first and last matching valid transactions.
+- Empty all-time results have no bounds; an empty bounded request retains its requested bounds.
+- PostgreSQL `SUM(bigint)` results are converted with exact `Long` semantics and fail on overflow.
+- Time-series reads do not generate recurring transactions; already persisted recurring occurrences participate like ordinary rows.
+- Future transactions are included when they fall inside the selected overview range, matching the table.
+
+### Coverage
+
+- `TransactionAnalyticsApiTest`
+- chart cases in `ExpensesPagePlaywrightTest` and `IncomesPagePlaywrightTest`

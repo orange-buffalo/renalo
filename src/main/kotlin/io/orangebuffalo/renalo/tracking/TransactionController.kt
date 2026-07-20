@@ -39,26 +39,14 @@ class TransactionController(
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
-        if ((from == null) != (to == null) || (from != null && to != null && from.isAfter(to))) {
-            return HttpResponse.badRequest<Any>()
-        }
-        val categoryIdFilter = parseIdFilter(categoryIds) ?: return HttpResponse.badRequest<Any>()
-        val accountIdFilter = parseIdFilter(accountIds) ?: return HttpResponse.badRequest<Any>()
+        val filter = parseTransactionFilter(from, to, categoryIds, accountIds, notes)
+            ?: return HttpResponse.badRequest<Any>()
 
         return HttpResponse.ok(
             transactionService.listTransactions(
                 user.id!!,
                 type,
-                TransactionDateFilter(
-                    from = from,
-                    to = to,
-                    categoryIds = categoryIdFilter,
-                    accountIds = accountIdFilter,
-                    notesTokens = notes?.split(Regex("\\s+"))
-                        ?.map { it.trim() }
-                        ?.filter { it.isNotEmpty() }
-                        ?: emptyList(),
-                ),
+                filter,
             ).map { it.toResponse() },
         )
     }
@@ -133,6 +121,30 @@ class TransactionController(
             DeleteTransactionResult.BadRequest -> HttpResponse.badRequest<Any>()
         }
     }
+}
+
+internal fun parseTransactionFilter(
+    from: LocalDate?,
+    to: LocalDate?,
+    categoryIds: String?,
+    accountIds: String?,
+    notes: String?,
+): TransactionDateFilter? {
+    if ((from == null) != (to == null) || (from != null && to != null && from.isAfter(to))) {
+        return null
+    }
+    val categoryIdFilter = parseIdFilter(categoryIds) ?: return null
+    val accountIdFilter = parseIdFilter(accountIds) ?: return null
+    return TransactionDateFilter(
+        from = from,
+        to = to,
+        categoryIds = categoryIdFilter,
+        accountIds = accountIdFilter,
+        notesTokens = notes?.split(Regex("\\s+"))
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList(),
+    )
 }
 
 private fun parseIdFilter(rawValue: String?): List<Long>? {

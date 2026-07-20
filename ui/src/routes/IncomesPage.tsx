@@ -28,6 +28,8 @@ const incomeTransactionsPageConfig: TransactionsPageConfig = {
   rowTestIdPrefix: "income-row",
   deleteDialogDataTestId: "delete-income-overlay",
   groupingStorageKey: "renalo.incomes.tableGrouping",
+  chartTitle: "Earnings trend",
+  chartError: "Income chart could not be loaded. Try again in a moment.",
 };
 
 export function IncomesPage() {

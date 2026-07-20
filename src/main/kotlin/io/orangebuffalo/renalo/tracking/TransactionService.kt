@@ -4,7 +4,11 @@ import io.micronaut.transaction.annotation.Transactional
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import jakarta.inject.Singleton
 import java.sql.ResultSet
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
 import javax.sql.DataSource
 
 @Singleton
@@ -29,53 +33,54 @@ open class TransactionService(
         return transactions.mapNotNull { it.toDetails(userId, type) }
     }
 
-    private fun findTransactions(userId: Long, type: TransactionType, filter: TransactionDateFilter): List<Transaction> {
-        val whereClauses = mutableListOf("user_id = ?", "type = ?")
-        val parameters = mutableListOf<Any>(userId, type.name)
+    @Transactional(readOnly = true)
+    open fun getTimeSeries(
+        userId: Long,
+        type: TransactionType,
+        filter: TransactionDateFilter,
+        granularity: TransactionTimeSeriesGranularity,
+    ): TransactionTimeSeries {
+        val queryFilter = transactionQueryFilter(userId, type, filter)
+        val dataBounds = findTimeSeriesBounds(type, queryFilter)
+        val from = filter.from ?: dataBounds?.first
+        val to = filter.to ?: dataBounds?.second
+        val resolvedGranularity = resolveGranularity(granularity, from, to)
+        val points = if (dataBounds == null) {
+            emptyList()
+        } else {
+            findTimeSeriesPoints(type, queryFilter, resolvedGranularity)
+        }
+        return TransactionTimeSeries(resolvedGranularity, from, to, points)
+    }
 
-        if (filter.from != null && filter.to != null) {
-            whereClauses += "date BETWEEN ? AND ?"
-            parameters += filter.from
-            parameters += filter.to
-        }
-        if (filter.categoryIds.isNotEmpty()) {
-            whereClauses += "category_id IN (${filter.categoryIds.joinToString(",") { "?" }})"
-            parameters.addAll(filter.categoryIds)
-        }
-        if (filter.accountIds.isNotEmpty()) {
-            whereClauses += "tracking_account_id IN (${filter.accountIds.joinToString(",") { "?" }})"
-            parameters.addAll(filter.accountIds)
-        }
-        for (token in filter.notesTokens) {
-            whereClauses += "LOWER(COALESCE(notes, '')) LIKE ?"
-            parameters += "%${token.lowercase()}%"
-        }
+    private fun findTransactions(userId: Long, type: TransactionType, filter: TransactionDateFilter): List<Transaction> {
+        val queryFilter = transactionQueryFilter(userId, type, filter)
 
         val sql = """
-            SELECT id,
-                   user_id,
-                   type,
-                   tracking_account_id,
-                   category_id,
-                   date,
-                   amount_minor,
-                   default_currency_amount_minor,
-                   default_currency,
-                   default_currency_conversion_source,
-                   default_currency_conversion_transfer_id,
-                   notes,
-                   metadata,
-                   recurring_rule_id,
-                   recurring_instance_date,
-                   recurring_locked
-            FROM transactions
-            WHERE ${whereClauses.joinToString(" AND ")}
-            ORDER BY date DESC
+            SELECT t.id,
+                   t.user_id,
+                   t.type,
+                   t.tracking_account_id,
+                   t.category_id,
+                   t.date,
+                   t.amount_minor,
+                   t.default_currency_amount_minor,
+                   t.default_currency,
+                   t.default_currency_conversion_source,
+                   t.default_currency_conversion_transfer_id,
+                   t.notes,
+                   t.metadata,
+                   t.recurring_rule_id,
+                   t.recurring_instance_date,
+                   t.recurring_locked
+            FROM transactions t
+            WHERE ${queryFilter.whereClause}
+            ORDER BY t.date DESC
         """.trimIndent()
 
         dataSource.connection.use { connection ->
             connection.prepareStatement(sql).use { statement ->
-                parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                queryFilter.parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
                 statement.executeQuery().use { resultSet ->
                     val transactions = mutableListOf<Transaction>()
                     while (resultSet.next()) {
@@ -84,6 +89,126 @@ open class TransactionService(
                     return transactions
                 }
             }
+        }
+    }
+
+    private fun findTimeSeriesBounds(type: TransactionType, queryFilter: TransactionQueryFilter): Pair<LocalDate, LocalDate>? {
+        val sql = """
+            SELECT MIN(t.date) AS first_date,
+                   MAX(t.date) AS last_date
+            FROM transactions t
+            ${timeSeriesJoins(type)}
+            WHERE ${queryFilter.whereClause}
+        """.trimIndent()
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                queryFilter.parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                statement.executeQuery().use { resultSet ->
+                    resultSet.next()
+                    val firstDate = resultSet.getDate("first_date")?.toLocalDate() ?: return null
+                    return firstDate to resultSet.getDate("last_date").toLocalDate()
+                }
+            }
+        }
+    }
+
+    private fun findTimeSeriesPoints(
+        type: TransactionType,
+        queryFilter: TransactionQueryFilter,
+        granularity: TransactionTimeSeriesGranularity,
+    ): List<TransactionTimeSeriesPoint> {
+        val bucketExpression = when (granularity) {
+            TransactionTimeSeriesGranularity.DAY -> "t.date"
+            TransactionTimeSeriesGranularity.WEEK -> "date_trunc('week', t.date)::date"
+            TransactionTimeSeriesGranularity.MONTH -> "date_trunc('month', t.date)::date"
+            TransactionTimeSeriesGranularity.AUTO -> error("AUTO granularity must be resolved before querying")
+        }
+        val sql = """
+            SELECT $bucketExpression AS bucket,
+                   a.currency,
+                   SUM(t.amount_minor) AS amount_minor
+            FROM transactions t
+            ${timeSeriesJoins(type)}
+            WHERE ${queryFilter.whereClause}
+            GROUP BY bucket, a.currency
+            ORDER BY bucket, a.currency
+        """.trimIndent()
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                queryFilter.parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                statement.executeQuery().use { resultSet ->
+                    val points = mutableListOf<TransactionTimeSeriesPoint>()
+                    while (resultSet.next()) {
+                        points += TransactionTimeSeriesPoint(
+                            bucket = resultSet.getDate("bucket").toLocalDate(),
+                            currency = resultSet.getString("currency"),
+                            amountMinor = resultSet.getBigDecimal("amount_minor").longValueExact(),
+                        )
+                    }
+                    return points
+                }
+            }
+        }
+    }
+
+    private fun timeSeriesJoins(type: TransactionType): String {
+        val categoryTable = when (type) {
+            TransactionType.EXPENSE -> "expense_categories"
+            TransactionType.INCOME -> "income_categories"
+        }
+        return """
+            JOIN tracking_accounts a ON a.id = t.tracking_account_id AND a.user_id = t.user_id
+            JOIN $categoryTable c ON c.id = t.category_id AND c.user_id = t.user_id
+        """.trimIndent()
+    }
+
+    private fun transactionQueryFilter(
+        userId: Long,
+        type: TransactionType,
+        filter: TransactionDateFilter,
+    ): TransactionQueryFilter {
+        val whereClauses = mutableListOf("t.user_id = ?", "t.type = ?")
+        val parameters = mutableListOf<Any>(userId, type.name)
+
+        if (filter.from != null && filter.to != null) {
+            whereClauses += "t.date BETWEEN ? AND ?"
+            parameters += filter.from
+            parameters += filter.to
+        }
+        if (filter.categoryIds.isNotEmpty()) {
+            whereClauses += "t.category_id IN (${filter.categoryIds.joinToString(",") { "?" }})"
+            parameters.addAll(filter.categoryIds)
+        }
+        if (filter.accountIds.isNotEmpty()) {
+            whereClauses += "t.tracking_account_id IN (${filter.accountIds.joinToString(",") { "?" }})"
+            parameters.addAll(filter.accountIds)
+        }
+        for (token in filter.notesTokens) {
+            whereClauses += "LOWER(COALESCE(t.notes, '')) LIKE ?"
+            parameters += "%${token.lowercase()}%"
+        }
+        return TransactionQueryFilter(whereClauses.joinToString(" AND "), parameters)
+    }
+
+    private fun resolveGranularity(
+        requested: TransactionTimeSeriesGranularity,
+        from: LocalDate?,
+        to: LocalDate?,
+    ): TransactionTimeSeriesGranularity {
+        if (requested != TransactionTimeSeriesGranularity.AUTO || from == null || to == null) {
+            return if (requested == TransactionTimeSeriesGranularity.AUTO) TransactionTimeSeriesGranularity.DAY else requested
+        }
+        val monthBuckets = ChronoUnit.MONTHS.between(YearMonth.from(from), YearMonth.from(to)) + 1
+        if (monthBuckets >= MINIMUM_TIME_SERIES_BUCKETS) {
+            return TransactionTimeSeriesGranularity.MONTH
+        }
+        val firstWeek = from.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val lastWeek = to.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val weekBuckets = ChronoUnit.WEEKS.between(firstWeek, lastWeek) + 1
+        return if (weekBuckets >= MINIMUM_TIME_SERIES_BUCKETS) {
+            TransactionTimeSeriesGranularity.WEEK
+        } else {
+            TransactionTimeSeriesGranularity.DAY
         }
     }
 
@@ -411,6 +536,13 @@ open class TransactionService(
         }
 }
 
+private const val MINIMUM_TIME_SERIES_BUCKETS = 10L
+
+private data class TransactionQueryFilter(
+    val whereClause: String,
+    val parameters: List<Any>,
+)
+
 data class TransactionCategoryDetails(
     val id: Long,
     val name: String,
@@ -429,6 +561,26 @@ data class TransactionDateFilter(
     val categoryIds: List<Long> = emptyList(),
     val accountIds: List<Long> = emptyList(),
     val notesTokens: List<String> = emptyList(),
+)
+
+enum class TransactionTimeSeriesGranularity {
+    AUTO,
+    DAY,
+    WEEK,
+    MONTH,
+}
+
+data class TransactionTimeSeries(
+    val granularity: TransactionTimeSeriesGranularity,
+    val from: LocalDate?,
+    val to: LocalDate?,
+    val points: List<TransactionTimeSeriesPoint>,
+)
+
+data class TransactionTimeSeriesPoint(
+    val bucket: LocalDate,
+    val currency: String,
+    val amountMinor: Long,
 )
 
 private fun ResultSet.toTransaction() = Transaction(
