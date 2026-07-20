@@ -712,7 +712,18 @@ source = UNAVAILABLE
 
 Renalo does not currently call an external exchange-rate provider as a fallback. Making transaction writes depend on a free unauthenticated service would introduce availability, currency-coverage, and historical-rate revision risks. `UNAVAILABLE` keeps the missing evidence explicit and leaves room for a later persisted fallback with defined provenance.
 
-The fields are a cache, not an immutable historical quote. The user's complete transaction history is restated under current account currencies and the current default currency after relevant writes, including transaction create/update, transfer create/update/delete, account create/update/merge, recurring generation, and Toshl import. Startup also rebuilds regular-user projections so migrated or interrupted data converges. Changing an account currency therefore follows section 10: linked integers are first reinterpreted under the new current currency, then projections are rebuilt.
+The fields are a cache, not an immutable historical quote. Migration V27 adds the projection fields and initializes same-currency values; migration V28 backfills transfer-derived values once with a set-based database update. Application startup does not scan or rebuild user histories.
+
+Subsequent writes invalidate the narrowest scope that can change:
+
+- Creating or updating an ordinary transaction recalculates only that transaction.
+- Recurring generation and scoped recurring edits recalculate only inserted or changed occurrence IDs; unchanged and locked occurrences are not touched.
+- Toshl import recalculates only imported transaction IDs plus currencies affected by imported transfers.
+- Transfer create, update, and delete recalculates transactions in foreign currencies directly paired with the current default currency by the old or new transfer. Transfers between two non-default currencies do not invalidate projections.
+- Changing a non-default account's currency recalculates transactions in its old and new currencies. If the account enters or leaves the default currency, currencies on the other side of its transfers are also recalculated because those transfers gain or lose eligibility as evidence. A same-currency account merge recalculates that currency.
+- Changing the default currency is the exceptional full-history operation because every projection's target currency and eligible evidence can change.
+
+Recalculation uses set-based PostgreSQL updates over batches of at most 500 transaction IDs. Runtime currency and full-history scopes snapshot only their matching IDs before processing the batches; V28 keyset-selects its batches while the application is offline for migration. Projection recalculations take a per-user transaction advisory lock before reading their scope, so overlapping transaction, transfer, account, recurrence, and import writes cannot commit mutually stale projections under `READ COMMITTED`. This avoids loading transaction entities into the application, issuing one update per transaction, or letting one statement compare an unbounded transaction history with an unbounded transfer history. Changing an account currency still follows section 10: linked integers are first reinterpreted under the new current currency, then the affected projections are recalculated.
 
 ### Examples
 
@@ -740,6 +751,7 @@ projected = 3000 × 6000 / 3000 = 6000 AUD minor units
 ### Coverage
 
 - `TransactionDefaultCurrencyServiceTest`
+- one-time V27-to-V28 backfill upgrade in `TransactionDefaultCurrencyMigrationTest`
 - valuation write hooks in `ExpenseApiTest`, `FundsTransferApiTest`, and `TrackingAccountApiTest`
 - recurring generation in `RecurringExpenseGenerationServiceTest`
 - Toshl import in `ToshlImportApiTest`

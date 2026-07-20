@@ -38,11 +38,12 @@ open class ToshlImportService(
             .filter { it !in reconciledTransferRows }
             .filterNot { it.category.equals("Transfer", ignoreCase = true) }
             .filterNot { it.category.equals("Reconciliation", ignoreCase = true) }
+        transactionDefaultCurrencyService.lockForUser(userId)
         val context = loadImportContext(userId)
         val report = mutableListOf<ToshlImportReportEntry>()
 
         createMissingReferences(userId, context, transactionRows, reconciliationRows)
-        importTransactions(userId, context, transactionRows, report)
+        val importedTransactions = importTransactions(userId, context, transactionRows, report)
         val transferImportResult = importTransfers(userId, context, reconciledTransfers, report)
         importAdjustments(userId, context, reconciliationRows, report)
 
@@ -51,7 +52,8 @@ open class ToshlImportService(
             report += row.toReportEntry("UNMATCHED_TRANSFER", "Transfer row could not be matched with its opposite side.")
         }
         val warningRows = unreconciledTransfers + transferImportResult.unmatchedRows
-        transactionDefaultCurrencyService.recalculateForUser(userId)
+        transactionDefaultCurrencyService.recalculateForChangedTransfers(userId, transferImportResult.savedTransfers)
+        transactionDefaultCurrencyService.recalculateTransactions(userId, importedTransactions.map { it.id!! })
 
         return ToshlImportResult(
             importedExpenses = report.count { it.status == "IMPORTED" && it.reason == "Imported as expense." },
@@ -157,7 +159,7 @@ open class ToshlImportService(
         context: ToshlImportContext,
         rows: List<ToshlRow>,
         report: MutableList<ToshlImportReportEntry>,
-    ) {
+    ): List<Transaction> {
         val transactionsToImport = rows.mapNotNull { row ->
             val key = TransactionImportKey(row.type, row.date, row.amountMinor, row.notes)
             if (!context.transactionKeys.add(key)) {
@@ -183,9 +185,7 @@ open class ToshlImportService(
                 )
             }
         }
-        if (transactionsToImport.isNotEmpty()) {
-            transactionRepository.saveAll(transactionsToImport).toList()
-        }
+        return if (transactionsToImport.isEmpty()) emptyList() else transactionRepository.saveAll(transactionsToImport).toList()
     }
 
     private fun importTransfers(
@@ -238,13 +238,11 @@ open class ToshlImportService(
                 imported++
             }
         }
-        if (transfersToImport.isNotEmpty()) {
-            fundsTransferRepository.saveAll(transfersToImport).toList()
-        }
+        val savedTransfers = if (transfersToImport.isEmpty()) emptyList() else fundsTransferRepository.saveAll(transfersToImport).toList()
         val unmatchedRows = report
             .filter { it.status == "UNMATCHED_TRANSFER" && it.reason == "Transfer row could not be matched with account currencies." }
             .mapNotNull { entry -> transfers.flatMap { listOf(it.source, it.target) }.firstOrNull { it.lineNumber == entry.lineNumber } }
-        return TransferImportResult(imported, skippedDuplicates, unmatchedRows)
+        return TransferImportResult(imported, skippedDuplicates, unmatchedRows, savedTransfers)
     }
 
     private fun importAdjustments(
@@ -549,4 +547,5 @@ private data class TransferImportResult(
     val imported: Int,
     val skippedDuplicates: Int,
     val unmatchedRows: List<ToshlRow>,
+    val savedTransfers: List<FundsTransfer>,
 )

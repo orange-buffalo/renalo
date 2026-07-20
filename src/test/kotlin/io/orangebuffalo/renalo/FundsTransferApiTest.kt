@@ -312,11 +312,22 @@ class FundsTransferApiTest : IntegrationTestSupport() {
         val alice = saveUser("alice", UserType.USER)
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         val usd = saveAccount(alice, "USD", "USD")
+        val eur = saveAccount(alice, "EUR", "EUR")
         val income = transactionRepository.save(
             Transaction(
                 userId = alice.id!!,
                 type = TransactionType.INCOME,
                 trackingAccountId = usd.id!!,
+                categoryId = 1,
+                date = LocalDate.parse("2026-06-10"),
+                amountMinor = 10_000,
+            ),
+        )
+        val eurIncome = transactionRepository.save(
+            Transaction(
+                userId = alice.id!!,
+                type = TransactionType.INCOME,
+                trackingAccountId = eur.id!!,
                 categoryId = 1,
                 date = LocalDate.parse("2026-06-10"),
                 amountMinor = 10_000,
@@ -347,8 +358,25 @@ class FundsTransferApiTest : IntegrationTestSupport() {
         ).statusCode().shouldBe(200)
         transactionRepository.findById(income.id!!).get().defaultCurrencyAmountMinor.shouldBe(16_000)
 
-        api().delete("/api/tracking/funds-transfers/${transfer.id}", token).statusCode().shouldBe(204)
+        api().patchJson(
+            "/api/tracking/funds-transfers/${transfer.id}",
+            """
+                {"sourceAccountId":${eur.id},"targetAccountId":${main.id},"sourceAmountMinor":10000,"targetAmountMinor":17000,"date":"2026-06-11"}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(200)
         transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(null)
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.UNAVAILABLE)
+        }
+        transactionRepository.findById(eurIncome.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(17_000)
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.ACTUAL_TRANSFER)
+            defaultCurrencyConversionTransferId.shouldBe(transfer.id)
+        }
+
+        api().delete("/api/tracking/funds-transfers/${transfer.id}", token).statusCode().shouldBe(204)
+        transactionRepository.findById(eurIncome.id!!).get().apply {
             defaultCurrencyAmountMinor.shouldBe(null)
             defaultCurrency.shouldBe("AUD")
             defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.UNAVAILABLE)

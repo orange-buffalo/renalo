@@ -2,136 +2,289 @@ package io.orangebuffalo.renalo.tracking
 
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Singleton
-import java.math.BigInteger
-import java.time.temporal.ChronoUnit
-import kotlin.math.absoluteValue
+import java.sql.SQLException
+import javax.sql.DataSource
 
 @Singleton
 open class TransactionDefaultCurrencyService(
-    private val transactionRepository: TransactionRepository,
     private val trackingAccountRepository: TrackingAccountRepository,
-    private val fundsTransferRepository: FundsTransferRepository,
+    private val dataSource: DataSource,
 ) {
     @Transactional
-    open fun recalculateForUser(userId: Long) {
-        val transactions = transactionRepository.findByUserIdOrderByDateAsc(userId)
-        if (transactions.isEmpty()) {
+    open fun lockForUser(userId: Long) {
+        lockUserValuation(userId)
+    }
+
+    @Transactional
+    open fun recalculateTransaction(userId: Long, transactionId: Long) {
+        lockUserValuation(userId)
+        recalculate(userId, "tx.id = ?", listOf(transactionId))
+    }
+
+    @Transactional
+    open fun recalculateTransactions(userId: Long, transactionIds: Collection<Long>) {
+        val uniqueIds = transactionIds.distinct()
+        if (uniqueIds.isEmpty()) {
             return
         }
+        lockUserValuation(userId)
+        uniqueIds.chunked(MAX_SCOPE_SIZE).forEach { ids ->
+            recalculate(userId, "tx.id IN (${ids.joinToString(",") { "?" }})", ids)
+        }
+    }
 
-        val accounts = trackingAccountRepository.findByUserIdOrderByName(userId).associateBy { it.id!! }
-        val defaultAccount = trackingAccountRepository.findByUserIdAndIsDefaultTrue(userId)
-            ?: error("User $userId has transactions but no default tracking account")
-        val transfers = fundsTransferRepository.findByUserIdOrderByDateDesc(userId)
+    @Transactional
+    open fun recalculateForCurrencies(userId: Long, currencies: Collection<String>) {
+        val uniqueCurrencies = currencies.distinct()
+        if (uniqueCurrencies.isEmpty()) {
+            return
+        }
+        lockUserValuation(userId)
+        recalculateCurrencies(userId, uniqueCurrencies)
+    }
 
-        transactions.forEach { transaction ->
-            val transactionAccount = accounts[transaction.trackingAccountId]
-                ?: error("Transaction ${transaction.id} references a missing tracking account")
-            val valuation = if (transactionAccount.currency == defaultAccount.currency) {
-                DefaultCurrencyValuation(
-                    amountMinor = transaction.amountMinor,
-                    source = DefaultCurrencyConversionSource.SAME_CURRENCY,
-                )
-            } else {
-                findTransferEvidence(transaction, transactionAccount, defaultAccount.currency, accounts, transfers)
-                    ?.let { evidence ->
-                        DefaultCurrencyValuation(
-                            amountMinor = convertUsingTransfer(transaction.amountMinor, evidence),
-                            source = DefaultCurrencyConversionSource.ACTUAL_TRANSFER,
-                            transferId = evidence.transfer.id,
-                        )
-                    }
-                    ?: DefaultCurrencyValuation(source = DefaultCurrencyConversionSource.UNAVAILABLE)
-            }
-
-            transactionRepository.update(
-                transaction.copy(
-                    defaultCurrencyAmountMinor = valuation.amountMinor,
-                    defaultCurrency = defaultAccount.currency,
-                    defaultCurrencyConversionSource = valuation.source,
-                    defaultCurrencyConversionTransferId = valuation.transferId,
-                ),
+    private fun recalculateCurrencies(userId: Long, currencies: Collection<String>) {
+        currencies.chunked(MAX_SCOPE_SIZE).forEach { currencyChunk ->
+            recalculateMatchingTransactions(
+                userId,
+                "transaction_account.currency IN (${currencyChunk.joinToString(",") { "?" }})",
+                currencyChunk,
             )
         }
     }
 
-    private fun findTransferEvidence(
-        transaction: Transaction,
-        transactionAccount: TrackingAccount,
-        defaultCurrency: String,
-        accounts: Map<Long, TrackingAccount>,
-        transfers: List<FundsTransfer>,
-    ): TransferEvidence? = transfers.mapNotNull { transfer ->
-        val sourceAccount = accounts[transfer.sourceAccountId] ?: return@mapNotNull null
-        val targetAccount = accounts[transfer.targetAccountId] ?: return@mapNotNull null
-        when {
-            sourceAccount.currency == transactionAccount.currency && targetAccount.currency == defaultCurrency ->
-                TransferEvidence(
-                    transfer = transfer,
-                    foreignAccountId = sourceAccount.id!!,
-                    foreignAmountMinor = transfer.sourceAmountMinor,
-                    defaultAmountMinor = transfer.targetAmountMinor,
-                    direction = ConversionDirection.FOREIGN_TO_DEFAULT,
-                )
-
-            sourceAccount.currency == defaultCurrency && targetAccount.currency == transactionAccount.currency ->
-                TransferEvidence(
-                    transfer = transfer,
-                    foreignAccountId = targetAccount.id!!,
-                    foreignAmountMinor = transfer.targetAmountMinor,
-                    defaultAmountMinor = transfer.sourceAmountMinor,
-                    direction = ConversionDirection.DEFAULT_TO_FOREIGN,
-                )
-
-            else -> null
+    @Transactional
+    open fun recalculateForChangedTransfers(userId: Long, transfers: Collection<FundsTransfer>) {
+        if (transfers.isEmpty()) {
+            return
         }
-    }.minWithOrNull(
-        compareBy<TransferEvidence> { it.flowRank(transaction) }
-            .thenBy { if (it.foreignAccountId == transactionAccount.id) 0 else 1 }
-            .thenBy { if (it.foreignAmountMinor == transaction.amountMinor) 0 else 1 }
-            .thenBy { ChronoUnit.DAYS.between(transaction.date, it.transfer.date).absoluteValue }
-            .thenBy { it.transfer.id },
-    )
-
-    private fun TransferEvidence.flowRank(transaction: Transaction): Int {
-        val expectedDirection = when (transaction.type) {
-            TransactionType.INCOME -> ConversionDirection.FOREIGN_TO_DEFAULT
-            TransactionType.EXPENSE -> ConversionDirection.DEFAULT_TO_FOREIGN
+        lockUserValuation(userId)
+        val accounts = trackingAccountRepository.findByUserIdOrderByName(userId).associateBy { it.id!! }
+        val defaultAccount = trackingAccountRepository.findByUserIdAndIsDefaultTrue(userId)
+            ?: error("User $userId has transfers but no default tracking account")
+        val affectedCurrencies = transfers.mapNotNull { transfer ->
+            val sourceCurrency = accounts[transfer.sourceAccountId]?.currency
+                ?: error("Transfer ${transfer.id} references a missing source account")
+            val targetCurrency = accounts[transfer.targetAccountId]?.currency
+                ?: error("Transfer ${transfer.id} references a missing target account")
+            when {
+                sourceCurrency == defaultAccount.currency && targetCurrency != defaultAccount.currency -> targetCurrency
+                targetCurrency == defaultAccount.currency && sourceCurrency != defaultAccount.currency -> sourceCurrency
+                else -> null
+            }
         }
-        if (direction != expectedDirection) {
-            return 2
-        }
-        val isOnExpectedDateSide = when (transaction.type) {
-            TransactionType.INCOME -> !transfer.date.isBefore(transaction.date)
-            TransactionType.EXPENSE -> !transfer.date.isAfter(transaction.date)
-        }
-        return if (isOnExpectedDateSide) 0 else 1
+        recalculateCurrencies(userId, affectedCurrencies)
     }
 
-    private fun convertUsingTransfer(amountMinor: Long, evidence: TransferEvidence): Long {
-        val numerator = BigInteger.valueOf(amountMinor).multiply(BigInteger.valueOf(evidence.defaultAmountMinor))
-        val denominator = BigInteger.valueOf(evidence.foreignAmountMinor)
-        val (quotient, remainder) = numerator.divideAndRemainder(denominator)
-        val rounded = if (remainder.multiply(BigInteger.TWO) >= denominator) quotient + BigInteger.ONE else quotient
-        return rounded.longValueExact()
+    @Transactional
+    open fun recalculateForAccountCurrencyChange(
+        userId: Long,
+        accountId: Long,
+        oldCurrency: String,
+        newCurrency: String,
+    ) {
+        lockUserValuation(userId)
+        val defaultCurrency = trackingAccountRepository.findByUserIdAndIsDefaultTrue(userId)?.currency
+            ?: error("User $userId has transactions but no default tracking account")
+        val affectedCurrencies = mutableSetOf(oldCurrency, newCurrency)
+        if (oldCurrency == defaultCurrency || newCurrency == defaultCurrency) {
+            affectedCurrencies += findTransferCounterpartCurrencies(userId, accountId)
+        }
+        recalculateCurrencies(userId, affectedCurrencies)
     }
-}
 
-private data class DefaultCurrencyValuation(
-    val amountMinor: Long? = null,
-    val source: DefaultCurrencyConversionSource,
-    val transferId: Long? = null,
-)
+    @Transactional
+    open fun recalculateForUser(userId: Long) {
+        lockUserValuation(userId)
+        recalculateMatchingTransactions(userId, "TRUE", emptyList())
+    }
 
-private data class TransferEvidence(
-    val transfer: FundsTransfer,
-    val foreignAccountId: Long,
-    val foreignAmountMinor: Long,
-    val defaultAmountMinor: Long,
-    val direction: ConversionDirection,
-)
+    private fun lockUserValuation(userId: Long) {
+        dataSource.connection.use { connection ->
+            connection.prepareStatement("SELECT pg_advisory_xact_lock(?)").use { statement ->
+                statement.setLong(1, userId xor Long.MIN_VALUE)
+                statement.execute()
+            }
+        }
+    }
 
-private enum class ConversionDirection {
-    FOREIGN_TO_DEFAULT,
-    DEFAULT_TO_FOREIGN,
+    private fun recalculateMatchingTransactions(userId: Long, scopeSql: String, scopeParameters: List<Any>) {
+        findTransactionIds(userId, scopeSql, scopeParameters)
+            .chunked(MAX_SCOPE_SIZE)
+            .forEach { transactionIds ->
+                recalculate(
+                    userId,
+                    "tx.id IN (${transactionIds.joinToString(",") { "?" }})",
+                    transactionIds,
+                )
+            }
+    }
+
+    private fun findTransactionIds(
+        userId: Long,
+        scopeSql: String,
+        scopeParameters: List<Any>,
+    ): List<Long> {
+        val sql = """
+            SELECT tx.id
+            FROM transactions tx
+            JOIN tracking_accounts transaction_account ON transaction_account.id = tx.tracking_account_id
+            WHERE tx.user_id = ?
+              AND $scopeSql
+            ORDER BY tx.id
+        """.trimIndent()
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, userId)
+                scopeParameters.forEachIndexed { index, parameter -> statement.setObject(index + 2, parameter) }
+                statement.executeQuery().use { resultSet ->
+                    buildList {
+                        while (resultSet.next()) {
+                            add(resultSet.getLong("id"))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun recalculate(userId: Long, scopeSql: String, scopeParameters: List<Any>) {
+        val sql = """
+            WITH default_account AS (
+                SELECT user_id, currency
+                FROM tracking_accounts
+                WHERE user_id = ? AND is_default = TRUE
+            ),
+            valuations AS (
+                SELECT tx.id,
+                       default_account.currency AS default_currency,
+                       CASE
+                           WHEN transaction_account.currency = default_account.currency THEN tx.amount_minor
+                           WHEN evidence.id IS NULL THEN NULL
+                           ELSE ROUND(
+                               tx.amount_minor::NUMERIC * evidence.default_amount_minor::NUMERIC
+                                   / evidence.foreign_amount_minor::NUMERIC
+                           )::BIGINT
+                       END AS default_currency_amount_minor,
+                       CASE
+                           WHEN transaction_account.currency = default_account.currency THEN 'SAME_CURRENCY'
+                           WHEN evidence.id IS NULL THEN 'UNAVAILABLE'
+                           ELSE 'ACTUAL_TRANSFER'
+                       END AS conversion_source,
+                       CASE
+                           WHEN transaction_account.currency = default_account.currency THEN NULL
+                           ELSE evidence.id
+                       END AS conversion_transfer_id
+                FROM transactions tx
+                JOIN tracking_accounts transaction_account ON transaction_account.id = tx.tracking_account_id
+                JOIN default_account ON default_account.user_id = tx.user_id
+                LEFT JOIN LATERAL (
+                    SELECT transfer.id,
+                           CASE
+                               WHEN source_account.currency = transaction_account.currency THEN transfer.source_amount_minor
+                               ELSE transfer.target_amount_minor
+                           END AS foreign_amount_minor,
+                           CASE
+                               WHEN source_account.currency = default_account.currency THEN transfer.source_amount_minor
+                               ELSE transfer.target_amount_minor
+                           END AS default_amount_minor
+                    FROM funds_transfers transfer
+                    JOIN tracking_accounts source_account ON source_account.id = transfer.source_account_id
+                    JOIN tracking_accounts target_account ON target_account.id = transfer.target_account_id
+                    WHERE transfer.user_id = tx.user_id
+                      AND (
+                          (source_account.currency = transaction_account.currency AND target_account.currency = default_account.currency)
+                          OR
+                          (source_account.currency = default_account.currency AND target_account.currency = transaction_account.currency)
+                      )
+                    ORDER BY
+                        CASE
+                            WHEN tx.type = 'INCOME'
+                                AND source_account.currency = transaction_account.currency
+                                AND transfer.date >= tx.date THEN 0
+                            WHEN tx.type = 'EXPENSE'
+                                AND target_account.currency = transaction_account.currency
+                                AND transfer.date <= tx.date THEN 0
+                            WHEN tx.type = 'INCOME' AND source_account.currency = transaction_account.currency THEN 1
+                            WHEN tx.type = 'EXPENSE' AND target_account.currency = transaction_account.currency THEN 1
+                            ELSE 2
+                        END,
+                        CASE
+                            WHEN source_account.currency = transaction_account.currency
+                                AND transfer.source_account_id = tx.tracking_account_id THEN 0
+                            WHEN target_account.currency = transaction_account.currency
+                                AND transfer.target_account_id = tx.tracking_account_id THEN 0
+                            ELSE 1
+                        END,
+                        CASE
+                            WHEN source_account.currency = transaction_account.currency
+                                AND transfer.source_amount_minor = tx.amount_minor THEN 0
+                            WHEN target_account.currency = transaction_account.currency
+                                AND transfer.target_amount_minor = tx.amount_minor THEN 0
+                            ELSE 1
+                        END,
+                        ABS(transfer.date - tx.date),
+                        transfer.id
+                    LIMIT 1
+                ) evidence ON transaction_account.currency <> default_account.currency
+                WHERE $scopeSql
+            )
+            UPDATE transactions tx
+            SET default_currency_amount_minor = valuations.default_currency_amount_minor,
+                default_currency = valuations.default_currency,
+                default_currency_conversion_source = valuations.conversion_source,
+                default_currency_conversion_transfer_id = valuations.conversion_transfer_id
+            FROM valuations
+            WHERE tx.id = valuations.id
+        """.trimIndent()
+
+        try {
+            dataSource.connection.use { connection ->
+                connection.prepareStatement(sql).use { statement ->
+                    statement.setLong(1, userId)
+                    scopeParameters.forEachIndexed { index, parameter -> statement.setObject(index + 2, parameter) }
+                    statement.executeUpdate()
+                }
+            }
+        } catch (exception: SQLException) {
+            if (exception.sqlState == NUMERIC_VALUE_OUT_OF_RANGE_SQL_STATE) {
+                throw ArithmeticException("Default-currency amount is outside the Long range").apply { initCause(exception) }
+            }
+            throw exception
+        }
+    }
+
+    private fun findTransferCounterpartCurrencies(userId: Long, accountId: Long): Set<String> {
+        val sql = """
+            SELECT DISTINCT CASE
+                WHEN transfer.source_account_id = ? THEN target_account.currency
+                ELSE source_account.currency
+            END AS counterpart_currency
+            FROM funds_transfers transfer
+            JOIN tracking_accounts source_account ON source_account.id = transfer.source_account_id
+            JOIN tracking_accounts target_account ON target_account.id = transfer.target_account_id
+            WHERE transfer.user_id = ?
+              AND (transfer.source_account_id = ? OR transfer.target_account_id = ?)
+        """.trimIndent()
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, accountId)
+                statement.setLong(2, userId)
+                statement.setLong(3, accountId)
+                statement.setLong(4, accountId)
+                statement.executeQuery().use { resultSet ->
+                    buildSet {
+                        while (resultSet.next()) {
+                            add(resultSet.getString("counterpart_currency"))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private companion object {
+        const val MAX_SCOPE_SIZE = 500
+        const val NUMERIC_VALUE_OUT_OF_RANGE_SQL_STATE = "22003"
+    }
 }

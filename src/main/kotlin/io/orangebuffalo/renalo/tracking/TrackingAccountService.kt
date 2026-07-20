@@ -28,7 +28,6 @@ open class TrackingAccountService(
                 isDefault = true,
             ),
         )
-        transactionDefaultCurrencyService.recalculateForUser(userId)
         return account
     }
 
@@ -78,8 +77,11 @@ open class TrackingAccountService(
         if (name.isBlank() || !isValidCurrency(currency)) {
             return null
         }
+        transactionDefaultCurrencyService.lockForUser(userId)
 
-        val shouldBeDefault = request.isDefault || trackingAccountRepository.countByUserId(userId) == 0L
+        val hadAccounts = trackingAccountRepository.countByUserId(userId) > 0
+        val shouldBeDefault = request.isDefault || !hadAccounts
+        val previousDefaultCurrency = trackingAccountRepository.findByUserIdAndIsDefaultTrue(userId)?.currency
         if (shouldBeDefault) {
             trackingAccountRepository.clearDefaultForUser(userId)
         }
@@ -94,21 +96,25 @@ open class TrackingAccountService(
                 archived = false,
             ),
         )
-        transactionDefaultCurrencyService.recalculateForUser(userId)
+        if (hadAccounts && shouldBeDefault && previousDefaultCurrency != currency) {
+            transactionDefaultCurrencyService.recalculateForUser(userId)
+        }
         return account
     }
 
     @Transactional
     open fun updateAccount(userId: Long, accountId: Long, request: SaveTrackingAccountRequest): TrackingAccount? {
-        val account = trackingAccountRepository.findByIdAndUserId(accountId, userId)
-            ?: return null
         val name = request.name.trim()
         val currency = request.currency.trim().uppercase()
         if (name.isBlank() || !isValidCurrency(currency)) {
             return null
         }
+        transactionDefaultCurrencyService.lockForUser(userId)
+        val account = trackingAccountRepository.findByIdAndUserId(accountId, userId)
+            ?: return null
 
         val shouldBeDefault = account.isDefault || request.isDefault
+        val previousDefaultCurrency = trackingAccountRepository.findByUserIdAndIsDefaultTrue(userId)?.currency
         if (request.isDefault && !account.isDefault) {
             trackingAccountRepository.clearDefaultForUser(userId)
         }
@@ -121,7 +127,17 @@ open class TrackingAccountService(
                 isDefault = shouldBeDefault,
             ),
         )
-        transactionDefaultCurrencyService.recalculateForUser(userId)
+        val defaultCurrencyChanged = shouldBeDefault && previousDefaultCurrency != currency
+        if (defaultCurrencyChanged) {
+            transactionDefaultCurrencyService.recalculateForUser(userId)
+        } else if (account.currency != currency) {
+            transactionDefaultCurrencyService.recalculateForAccountCurrencyChange(
+                userId = userId,
+                accountId = account.id!!,
+                oldCurrency = account.currency,
+                newCurrency = currency,
+            )
+        }
         return updatedAccount
     }
 
@@ -143,6 +159,7 @@ open class TrackingAccountService(
 
     @Transactional
     open fun mergeAccount(userId: Long, sourceAccountId: Long, request: MergeTrackingAccountRequest): TrackingAccountMergeResult {
+        transactionDefaultCurrencyService.lockForUser(userId)
         val sourceAccount = trackingAccountRepository.findByIdAndUserId(sourceAccountId, userId)
             ?: return TrackingAccountMergeResult.NOT_FOUND
         val targetAccount = trackingAccountRepository.findByIdAndUserId(request.targetAccountId, userId)
@@ -186,7 +203,7 @@ open class TrackingAccountService(
         fundsTransferRepository.reassignSourceAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         fundsTransferRepository.reassignTargetAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         trackingAccountRepository.deleteByIdAndUserId(persistedSourceAccountId, userId)
-        transactionDefaultCurrencyService.recalculateForUser(userId)
+        transactionDefaultCurrencyService.recalculateForCurrencies(userId, listOf(sourceAccount.currency))
 
         return TrackingAccountMergeResult.MERGED
     }

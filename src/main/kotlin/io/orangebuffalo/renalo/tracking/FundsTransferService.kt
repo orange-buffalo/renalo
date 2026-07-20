@@ -23,29 +23,32 @@ open class FundsTransferService(
 
     @Transactional
     open fun createTransfer(userId: Long, request: SaveFundsTransferRequest): SaveFundsTransferResult {
+        transactionDefaultCurrencyService.lockForUser(userId)
         val transfer = buildTransfer(userId, request) ?: return SaveFundsTransferResult.BadRequest
         val savedTransfer = fundsTransferRepository.save(transfer)
-        transactionDefaultCurrencyService.recalculateForUser(userId)
+        transactionDefaultCurrencyService.recalculateForChangedTransfers(userId, listOf(savedTransfer))
         return SaveFundsTransferResult.Saved(savedTransfer.toDetails(userId) ?: return SaveFundsTransferResult.BadRequest)
     }
 
     @Transactional
     open fun updateTransfer(userId: Long, transferId: Long, request: SaveFundsTransferRequest): SaveFundsTransferResult {
+        transactionDefaultCurrencyService.lockForUser(userId)
         val existingTransfer = fundsTransferRepository.findByIdAndUserId(transferId, userId)
             ?: return SaveFundsTransferResult.NotFound
         val transfer = buildTransfer(userId, request)?.copy(id = existingTransfer.id)
             ?: return SaveFundsTransferResult.BadRequest
         val savedTransfer = fundsTransferRepository.update(transfer)
-        transactionDefaultCurrencyService.recalculateForUser(userId)
+        transactionDefaultCurrencyService.recalculateForChangedTransfers(userId, listOf(existingTransfer, savedTransfer))
         return SaveFundsTransferResult.Saved(savedTransfer.toDetails(userId) ?: return SaveFundsTransferResult.BadRequest)
     }
 
     @Transactional
     open fun deleteTransfer(userId: Long, transferId: Long): DeleteFundsTransferResult {
+        transactionDefaultCurrencyService.lockForUser(userId)
         val transfer = fundsTransferRepository.findByIdAndUserId(transferId, userId)
             ?: return DeleteFundsTransferResult.NotFound
         fundsTransferRepository.delete(transfer)
-        transactionDefaultCurrencyService.recalculateForUser(userId)
+        transactionDefaultCurrencyService.recalculateForChangedTransfers(userId, listOf(transfer))
         return DeleteFundsTransferResult.Deleted
     }
 
