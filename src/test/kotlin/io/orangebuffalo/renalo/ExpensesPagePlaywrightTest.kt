@@ -452,7 +452,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val travel = saveAccount(alice, "Travel", "AUD", isDefault = false)
         val groceries = saveCategory(alice, "Groceries")
         val rent = saveCategory(alice, "Rent")
-        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1200, "Coffee beans wholesale")
+        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1, "Coffee beans wholesale")
         saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE, 1300, "Coffee filters")
         saveExpense(alice, travel, groceries, TestTimeProvider.DEFAULT_DATE, 1400, "Coffee beans travel")
         saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE, 1500, "Coffee beans rent")
@@ -464,8 +464,31 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Rent", "A$15.00", "Today", "Main", "Coffee beans rent", "edit delete"),
             ExpenseRow("Groceries", "A$14.00", "Today", "Travel", "Coffee beans travel", "edit delete"),
             ExpenseRow("Groceries", "A$13.00", "Today", "Main", "Coffee filters", "edit delete"),
-            ExpenseRow("Groceries", "A$12.00", "Today", "Main", "Coffee beans wholesale", "edit delete"),
+            ExpenseRow("Groceries", "A$0.01", "Today", "Main", "Coffee beans wholesale", "edit delete"),
         )
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Hide chart"))).hasAttribute(
+            "aria-pressed",
+            "true",
+        )
+        page.shouldEventuallyContainChartPoints(
+            ChartPoint("2099-06-14", "AUD", 4201),
+        )
+        page.locator("[data-testid='transaction-chart-data'] caption").count().shouldBe(0)
+
+        val chartCanvas = page.locator(".transaction-chart-canvas")
+        val chartBounds = chartCanvas.boundingBox()
+        val chartPlotWidth = chartBounds.width - 84
+        page.mouse().move(
+            chartBounds.x + 76 + chartPlotWidth * 13 / 29,
+            chartBounds.y + chartBounds.height / 2,
+        )
+        val chartTooltip = page.locator("[data-testid='transaction-chart-tooltip']")
+        assertThat(chartTooltip).containsText("June 14, 2099")
+        assertThat(chartTooltip).containsText("A$42.01")
+        assertThat(page.locator(".recharts-active-dot rect")).hasAttribute("fill", "#d16a56")
+        page.locator(".recharts-tooltip-wrapper")
+            .evaluate("element => getComputedStyle(element).zIndex")
+            .shouldBe("10")
 
         openMoreFilters(page)
         selectMoreFilterOption(page, "Category", "Groceries")
@@ -476,16 +499,45 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByLabel("Selected account").getByText("Main")).isVisible()
         assertThat(page.locator(".transaction-filter-count-badge")).hasText("3")
         page.shouldEventuallyContainExpenseRows(
-            ExpenseRow("Groceries", "A$12.00", "Today", "Main", "Coffee beans wholesale", "edit delete"),
+            ExpenseRow("Groceries", "A$0.01", "Today", "Main", "Coffee beans wholesale", "edit delete"),
+        )
+        page.shouldEventuallyContainChartPoints(
+            ChartPoint("2099-06-14", "AUD", 1),
         )
 
+        page.keyboard().press("Escape")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Hide chart")).click()
+        assertThat(page.locator("[data-testid='transaction-time-series-chart']")).not().isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Show chart"))).hasAttribute(
+            "aria-pressed",
+            "false",
+        )
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Show chart")).click()
+        page.shouldEventuallyContainChartPoints(
+            ChartPoint("2099-06-14", "AUD", 1),
+        )
+
+        openMoreFilters(page)
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Clear all")).click()
         assertThat(page.locator(".transaction-filter-count-badge")).not().isVisible()
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Rent", "A$15.00", "Today", "Main", "Coffee beans rent", "edit delete"),
             ExpenseRow("Groceries", "A$14.00", "Today", "Travel", "Coffee beans travel", "edit delete"),
             ExpenseRow("Groceries", "A$13.00", "Today", "Main", "Coffee filters", "edit delete"),
-            ExpenseRow("Groceries", "A$12.00", "Today", "Main", "Coffee beans wholesale", "edit delete"),
+            ExpenseRow("Groceries", "A$0.01", "Today", "Main", "Coffee beans wholesale", "edit delete"),
+        )
+
+        page.keyboard().press("Escape")
+        page.setViewportSize(390, 844)
+        page.reload()
+        assertThat(page.locator("[data-testid='transaction-time-series-chart']")).not().isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Show chart"))).hasAttribute(
+            "aria-pressed",
+            "false",
+        )
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Show chart")).click()
+        page.shouldEventuallyContainChartPoints(
+            ChartPoint("2099-06-14", "AUD", 4201),
         )
     }
 
@@ -907,6 +959,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             categoryId = category.id!!,
             date = date,
             amountMinor = amountMinor,
+            defaultCurrencyAmountMinor = amountMinor,
+            defaultCurrency = "AUD",
             notes = notes,
             recurringRuleId = recurringRule?.id,
             recurringInstanceDate = recurringRule?.let { date },
@@ -1123,6 +1177,19 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         }
     }
 
+    private fun Page.shouldEventuallyContainChartPoints(vararg expectedPoints: ChartPoint) {
+        shouldEventually {
+            @Suppress("UNCHECKED_CAST")
+            val points = locator("[data-testid='transaction-chart-point']").evaluateAll(
+                "points => points.map(point => [point.dataset.bucket, point.dataset.currency, point.dataset.amountMinor].join('|'))",
+            ) as List<String>
+            points.map { point ->
+                val (bucket, currency, amountMinor) = point.split("|")
+                ChartPoint(bucket, currency, amountMinor.toLong())
+            }.shouldContainExactly(*expectedPoints)
+        }
+    }
+
     private data class ExpenseRow(
         val category: String,
         val amount: String,
@@ -1130,6 +1197,12 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val account: String,
         val notes: String,
         val action: String,
+    )
+
+    private data class ChartPoint(
+        val bucket: String,
+        val currency: String,
+        val amountMinor: Long,
     )
 
     private data class ScheduleOptionExpectation(

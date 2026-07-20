@@ -28,6 +28,8 @@ const expenseTransactionsPageConfig: TransactionsPageConfig = {
   rowTestIdPrefix: "expense-row",
   deleteDialogDataTestId: "delete-expense-overlay",
   groupingStorageKey: "renalo.expenses.tableGrouping",
+  chartTitle: "Spending trend",
+  chartError: "Expense chart could not be loaded. Try again in a moment.",
 };
 
 export function ExpensesPage() {

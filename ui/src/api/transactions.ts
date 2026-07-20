@@ -64,6 +64,23 @@ export type TransactionSecondaryFilterParams = {
   notes: string;
 };
 
+export type TransactionTimeSeriesGranularity =
+  | "AUTO"
+  | "DAY"
+  | "WEEK"
+  | "MONTH";
+
+export type TransactionTimeSeries = {
+  granularity: Exclude<TransactionTimeSeriesGranularity, "AUTO">;
+  from?: string | null;
+  to?: string | null;
+  points: Array<{
+    bucket: string;
+    currency: string;
+    amountMinor: number;
+  }>;
+};
+
 export const expenseTransactionApi: TransactionApiConfig = {
   type: "EXPENSE",
   basePath: "/api/tracking/transactions/EXPENSE",
@@ -76,6 +93,36 @@ export const incomeTransactionApi: TransactionApiConfig = {
 
 export function fetchTransactions(
   config: TransactionApiConfig,
+  dateFilter?: TransactionDateFilterParams,
+  secondaryFilters?: TransactionSecondaryFilterParams,
+) {
+  const params = transactionFilterQuery(dateFilter, secondaryFilters);
+  const query = params.size ? `?${params.toString()}` : "";
+  return apiRequest<Transaction[]>(`${config.basePath}${query}`);
+}
+
+export async function fetchTransactionTimeSeries(
+  config: TransactionApiConfig,
+  dateFilter?: TransactionDateFilterParams,
+  secondaryFilters?: TransactionSecondaryFilterParams,
+  granularity: TransactionTimeSeriesGranularity = "AUTO",
+) {
+  const params = transactionFilterQuery(dateFilter, secondaryFilters);
+  params.set("granularity", granularity);
+  const timeSeries = await apiRequest<TransactionTimeSeries>(
+    `/api/tracking/analytics/transactions/${config.type}/time-series?${params.toString()}`,
+  );
+
+  if (
+    timeSeries.points.some((point) => !Number.isSafeInteger(point.amountMinor))
+  ) {
+    throw new Error("Time-series total exceeds browser-safe integer range");
+  }
+
+  return timeSeries;
+}
+
+function transactionFilterQuery(
   dateFilter?: TransactionDateFilterParams,
   secondaryFilters?: TransactionSecondaryFilterParams,
 ) {
@@ -94,8 +141,7 @@ export function fetchTransactions(
   if (notes) {
     params.set("notes", notes);
   }
-  const query = params.size ? `?${params.toString()}` : "";
-  return apiRequest<Transaction[]>(`${config.basePath}${query}`);
+  return params;
 }
 
 export function fetchTransaction(

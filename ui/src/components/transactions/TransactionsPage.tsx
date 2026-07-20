@@ -1,16 +1,19 @@
-import { LayersThree01, Plus } from "@untitledui/icons";
-import { useEffect, useState } from "react";
+import { BarChartSquare02, LayersThree01, Plus } from "@untitledui/icons";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppState } from "@/AppState";
 import { fetchTrackingAccounts } from "@/api/trackingAccounts";
 import {
   deleteTransaction,
   fetchTransactions,
+  fetchTransactionTimeSeries,
   type RecurringTransactionDeleteScope,
   type Transaction,
   type TransactionApiConfig,
+  type TransactionTimeSeries,
 } from "@/api/transactions";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
+import { TransactionTimeSeriesChart } from "@/components/charts/TransactionTimeSeriesChart";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { PageLayout } from "@/components/PageLayout";
 import { TableEmptyState } from "@/components/TableEmptyState";
@@ -37,6 +40,7 @@ import {
   RadioButton,
   RadioGroup,
 } from "@/components/untitled/base/radio-buttons/radio-buttons";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { formatMoney, formatMoneyInput } from "@/utils/money";
 
 export type TransactionsPageConfig = {
@@ -60,6 +64,8 @@ export type TransactionsPageConfig = {
   rowTestIdPrefix: string;
   deleteDialogDataTestId: string;
   groupingStorageKey: string;
+  chartTitle: string;
+  chartError: string;
 };
 
 type TransactionGrouping = "plain" | "date" | "category";
@@ -76,6 +82,7 @@ export function TransactionsPage({
   config: TransactionsPageConfig;
 }) {
   const navigate = useNavigate();
+  const isDesktop = useBreakpoint("md");
   const { transactionDateFilter, setTransactionDateFilter } = useAppState();
   const [transactions, setTransactions] = useState<Transaction[]>();
   const [error, setError] = useState<string>();
@@ -92,6 +99,34 @@ export function TransactionsPage({
   const [grouping, setGrouping] = useState<TransactionGrouping>(() =>
     loadTransactionGrouping(config.groupingStorageKey),
   );
+  const [chartVisibilityOverride, setChartVisibilityOverride] = useState<
+    boolean | undefined
+  >();
+  const [timeSeries, setTimeSeries] = useState<TransactionTimeSeries>();
+  const [chartError, setChartError] = useState<string>();
+  const timeSeriesRequestId = useRef(0);
+  const isChartVisible = chartVisibilityOverride ?? isDesktop;
+
+  const refreshTimeSeries = useCallback(() => {
+    const requestId = ++timeSeriesRequestId.current;
+    setTimeSeries(undefined);
+    setChartError(undefined);
+    fetchTransactionTimeSeries(
+      config.api,
+      transactionDateFilter,
+      secondaryFilters,
+    )
+      .then((loadedTimeSeries) => {
+        if (requestId === timeSeriesRequestId.current) {
+          setTimeSeries(loadedTimeSeries);
+        }
+      })
+      .catch(() => {
+        if (requestId === timeSeriesRequestId.current) {
+          setChartError(config.chartError);
+        }
+      });
+  }, [config, secondaryFilters, transactionDateFilter]);
 
   const transactionRows = transactions
     ? groupTransactionRows(
@@ -124,6 +159,19 @@ export function TransactionsPage({
       isActive = false;
     };
   }, [config, transactionDateFilter, secondaryFilters]);
+
+  useEffect(() => {
+    if (!isChartVisible) {
+      timeSeriesRequestId.current += 1;
+      return;
+    }
+
+    refreshTimeSeries();
+
+    return () => {
+      timeSeriesRequestId.current += 1;
+    };
+  }, [isChartVisible, refreshTimeSeries]);
 
   useEffect(() => {
     let isActive = true;
@@ -180,6 +228,9 @@ export function TransactionsPage({
           ),
         );
       }
+      if (isChartVisible) {
+        refreshTimeSeries();
+      }
       setConfirmingTransaction(undefined);
     } catch {
       setError(config.deleteError);
@@ -210,6 +261,15 @@ export function TransactionsPage({
           onChange={setTransactionDateFilter}
         />
         <div className="transaction-filter-actions">
+          <Button
+            className="transaction-chart-toggle"
+            aria-label={isChartVisible ? "Hide chart" : "Show chart"}
+            aria-pressed={isChartVisible}
+            color="tertiary"
+            size="sm"
+            iconLeading={BarChartSquare02}
+            onPress={() => setChartVisibilityOverride(!isChartVisible)}
+          />
           <TransactionGroupingSelector
             value={grouping}
             onChange={changeGrouping}
@@ -223,6 +283,14 @@ export function TransactionsPage({
           />
         </div>
       </div>
+      {isChartVisible && (
+        <TransactionTimeSeriesChart
+          title={config.chartTitle}
+          tone={config.api.type === "EXPENSE" ? "expense" : "income"}
+          timeSeries={timeSeries}
+          error={chartError}
+        />
+      )}
       <section className="standard-page-panel user-management-panel">
         <TableCard.Root size="sm">
           {error && (

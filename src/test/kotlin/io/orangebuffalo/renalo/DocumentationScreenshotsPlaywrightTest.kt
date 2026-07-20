@@ -116,7 +116,15 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(page.locator("[data-testid^='expense-group-date-']").first()).containsText("Today")
         assertThat(page.locator("[data-testid^='expense-group-date-']").first()).containsText("58.98 AUD")
         if (layout == DocumentationLayout.MOBILE) {
+            assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Show chart"))).hasAttribute(
+                "aria-pressed",
+                "false",
+            )
+            assertThat(page.locator("[data-testid='transaction-time-series-chart']")).not().isVisible()
             page.locator("[data-testid^='expense-row-']").first().click()
+        } else {
+            assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending trend"))).isVisible()
+            page.waitForTimeout(1_600.0)
         }
         capture(page, layout, "05-expenses-overview")
 
@@ -142,7 +150,15 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(page.locator("[data-testid^='income-group-date-']").first()).containsText("Today")
         assertThat(page.locator("[data-testid^='income-group-date-']").first()).containsText("750.00 AUD")
         if (layout == DocumentationLayout.MOBILE) {
+            assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Show chart"))).hasAttribute(
+                "aria-pressed",
+                "false",
+            )
+            assertThat(page.locator("[data-testid='transaction-time-series-chart']")).not().isVisible()
             page.locator("[data-testid^='income-row-']").first().click()
+        } else {
+            assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Earnings trend"))).isVisible()
+            page.waitForTimeout(1_600.0)
         }
         capture(page, layout, "08-incomes-overview")
 
@@ -402,6 +418,8 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
             },
             date = date,
             amountMinor = amountMinor,
+            defaultCurrencyAmountMinor = amountMinor,
+            defaultCurrency = "AUD",
             notes = notes,
             recurringRuleId = recurringRule?.id,
             recurringInstanceDate = recurringRule?.let { date },

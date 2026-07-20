@@ -349,6 +349,107 @@ input {
   gap: 4px;
 }
 
+.transaction-chart-toggle[aria-pressed="true"] {
+  background: #f2f4f7;
+  color: #4b5058;
+}
+
+.transaction-chart-toggle[aria-pressed="true"] [data-icon] {
+  color: #626da5;
+}
+
+.transaction-chart-panel {
+  width: 100%;
+  margin-bottom: 24px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 1px #d1d7e0,
+    0 1px 2px rgb(16 24 40 / 5%);
+}
+
+.transaction-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 0;
+}
+
+.transaction-chart-header h2,
+.transaction-currency-chart h3 {
+  margin: 0;
+  color: #343841;
+  font-weight: 600;
+}
+
+.transaction-chart-header h2 {
+  font-size: 1rem;
+}
+
+.transaction-chart-header p {
+  margin: 3px 0 0;
+  color: #838b95;
+  font-size: 0.8125rem;
+}
+
+.transaction-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 20px;
+  padding: 18px 20px 20px;
+}
+
+.transaction-currency-chart {
+  min-width: 0;
+}
+
+.transaction-currency-chart h3 {
+  margin-bottom: 8px;
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+}
+
+.transaction-chart-canvas {
+  width: 100%;
+  height: 240px;
+}
+
+.transaction-chart-tooltip {
+  display: grid;
+  gap: 2px;
+  border-radius: 8px;
+  background: #343841;
+  padding: 8px 12px;
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgb(16 24 40 / 18%);
+}
+
+.transaction-chart-tooltip p {
+  margin: 0;
+  color: #d4d9db;
+  font-size: 0.75rem;
+}
+
+.transaction-chart-tooltip strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.transaction-chart-message {
+  display: grid;
+  min-height: 180px;
+  margin: 0;
+  place-items: center;
+  padding: 40px 24px;
+  color: #626872;
+}
+
+.transaction-chart-error {
+  color: #d16a56;
+}
+
 .transaction-group-row {
   height: 36px;
   background: #f2f4f7;
@@ -709,6 +810,23 @@ input {
 
   .transaction-filter-actions {
     align-items: center;
+  }
+
+  .transaction-chart-panel {
+    margin-bottom: 20px;
+  }
+
+  .transaction-chart-header {
+    padding: 12px 12px 0;
+  }
+
+  .transaction-chart-grid {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .transaction-chart-canvas {
+    height: 220px;
   }
 
   .transaction-more-filters-label {
