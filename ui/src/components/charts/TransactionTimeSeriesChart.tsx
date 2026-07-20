@@ -16,6 +16,7 @@ import {
   selectEvenlySpacedItems,
 } from "@/components/untitled/application/charts/charts-base";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { formatMoney, formatMoneyInput } from "@/utils/money";
 
 type TransactionTimeSeriesChartProps = {
@@ -151,6 +152,7 @@ function CurrencyAreaChart({
   color: string;
   gradientId: string;
 }) {
+  const isDesktop = useBreakpoint("md");
   const axisTicks = selectEvenlySpacedItems(series.points, 5).map(
     (point) => point.bucket,
   );
@@ -162,7 +164,12 @@ function CurrencyAreaChart({
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={series.points}
-            margin={{ top: 8, right: 8, bottom: 0, left: 4 }}
+            margin={{
+              top: isDesktop ? 8 : 16,
+              right: isDesktop ? 8 : 12,
+              bottom: 0,
+              left: isDesktop ? 4 : 12,
+            }}
             accessibilityLayer
           >
             <defs>
@@ -188,11 +195,17 @@ function CurrencyAreaChart({
               allowDecimals={false}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#626872", fontSize: 12 }}
+              tick={
+                isDesktop ? (
+                  { fill: "#626872", fontSize: 12 }
+                ) : (
+                  <MobileYAxisTick currency={series.currency} />
+                )
+              }
               tickFormatter={(amountMinor) =>
                 formatMoneyInput(Number(amountMinor), series.currency)
               }
-              width={72}
+              width={isDesktop ? 72 : 1}
             />
             <Tooltip
               cursor={{ stroke: "#d1d7e0", strokeWidth: 1 }}
@@ -219,6 +232,28 @@ function CurrencyAreaChart({
         </ResponsiveContainer>
       </div>
     </div>
+  );
+}
+
+function MobileYAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+  currency,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value: number };
+  currency: string;
+}) {
+  if (!payload) {
+    return null;
+  }
+
+  return (
+    <text x={x + 4} y={y - 4} fill="#626872" fontSize="8" textAnchor="start">
+      {formatMoneyInput(payload.value, currency)}
+    </text>
   );
 }
 
