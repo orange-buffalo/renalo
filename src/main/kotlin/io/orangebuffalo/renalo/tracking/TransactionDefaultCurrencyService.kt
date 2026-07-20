@@ -2,6 +2,7 @@ package io.orangebuffalo.renalo.tracking
 
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Singleton
+import org.slf4j.LoggerFactory
 import java.sql.SQLException
 import javax.sql.DataSource
 
@@ -10,6 +11,8 @@ open class TransactionDefaultCurrencyService(
     private val trackingAccountRepository: TrackingAccountRepository,
     private val dataSource: DataSource,
 ) {
+    private val logger = LoggerFactory.getLogger(TransactionDefaultCurrencyService::class.java)
+
     @Transactional
     open fun lockForUser(userId: Long) {
         lockUserValuation(userId)
@@ -18,7 +21,13 @@ open class TransactionDefaultCurrencyService(
     @Transactional
     open fun recalculateTransaction(userId: Long, transactionId: Long) {
         lockUserValuation(userId)
-        recalculate(userId, "tx.id = ?", listOf(transactionId))
+        val updatedCount = recalculate(userId, "tx.id = ?", listOf(transactionId))
+        logger.info(
+            "Default-currency projection recalculated for transaction: userId={}, transactionId={}, updatedCount={}",
+            userId,
+            transactionId,
+            updatedCount,
+        )
     }
 
     @Transactional
@@ -28,8 +37,23 @@ open class TransactionDefaultCurrencyService(
             return
         }
         lockUserValuation(userId)
-        uniqueIds.chunked(MAX_SCOPE_SIZE).forEach { ids ->
+        val updatedCount = uniqueIds.chunked(MAX_SCOPE_SIZE).sumOf { ids ->
             recalculate(userId, "tx.id IN (${ids.joinToString(",") { "?" }})", ids)
+        }
+        if (uniqueIds.size == 1) {
+            logger.info(
+                "Default-currency projection recalculated for transaction: userId={}, transactionId={}, updatedCount={}",
+                userId,
+                uniqueIds.single(),
+                updatedCount,
+            )
+        } else {
+            logger.info(
+                "Default-currency projections recalculated for changed transactions: userId={}, requestedCount={}, updatedCount={}",
+                userId,
+                uniqueIds.size,
+                updatedCount,
+            )
         }
     }
 
@@ -40,18 +64,23 @@ open class TransactionDefaultCurrencyService(
             return
         }
         lockUserValuation(userId)
-        recalculateCurrencies(userId, uniqueCurrencies)
+        val updatedCount = recalculateCurrencies(userId, uniqueCurrencies)
+        logger.info(
+            "Default-currency projections recalculated for currencies: userId={}, currencies={}, updatedCount={}",
+            userId,
+            uniqueCurrencies.sorted(),
+            updatedCount,
+        )
     }
 
-    private fun recalculateCurrencies(userId: Long, currencies: Collection<String>) {
-        currencies.chunked(MAX_SCOPE_SIZE).forEach { currencyChunk ->
+    private fun recalculateCurrencies(userId: Long, currencies: Collection<String>): Int =
+        currencies.distinct().chunked(MAX_SCOPE_SIZE).sumOf { currencyChunk ->
             recalculateMatchingTransactions(
                 userId,
                 "transaction_account.currency IN (${currencyChunk.joinToString(",") { "?" }})",
                 currencyChunk,
             )
         }
-    }
 
     @Transactional
     open fun recalculateForChangedTransfers(userId: Long, transfers: Collection<FundsTransfer>) {
@@ -62,18 +91,40 @@ open class TransactionDefaultCurrencyService(
         val accounts = trackingAccountRepository.findByUserIdOrderByName(userId).associateBy { it.id!! }
         val defaultAccount = trackingAccountRepository.findByUserIdAndIsDefaultTrue(userId)
             ?: error("User $userId has transfers but no default tracking account")
+        val currencyPairs = linkedSetOf<String>()
         val affectedCurrencies = transfers.mapNotNull { transfer ->
             val sourceCurrency = accounts[transfer.sourceAccountId]?.currency
                 ?: error("Transfer ${transfer.id} references a missing source account")
             val targetCurrency = accounts[transfer.targetAccountId]?.currency
                 ?: error("Transfer ${transfer.id} references a missing target account")
+            currencyPairs += "$sourceCurrency->$targetCurrency"
             when {
                 sourceCurrency == defaultAccount.currency && targetCurrency != defaultAccount.currency -> targetCurrency
                 targetCurrency == defaultAccount.currency && sourceCurrency != defaultAccount.currency -> sourceCurrency
                 else -> null
             }
         }
-        recalculateCurrencies(userId, affectedCurrencies)
+        val updatedCount = recalculateCurrencies(userId, affectedCurrencies)
+        val transferIds = transfers.mapNotNull { it.id }.distinct()
+        if (transferIds.size == 1) {
+            logger.info(
+                "Default-currency projections recalculated after transfer: userId={}, transferId={}, currencyPairs={}, affectedCurrencies={}, updatedCount={}",
+                userId,
+                transferIds.single(),
+                currencyPairs,
+                affectedCurrencies.distinct().sorted(),
+                updatedCount,
+            )
+        } else {
+            logger.info(
+                "Default-currency projections recalculated after transfers: userId={}, transferCount={}, currencyPairs={}, affectedCurrencies={}, updatedCount={}",
+                userId,
+                transferIds.size,
+                currencyPairs,
+                affectedCurrencies.distinct().sorted(),
+                updatedCount,
+            )
+        }
     }
 
     @Transactional
@@ -90,13 +141,27 @@ open class TransactionDefaultCurrencyService(
         if (oldCurrency == defaultCurrency || newCurrency == defaultCurrency) {
             affectedCurrencies += findTransferCounterpartCurrencies(userId, accountId)
         }
-        recalculateCurrencies(userId, affectedCurrencies)
+        val updatedCount = recalculateCurrencies(userId, affectedCurrencies)
+        logger.info(
+            "Default-currency projections recalculated after account currency change: userId={}, accountId={}, oldCurrency={}, newCurrency={}, affectedCurrencies={}, updatedCount={}",
+            userId,
+            accountId,
+            oldCurrency,
+            newCurrency,
+            affectedCurrencies.sorted(),
+            updatedCount,
+        )
     }
 
     @Transactional
     open fun recalculateForUser(userId: Long) {
         lockUserValuation(userId)
-        recalculateMatchingTransactions(userId, "TRUE", emptyList())
+        val updatedCount = recalculateMatchingTransactions(userId, "TRUE", emptyList())
+        logger.info(
+            "Default-currency projections fully recalculated: userId={}, updatedCount={}",
+            userId,
+            updatedCount,
+        )
     }
 
     private fun lockUserValuation(userId: Long) {
@@ -108,17 +173,16 @@ open class TransactionDefaultCurrencyService(
         }
     }
 
-    private fun recalculateMatchingTransactions(userId: Long, scopeSql: String, scopeParameters: List<Any>) {
+    private fun recalculateMatchingTransactions(userId: Long, scopeSql: String, scopeParameters: List<Any>): Int =
         findTransactionIds(userId, scopeSql, scopeParameters)
             .chunked(MAX_SCOPE_SIZE)
-            .forEach { transactionIds ->
+            .sumOf { transactionIds ->
                 recalculate(
                     userId,
                     "tx.id IN (${transactionIds.joinToString(",") { "?" }})",
                     transactionIds,
                 )
             }
-    }
 
     private fun findTransactionIds(
         userId: Long,
@@ -148,7 +212,7 @@ open class TransactionDefaultCurrencyService(
         }
     }
 
-    private fun recalculate(userId: Long, scopeSql: String, scopeParameters: List<Any>) {
+    private fun recalculate(userId: Long, scopeSql: String, scopeParameters: List<Any>): Int {
         val sql = """
             WITH default_account AS (
                 SELECT user_id, currency
@@ -239,7 +303,7 @@ open class TransactionDefaultCurrencyService(
         """.trimIndent()
 
         try {
-            dataSource.connection.use { connection ->
+            return dataSource.connection.use { connection ->
                 connection.prepareStatement(sql).use { statement ->
                     statement.setLong(1, userId)
                     scopeParameters.forEachIndexed { index, parameter -> statement.setObject(index + 2, parameter) }
