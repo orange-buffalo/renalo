@@ -1,4 +1,5 @@
 import { useId } from "react";
+import type { TooltipContentProps } from "recharts";
 import {
   Area,
   AreaChart,
@@ -12,7 +13,6 @@ import {
 import type { TransactionTimeSeries } from "@/api/transactions";
 import {
   ChartActiveDot,
-  ChartTooltipContent,
   selectEvenlySpacedItems,
 } from "@/components/untitled/application/charts/charts-base";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
@@ -107,8 +107,11 @@ export function TransactionTimeSeriesChart({
       )}
 
       {timeSeries && (
-        <table className="sr-only" data-testid="transaction-chart-data">
-          <caption>{title} data</caption>
+        <table
+          className="sr-only"
+          aria-label={`${title} data`}
+          data-testid="transaction-chart-data"
+        >
           <thead>
             <tr>
               <th>Bucket</th>
@@ -193,16 +196,14 @@ function CurrencyAreaChart({
             />
             <Tooltip
               cursor={{ stroke: "#d1d7e0", strokeWidth: 1 }}
-              content={
-                <ChartTooltipContent
-                  formatter={(amountMinor) =>
-                    formatMoney(Number(amountMinor), series.currency)
-                  }
-                  labelFormatter={(bucket) =>
-                    formatBucketTooltip(String(bucket), granularity)
-                  }
+              wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
+              content={(props) => (
+                <TransactionChartTooltip
+                  {...props}
+                  currency={series.currency}
+                  granularity={granularity}
                 />
-              }
+              )}
             />
             <Area
               type="monotone"
@@ -211,12 +212,37 @@ function CurrencyAreaChart({
               stroke={color}
               strokeWidth={2}
               fill={`url(#${gradientId})`}
-              activeDot={<ChartActiveDot />}
+              activeDot={<ChartActiveDot color={color} />}
               animationMatchBy={matchByDataKey("bucket")}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
+    </div>
+  );
+}
+
+function TransactionChartTooltip({
+  active,
+  payload,
+  label,
+  currency,
+  granularity,
+}: TooltipContentProps & {
+  currency: string;
+  granularity: TransactionTimeSeries["granularity"];
+}) {
+  if (!active || !payload?.length || label === undefined) {
+    return null;
+  }
+
+  return (
+    <div
+      className="transaction-chart-tooltip"
+      data-testid="transaction-chart-tooltip"
+    >
+      <p>{formatBucketTooltip(String(label), granularity)}</p>
+      <strong>{formatMoney(Number(payload[0].value), currency)}</strong>
     </div>
   );
 }

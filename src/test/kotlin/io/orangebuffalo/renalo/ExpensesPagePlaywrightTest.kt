@@ -473,6 +473,22 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.shouldEventuallyContainChartPoints(
             ChartPoint("2099-06-14", "AUD", 4201),
         )
+        page.locator("[data-testid='transaction-chart-data'] caption").count().shouldBe(0)
+
+        val chartCanvas = page.locator(".transaction-chart-canvas")
+        val chartBounds = chartCanvas.boundingBox()
+        val chartPlotWidth = chartBounds.width - 84
+        page.mouse().move(
+            chartBounds.x + 76 + chartPlotWidth * 13 / 29,
+            chartBounds.y + chartBounds.height / 2,
+        )
+        val chartTooltip = page.locator("[data-testid='transaction-chart-tooltip']")
+        assertThat(chartTooltip).containsText("June 14, 2099")
+        assertThat(chartTooltip).containsText("A$42.01")
+        assertThat(page.locator(".recharts-active-dot rect")).hasAttribute("fill", "#d16a56")
+        page.locator(".recharts-tooltip-wrapper")
+            .evaluate("element => getComputedStyle(element).zIndex")
+            .shouldBe("10")
 
         openMoreFilters(page)
         selectMoreFilterOption(page, "Category", "Groceries")

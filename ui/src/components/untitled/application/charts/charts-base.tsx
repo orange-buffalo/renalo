@@ -124,17 +124,28 @@ export const ChartTooltipContent = ({ active, payload, label, isRadialChart, isP
 };
 
 interface ChartActiveDotProps extends DotProps {
+    color?: string;
     // We have to use `any` here because the `payload` prop is not typed correctly in the `recharts` library.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     payload?: any;
 }
 
-export const ChartActiveDot = ({ cx = 0, cy = 0 }: ChartActiveDotProps) => {
+export const ChartActiveDot = ({ cx = 0, cy = 0, color }: ChartActiveDotProps) => {
     const size = 12;
 
     return (
         <svg x={cx - size / 2} y={cy - size / 2} width={size} height={size} viewBox="0 0 12 12" fill="none">
-            <rect x="2" y="2" width="8" height="8" rx="6" className="fill-bg-primary stroke-utility-brand-600" strokeWidth="2" />
+            <rect
+                x="2"
+                y="2"
+                width="8"
+                height="8"
+                rx="6"
+                className={color ? undefined : "fill-bg-primary stroke-utility-brand-600"}
+                fill={color}
+                stroke={color}
+                strokeWidth="2"
+            />
         </svg>
     );
 };

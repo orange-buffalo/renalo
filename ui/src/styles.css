@@ -360,7 +360,7 @@ input {
 
 .transaction-chart-panel {
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   overflow: hidden;
   border-radius: 12px;
   background: #ffffff;
@@ -414,6 +414,27 @@ input {
 .transaction-chart-canvas {
   width: 100%;
   height: 240px;
+}
+
+.transaction-chart-tooltip {
+  display: grid;
+  gap: 2px;
+  border-radius: 8px;
+  background: #343841;
+  padding: 8px 12px;
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgb(16 24 40 / 18%);
+}
+
+.transaction-chart-tooltip p {
+  margin: 0;
+  color: #d4d9db;
+  font-size: 0.75rem;
+}
+
+.transaction-chart-tooltip strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .transaction-chart-message {
@@ -792,7 +813,7 @@ input {
   }
 
   .transaction-chart-panel {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
 
   .transaction-chart-header {
