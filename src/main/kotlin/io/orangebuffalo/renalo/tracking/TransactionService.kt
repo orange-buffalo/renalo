@@ -17,6 +17,7 @@ open class TransactionService(
     private val recurringTransactionRuleRepository: RecurringTransactionRuleRepository,
     private val recurringTransactionSkipRepository: RecurringTransactionSkipRepository,
     private val recurringTransactionGenerationService: RecurringTransactionGenerationService,
+    private val transactionDefaultCurrencyService: TransactionDefaultCurrencyService,
 ) {
     @Transactional(readOnly = true)
     open fun listTransactions(
@@ -58,6 +59,10 @@ open class TransactionService(
                    category_id,
                    date,
                    amount_minor,
+                   default_currency_amount_minor,
+                   default_currency,
+                   default_currency_conversion_source,
+                   default_currency_conversion_transfer_id,
                    notes,
                    metadata,
                    recurring_rule_id,
@@ -92,10 +97,12 @@ open class TransactionService(
         request: SaveTransactionRequest,
         currentDate: LocalDate,
     ): SaveTransactionResult {
+        transactionDefaultCurrencyService.lockForUser(userId)
         val recurrence = request.recurrence
         return if (recurrence == null) {
-            saveTransaction(userId, type, null, request)?.let { SaveTransactionResult.Saved(it) }
+            val result = saveTransaction(userId, type, null, request)?.let { SaveTransactionResult.Saved(it) }
                 ?: SaveTransactionResult.BadRequest
+            recalculateSavedTransaction(userId, result)
         } else {
             createRecurringTransaction(userId, type, request, recurrence, currentDate)
         }
@@ -109,6 +116,7 @@ open class TransactionService(
         request: SaveTransactionRequest,
         currentDate: LocalDate,
     ): SaveTransactionResult {
+        transactionDefaultCurrencyService.lockForUser(userId)
         val existingTransaction = transactionRepository.findByIdAndUserIdAndType(transactionId, userId, type)
             ?: return SaveTransactionResult.BadRequest
 
@@ -116,8 +124,9 @@ open class TransactionService(
             return updateRecurringTransaction(userId, type, existingTransaction, request, currentDate)
         }
 
-        return saveTransaction(userId, type, existingTransaction, request)?.let { SaveTransactionResult.Saved(it) }
+        val result = saveTransaction(userId, type, existingTransaction, request)?.let { SaveTransactionResult.Saved(it) }
             ?: SaveTransactionResult.BadRequest
+        return recalculateSavedTransaction(userId, result)
     }
 
     @Transactional
@@ -127,6 +136,7 @@ open class TransactionService(
         transactionId: Long,
         request: DeleteTransactionRequest? = null,
     ): DeleteTransactionResult {
+        transactionDefaultCurrencyService.lockForUser(userId)
         val transaction = transactionRepository.findByIdAndUserIdAndType(transactionId, userId, type)
             ?: return DeleteTransactionResult.NotFound
         if (transaction.recurringRuleId != null) {
@@ -289,7 +299,9 @@ open class TransactionService(
                         recurringLocked = true,
                     ),
                 )
-                SaveTransactionResult.Saved(TransactionDetails(savedTransaction, account, category, rule))
+                transactionDefaultCurrencyService.recalculateTransaction(userId, savedTransaction.id!!)
+                val refreshedTransaction = transactionRepository.findById(savedTransaction.id!!).orElseThrow()
+                SaveTransactionResult.Saved(TransactionDetails(refreshedTransaction, account, category, rule))
             }
 
             RecurringTransactionEditScope.THIS_AND_ALL_FOLLOWING_OCCURRENCES -> {
@@ -306,8 +318,16 @@ open class TransactionService(
                     ),
                 )
                 recurringTransactionRuleRepository.update(rule.copy(endDate = instanceDate.minusDays(1)))
-                reassignFollowingTransactionsToNewRule(rule.id!!, newRule, instanceDate, request.amountMinor, notes, existingTransaction.id!!)
+                val reassignedTransactionIds = reassignFollowingTransactionsToNewRule(
+                    rule.id!!,
+                    newRule,
+                    instanceDate,
+                    request.amountMinor,
+                    notes,
+                    existingTransaction.id!!,
+                )
                 recurringTransactionGenerationService.generateForRule(newRule, currentDate)
+                transactionDefaultCurrencyService.recalculateTransactions(userId, reassignedTransactionIds)
                 val savedTransaction = transactionRepository.findById(existingTransaction.id!!).orElseThrow()
                 SaveTransactionResult.Saved(TransactionDetails(savedTransaction, account, category, newRule))
             }
@@ -321,9 +341,9 @@ open class TransactionService(
                         notes = notes,
                     ),
                 )
-                transactionRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
+                val updatedTransactions = transactionRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
                     .filter { !it.recurringLocked || it.id == existingTransaction.id }
-                    .forEach {
+                    .map {
                         transactionRepository.update(
                             it.copy(
                                 trackingAccountId = account.id!!,
@@ -333,6 +353,7 @@ open class TransactionService(
                             ),
                         )
                     }
+                transactionDefaultCurrencyService.recalculateTransactions(userId, updatedTransactions.map { it.id!! })
                 val savedTransaction = transactionRepository.findById(existingTransaction.id!!).orElseThrow()
                 SaveTransactionResult.Saved(TransactionDetails(savedTransaction, account, category, updatedRule))
             }
@@ -346,22 +367,20 @@ open class TransactionService(
         amountMinor: Long,
         notes: String?,
         selectedTransactionId: Long,
-    ) {
-        transactionRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(oldRuleId)
-            .filter { it.recurringInstanceDate?.let { date -> date >= instanceDate } == true }
-            .forEach { transaction ->
-                val shouldApplyEditedValues = !transaction.recurringLocked || transaction.id == selectedTransactionId
-                transactionRepository.update(
-                    transaction.copy(
-                        trackingAccountId = if (shouldApplyEditedValues) newRule.trackingAccountId else transaction.trackingAccountId,
-                        categoryId = if (shouldApplyEditedValues) newRule.categoryId else transaction.categoryId,
-                        amountMinor = if (shouldApplyEditedValues) amountMinor else transaction.amountMinor,
-                        notes = if (shouldApplyEditedValues) notes else transaction.notes,
-                        recurringRuleId = newRule.id,
-                    ),
-                )
-            }
-    }
+    ): List<Long> = transactionRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(oldRuleId)
+        .filter { it.recurringInstanceDate?.let { date -> date >= instanceDate } == true }
+        .map { transaction ->
+            val shouldApplyEditedValues = !transaction.recurringLocked || transaction.id == selectedTransactionId
+            transactionRepository.update(
+                transaction.copy(
+                    trackingAccountId = if (shouldApplyEditedValues) newRule.trackingAccountId else transaction.trackingAccountId,
+                    categoryId = if (shouldApplyEditedValues) newRule.categoryId else transaction.categoryId,
+                    amountMinor = if (shouldApplyEditedValues) amountMinor else transaction.amountMinor,
+                    notes = if (shouldApplyEditedValues) notes else transaction.notes,
+                    recurringRuleId = newRule.id,
+                ),
+            ).id!!
+        }
 
     private fun Transaction.toDetails(userId: Long, type: TransactionType): TransactionDetails? {
         val account = trackingAccountRepository.findByIdAndUserId(trackingAccountId, userId)
@@ -372,6 +391,15 @@ open class TransactionService(
             recurringTransactionRuleRepository.findByIdAndUserIdAndTransactionType(it, userId, type)
         }
         return TransactionDetails(this, account, category, recurringRule)
+    }
+
+    private fun recalculateSavedTransaction(userId: Long, result: SaveTransactionResult): SaveTransactionResult {
+        if (result !is SaveTransactionResult.Saved) {
+            return result
+        }
+        transactionDefaultCurrencyService.recalculateTransaction(userId, result.transaction.transaction.id!!)
+        val refreshedTransaction = transactionRepository.findById(result.transaction.transaction.id!!).orElseThrow()
+        return SaveTransactionResult.Saved(result.transaction.copy(transaction = refreshedTransaction))
     }
 
     private fun findCategory(userId: Long, type: TransactionType, categoryId: Long): TransactionCategoryDetails? =
@@ -411,6 +439,10 @@ private fun ResultSet.toTransaction() = Transaction(
     categoryId = getLong("category_id"),
     date = getDate("date").toLocalDate(),
     amountMinor = getLong("amount_minor"),
+    defaultCurrencyAmountMinor = getNullableLong("default_currency_amount_minor"),
+    defaultCurrency = getString("default_currency"),
+    defaultCurrencyConversionSource = DefaultCurrencyConversionSource.valueOf(getString("default_currency_conversion_source")),
+    defaultCurrencyConversionTransferId = getNullableLong("default_currency_conversion_transfer_id"),
     notes = getString("notes"),
     metadata = getString("metadata")?.let { emptyMap() },
     recurringRuleId = getNullableLong("recurring_rule_id"),

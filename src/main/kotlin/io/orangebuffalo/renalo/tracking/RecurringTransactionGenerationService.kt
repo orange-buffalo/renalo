@@ -12,6 +12,7 @@ open class RecurringTransactionGenerationService(
     private val recurringTransactionRuleRepository: RecurringTransactionRuleRepository,
     private val recurringTransactionSkipRepository: RecurringTransactionSkipRepository,
     private val transactionRepository: TransactionRepository,
+    private val transactionDefaultCurrencyService: TransactionDefaultCurrencyService,
     private val timeProvider: TimeProvider,
 ) {
     fun generateForActiveRules(): RecurringTransactionGenerationSummary {
@@ -30,42 +31,52 @@ open class RecurringTransactionGenerationService(
         rule: RecurringTransactionRule,
         currentDate: LocalDate = timeProvider.today(),
     ): RecurringTransactionGenerationResult {
-        val targetGenerationUntil = targetGenerationUntil(rule, currentDate)
-        if (!rule.generatedUntil.isBefore(targetGenerationUntil)) {
-            return RecurringTransactionGenerationResult(ruleId = rule.id, generatedUntil = rule.generatedUntil)
+        transactionDefaultCurrencyService.lockForUser(rule.userId)
+        val currentRule = rule.id?.let { recurringTransactionRuleRepository.findById(it).orElse(rule) } ?: rule
+        val targetGenerationUntil = targetGenerationUntil(currentRule, currentDate)
+        if (currentRule.status != RecurringTransactionRuleStatus.ACTIVE ||
+            !currentRule.generatedUntil.isBefore(targetGenerationUntil)
+        ) {
+            return RecurringTransactionGenerationResult(ruleId = currentRule.id, generatedUntil = currentRule.generatedUntil)
         }
 
         var createdTransactions = 0
         var updatedTransactions = 0
         var skippedOccurrences = 0
-        val schedule = RecurrenceSchedule(rule.recurrenceFrequency, rule.recurrenceInterval)
+        val changedTransactionIds = mutableListOf<Long>()
+        val schedule = RecurrenceSchedule(currentRule.recurrenceFrequency, currentRule.recurrenceInterval)
 
-        RecurrenceCalculator.occurrencesBetween(schedule, rule.startDate, targetGenerationUntil)
+        RecurrenceCalculator.occurrencesBetween(schedule, currentRule.startDate, targetGenerationUntil)
             .forEach { instanceDate ->
-                if (recurringTransactionSkipRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, instanceDate) != null) {
+                if (recurringTransactionSkipRepository.findByRecurringRuleIdAndRecurringInstanceDate(currentRule.id!!, instanceDate) != null) {
                     skippedOccurrences++
                     return@forEach
                 }
 
-                val existingTransaction = transactionRepository.findByRecurringRuleIdAndRecurringInstanceDate(rule.id!!, instanceDate)
+                val existingTransaction = transactionRepository.findByRecurringRuleIdAndRecurringInstanceDate(currentRule.id!!, instanceDate)
                 if (existingTransaction == null) {
-                    if (saveGeneratedTransaction(rule, instanceDate)) {
+                    saveGeneratedTransaction(currentRule, instanceDate)?.let { transactionId ->
                         createdTransactions++
+                        changedTransactionIds += transactionId
                     }
-                } else if (!existingTransaction.recurringLocked && updateGeneratedTransactionIfNeeded(rule, existingTransaction, instanceDate)) {
-                    updatedTransactions++
+                } else if (!existingTransaction.recurringLocked) {
+                    updateGeneratedTransactionIfNeeded(currentRule, existingTransaction, instanceDate)?.let { transactionId ->
+                        updatedTransactions++
+                        changedTransactionIds += transactionId
+                    }
                 }
             }
 
         recurringTransactionRuleRepository.update(
-            rule.copy(
+            currentRule.copy(
                 generatedUntil = targetGenerationUntil,
                 lastGeneratedAt = timeProvider.now(),
             ),
         )
+        transactionDefaultCurrencyService.recalculateTransactions(currentRule.userId, changedTransactionIds)
 
         return RecurringTransactionGenerationResult(
-            ruleId = rule.id,
+            ruleId = currentRule.id,
             generatedUntil = targetGenerationUntil,
             createdTransactions = createdTransactions,
             updatedTransactions = updatedTransactions,
@@ -82,7 +93,7 @@ open class RecurringTransactionGenerationService(
         }
     }
 
-    private fun saveGeneratedTransaction(rule: RecurringTransactionRule, instanceDate: LocalDate): Boolean =
+    private fun saveGeneratedTransaction(rule: RecurringTransactionRule, instanceDate: LocalDate): Long? =
         transactionRepository.createGeneratedTransactionIfMissing(
             userId = rule.userId,
             type = rule.transactionType,
@@ -93,13 +104,13 @@ open class RecurringTransactionGenerationService(
             notes = rule.notes,
             recurringRuleId = rule.id!!,
             recurringInstanceDate = instanceDate,
-        ) != null
+        )
 
     private fun updateGeneratedTransactionIfNeeded(
         rule: RecurringTransactionRule,
         transaction: Transaction,
         instanceDate: LocalDate,
-    ): Boolean {
+    ): Long? {
         val updatedTransaction = transaction.copy(
             type = rule.transactionType,
             trackingAccountId = rule.trackingAccountId,
@@ -112,11 +123,10 @@ open class RecurringTransactionGenerationService(
             recurringLocked = false,
         )
         if (updatedTransaction == transaction) {
-            return false
+            return null
         }
 
-        transactionRepository.update(updatedTransaction)
-        return true
+        return transactionRepository.update(updatedTransaction).id
     }
 }
 

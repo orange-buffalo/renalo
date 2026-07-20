@@ -2,16 +2,16 @@
 name: renalo-pull-request
 description: >
   Publishes the current local branch to remote, creates a GitHub pull request
-  against main, and enables squash auto-merge after committing pending changes,
-  rebasing onto origin/main, force-pushing safely, and waiting for PR CI.
+  against main, waits for PR CI, and squash-merges after successful checks.
+  Failed checks are investigated and fixed locally without committing the fix.
 compatibility: "requires: gh CLI, git, repository write access"
 ---
 
 # Renalo Pull Request Skill
 
-Use this skill when the user wants to publish the current local branch, commit pending changes, create a GitHub pull request, or enable auto-merge for a branch.
+Use this skill when the user wants to publish the current local branch, commit pending changes, create a GitHub pull request, or squash-merge a pull request after CI.
 
-This workflow is intentionally local and stateful. It may create commits, rebase the current branch, force-push with lease, create a pull request, enable squash auto-merge, wait for PR CI, and fix CI failures. Only use it when the user explicitly requests this publish-and-PR workflow or an equivalent operation.
+This workflow is intentionally local and stateful. It may create commits, rebase the current branch, force-push with lease, create a pull request, wait for PR CI, squash-merge successful pull requests, and prepare uncommitted fixes for CI failures. Only use it when the user explicitly requests this publish-and-PR workflow or an equivalent operation.
 
 ## Context Requirement
 
@@ -195,7 +195,7 @@ gh pr edit "$pr_number" \
   --body-file "<pr-description-file>"
 ```
 
-Then use the existing PR for the auto-merge step and final report.
+Then use the existing PR for the checks, squash-merge, and final report.
 
 Create a PR against `main` when none exists:
 
@@ -216,60 +216,65 @@ pr_url="$(gh pr view --json url --jq .url)"
 pr_number="$(gh pr view --json number --jq .number)"
 ```
 
-### 8. Enable Squash Auto-Merge
+### 8. Wait For PR CI
 
-Enable auto-merge with squash for the pull request:
-
-```bash
-gh pr merge "$pr_number" --auto --squash
-```
-
-Rules:
-
-- Use squash auto-merge only.
-- Do not merge immediately unless GitHub performs the merge automatically because all requirements are already satisfied.
-- If auto-merge cannot be enabled because repository settings disallow it, report that clearly and leave the PR open.
-- If required checks are pending, auto-merge should remain enabled and GitHub will merge after requirements pass.
-
-### 9. Wait For PR CI
-
-Wait for the pull request's CI checks to complete after auto-merge is enabled:
+Wait for all pull request checks to complete before attempting any merge:
 
 ```bash
 gh pr checks "$pr_number" --watch
 ```
 
-If all required checks pass, continue to the final state verification.
+If all required checks pass, continue to the squash-merge step.
 
 If any CI check fails:
-
-- Disable auto-merge before making changes:
-
-```bash
-gh pr merge "$pr_number" --disable-auto
-```
 
 - Inspect the failed check details with `gh pr checks "$pr_number"`, `gh run view`, or `gh run view --log-failed` as appropriate.
 - Investigate the root cause locally, using the full conversation context and the failed CI output.
 - Fix the issue if it is clearly related to the task.
-- Re-run the relevant validation before re-enabling auto-merge.
+- Re-run the smallest relevant local validation for the fix.
+- Leave every CI-remediation change unstaged and uncommitted for the user to review.
+- Do not commit, push, rerun remote checks, enable auto-merge, or merge the PR in the same workflow invocation.
+- Stop and report the failed check, root cause, changed files, local validation, and uncommitted worktree state.
+- If the failure cannot be reproduced or a safe fix is unclear, do not guess or weaken validation. Leave the PR open and report the blocker.
+
+### 9. Squash-Merge The Pull Request
+
+Only after all required checks pass, merge the pull request using squash:
+
+```bash
+gh pr merge "$pr_number" --squash --delete-branch
+```
+
+Rules:
+
+- Squash merge is mandatory. Do not use merge commits or rebase merge.
+- Do not use `--admin` to bypass branch protection, reviews, or other repository requirements.
+- If GitHub queues or delays an otherwise eligible merge, use squash auto-merge and wait for the final state:
+
+```bash
+gh pr merge "$pr_number" --auto --squash --delete-branch
+```
+
+- If the PR cannot merge after successful checks, leave it open and report the exact unmet requirement.
+- Do not report success until GitHub reports the PR state as `MERGED`.
 
 ### 10. Final State Verification
 
 Before reporting success, verify:
 
 ```bash
-git status --short
+git status --branch --short
 git log --oneline --decorate -n 5
 gh pr view "$pr_number" --json url,title,state,isDraft,mergeStateStatus
 ```
 
 Success criteria:
 
-- The working tree is clean or only contains intentionally uncommitted user changes that were explicitly left alone.
+- The working tree is clean.
 - The branch is pushed to origin.
 - The PR exists and has the expected title and body.
-- Auto-merge is enabled when allowed by repository settings.
+- All required checks passed.
+- The PR was squash-merged and GitHub reports its state as `MERGED`.
 - The PR URL is captured for the final response.
 
 If any of these fail, stop and report the exact issue.

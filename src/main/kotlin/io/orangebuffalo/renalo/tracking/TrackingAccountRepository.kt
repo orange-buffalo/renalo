@@ -20,6 +20,8 @@ interface TrackingAccountRepository : CrudRepository<TrackingAccount, Long> {
 
     fun findByIdAndUserId(id: Long, userId: Long): TrackingAccount?
 
+    fun findByUserIdAndIsDefaultTrue(userId: Long): TrackingAccount?
+
     fun countByUserId(userId: Long): Long
 
     fun deleteByIdAndUserId(id: Long, userId: Long)

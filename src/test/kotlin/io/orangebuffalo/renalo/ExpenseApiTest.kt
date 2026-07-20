@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
 import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.tracking.Transaction
 import io.orangebuffalo.renalo.tracking.TransactionType
@@ -292,6 +293,16 @@ class ExpenseApiTest : IntegrationTestSupport() {
         val savings = saveAccount(alice, "Savings", "EUR")
         val groceries = saveCategory(alice, "Groceries")
         val rent = saveCategory(alice, "Rent")
+        val unrelatedIncome = expenseRepository.save(
+            Transaction(
+                userId = alice.id!!,
+                type = TransactionType.INCOME,
+                trackingAccountId = account.id!!,
+                categoryId = 1,
+                date = LocalDate.parse("2020-01-01"),
+                amountMinor = 99,
+            ),
+        )
         val token = api().login("alice", "password")
 
         val createResponse = api().postJson(
@@ -302,6 +313,11 @@ class ExpenseApiTest : IntegrationTestSupport() {
 
         createResponse.statusCode().shouldBe(201)
         val expense = expenseRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.EXPENSE).single()
+        expense.defaultCurrencyAmountMinor.shouldBe(1_234)
+        expense.defaultCurrency.shouldBe("AUD")
+        expense.defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+        expense.defaultCurrencyConversionTransferId.shouldBe(null)
+        expenseRepository.findById(unrelatedIncome.id!!).get().defaultCurrency.shouldBe(null)
         createResponse.body().shouldEqualJson(
             """
                 {
@@ -347,7 +363,13 @@ class ExpenseApiTest : IntegrationTestSupport() {
                 }
             """.trimIndent(),
         )
-        expenseRepository.findById(expense.id!!).get().trackingAccountId.shouldBe(savings.id)
+        expenseRepository.findById(expense.id!!).get().apply {
+            trackingAccountId.shouldBe(savings.id)
+            defaultCurrencyAmountMinor.shouldBe(null)
+            defaultCurrency.shouldBe("AUD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.UNAVAILABLE)
+            defaultCurrencyConversionTransferId.shouldBe(null)
+        }
 
         api().delete("/api/tracking/transactions/EXPENSE/${expense.id}", token).statusCode().shouldBe(204)
         expenseRepository.findById(expense.id!!).isPresent.shouldBe(false)
@@ -631,14 +653,18 @@ class ExpenseApiTest : IntegrationTestSupport() {
         newRule.recurrenceInterval.shouldBe(RecurrenceInterval.WEEK)
         newRule.amountMinor.shouldBe(6200)
         newRule.notes.shouldBe("Updated")
-        expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(newRule.id!!)
-            .map { it.recurringInstanceDate }
+        val followingOccurrences = expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(newRule.id!!)
+        followingOccurrences.map { it.recurringInstanceDate }
             .shouldContainExactly(
                 LocalDate.parse("2099-06-08"),
                 LocalDate.parse("2099-06-15"),
                 LocalDate.parse("2099-06-22"),
                 LocalDate.parse("2099-06-29"),
             )
+        followingOccurrences.forEach { occurrence ->
+            occurrence.defaultCurrencyAmountMinor.shouldBe(occurrence.amountMinor)
+            occurrence.defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+        }
         expenseRepository.findById(selected.id!!).get().amountMinor.shouldBe(6200)
         expenseRepository.findById(locked.id!!).get().amountMinor.shouldBe(7000)
         expenseRepository.findById(locked.id!!).get().recurringRuleId.shouldBe(newRule.id)
@@ -695,10 +721,21 @@ class ExpenseApiTest : IntegrationTestSupport() {
         ).statusCode().shouldBe(200)
 
         recurringExpenseRuleRepository.findById(rule.id!!).get().amountMinor.shouldBe(6200)
-        expenseRepository.findById(first.id!!).get().amountMinor.shouldBe(6200)
-        expenseRepository.findById(selected.id!!).get().notes.shouldBe("Updated")
-        expenseRepository.findById(locked.id!!).get().amountMinor.shouldBe(7000)
-        expenseRepository.findById(locked.id!!).get().notes.shouldBe("Custom")
+        expenseRepository.findById(first.id!!).get().apply {
+            amountMinor.shouldBe(6200)
+            defaultCurrencyAmountMinor.shouldBe(6200)
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+        }
+        expenseRepository.findById(selected.id!!).get().apply {
+            notes.shouldBe("Updated")
+            defaultCurrencyAmountMinor.shouldBe(6200)
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+        }
+        expenseRepository.findById(locked.id!!).get().apply {
+            amountMinor.shouldBe(7000)
+            notes.shouldBe("Custom")
+            defaultCurrency.shouldBe(null)
+        }
     }
 
     @Test

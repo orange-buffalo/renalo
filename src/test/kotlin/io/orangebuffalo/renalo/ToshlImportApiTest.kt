@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.tracking.AccountAdjustmentRepository
+import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.FundsTransferRepository
 import io.orangebuffalo.renalo.tracking.IncomeCategoryRepository
@@ -479,6 +480,7 @@ class ToshlImportApiTest : IntegrationTestSupport() {
     @Test
     fun usesNonTransferRowsToDetectAccountCurrenciesAndStoresConvertedTransferAmounts() {
         val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Aud account", "AUD", isDefault = true)
         val token = api().login("alice", "password")
 
         val response = api().postJson(
@@ -565,6 +567,12 @@ class ToshlImportApiTest : IntegrationTestSupport() {
         transfer.targetAccountId.shouldBe(accounts.getValue("Aud account").id)
         transfer.sourceAmountMinor.shouldBe(10_000L)
         transfer.targetAmountMinor.shouldBe(15_000L)
+        transactionRepository.findByUserIdAndTypeOrderByDateDesc(alice.id!!, TransactionType.INCOME).single().apply {
+            defaultCurrencyAmountMinor.shouldBe(150)
+            defaultCurrency.shouldBe("AUD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.ACTUAL_TRANSFER)
+            defaultCurrencyConversionTransferId.shouldBe(transfer.id)
+        }
     }
 
     @Test

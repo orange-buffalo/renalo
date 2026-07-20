@@ -7,6 +7,7 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestTimeProvider
+import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
 import io.orangebuffalo.renalo.tracking.Transaction
 import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
@@ -182,6 +183,44 @@ class RecurringTransactionGenerationServiceTest : IntegrationTestSupport() {
         savedUnlockedExpense.amountMinor.shouldBe(2000)
         savedUnlockedExpense.notes.shouldBe("Updated rent")
         savedUnlockedExpense.recurringLocked.shouldBe(false)
+    }
+
+    @Test
+    fun calculatesProjectionsOnlyForCreatedOrUpdatedOccurrences() {
+        val alice = saveUser("alice")
+        val account = saveAccount(alice)
+        val category = saveCategory(alice)
+        val unrelatedHistoricalExpense = expenseRepository.save(
+            Transaction(
+                userId = alice.id!!,
+                type = TransactionType.EXPENSE,
+                trackingAccountId = account.id!!,
+                categoryId = category.id!!,
+                date = LocalDate.parse("2020-01-01"),
+                amountMinor = 500,
+            ),
+        )
+        val rule = saveRecurringRule(
+            user = alice,
+            account = account,
+            category = category,
+            startDate = LocalDate.parse("2099-06-01"),
+            endDate = LocalDate.parse("2099-06-15"),
+            generatedUntil = LocalDate.parse("2099-05-31"),
+        )
+
+        recurringExpenseGenerationService.generateForRule(rule)
+
+        expenseRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!).forEach { occurrence ->
+            occurrence.defaultCurrencyAmountMinor.shouldBe(1_234)
+            occurrence.defaultCurrency.shouldBe("AUD")
+            occurrence.defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+        }
+        expenseRepository.findById(unrelatedHistoricalExpense.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(null)
+            defaultCurrency.shouldBe(null)
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.UNAVAILABLE)
+        }
     }
 
     @Test

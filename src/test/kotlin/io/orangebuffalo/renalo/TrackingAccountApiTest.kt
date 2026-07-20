@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
+import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.FundsTransfer
@@ -287,6 +288,83 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun restatesTransactionValuesWhenTheDefaultAccountChanges() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        val usd = saveAccount(alice, "USD", "USD", 0, isDefault = false)
+        val income = saveTransaction(alice, usd, saveIncomeCategory(alice), TransactionType.INCOME, 1_000)
+        val conversion = saveTransfer(alice, usd, main, 1_000, 1_500)
+        val token = api().login("alice", "password")
+
+        api().postJson(
+            "/api/tracking/accounts",
+            """
+                {"name":"USD Default","currency":"USD","initialBalanceMinor":0,"isDefault":true}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(201)
+        transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(1_000)
+            defaultCurrency.shouldBe("USD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+            defaultCurrencyConversionTransferId.shouldBe(null)
+        }
+
+        api().patchJson(
+            "/api/tracking/accounts/${main.id}",
+            """
+                {"name":"Main","currency":"AUD","initialBalanceMinor":0,"isDefault":true}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(200)
+        transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(1_500)
+            defaultCurrency.shouldBe("AUD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.ACTUAL_TRANSFER)
+            defaultCurrencyConversionTransferId.shouldBe(conversion.id)
+        }
+    }
+
+    @Test
+    fun recalculatesTransferCounterpartCurrencyWhenAccountEntersOrLeavesDefaultCurrency() {
+        val alice = saveUser("alice", UserType.USER)
+        saveAccount(alice, "Main", "AUD", 0, isDefault = true)
+        val bridge = saveAccount(alice, "Bridge", "USD", 0, isDefault = false)
+        val euro = saveAccount(alice, "Euro", "EUR", 0, isDefault = false)
+        val income = saveTransaction(alice, euro, saveIncomeCategory(alice), TransactionType.INCOME, 1_000)
+        val transfer = saveTransfer(alice, euro, bridge, 1_000, 1_500)
+        val token = api().login("alice", "password")
+
+        api().patchJson(
+            "/api/tracking/accounts/${bridge.id}",
+            """
+                {"name":"Bridge","currency":"AUD","initialBalanceMinor":0,"isDefault":false}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(200)
+        transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(1_500)
+            defaultCurrency.shouldBe("AUD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.ACTUAL_TRANSFER)
+            defaultCurrencyConversionTransferId.shouldBe(transfer.id)
+        }
+
+        api().patchJson(
+            "/api/tracking/accounts/${bridge.id}",
+            """
+                {"name":"Bridge","currency":"USD","initialBalanceMinor":0,"isDefault":false}
+            """.trimIndent(),
+            token,
+        ).statusCode().shouldBe(200)
+        transactionRepository.findById(income.id!!).get().apply {
+            defaultCurrencyAmountMinor.shouldBe(null)
+            defaultCurrency.shouldBe("AUD")
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.UNAVAILABLE)
+            defaultCurrencyConversionTransferId.shouldBe(null)
+        }
+    }
+
+    @Test
     fun doesNotUncheckCurrentDefaultAccount() {
         val alice = saveUser("alice", UserType.USER)
         val main = saveAccount(alice, "Main", "AUD", 0, isDefault = true)
@@ -428,8 +506,16 @@ class TrackingAccountApiTest : IntegrationTestSupport() {
         val mergedTarget = trackingAccountRepository.findById(savings.id!!).get()
         mergedTarget.initialBalanceMinor.shouldBe(600)
         mergedTarget.isDefault.shouldBe(true)
-        transactionRepository.findById(expense.id!!).get().trackingAccountId.shouldBe(savings.id)
-        transactionRepository.findById(income.id!!).get().trackingAccountId.shouldBe(savings.id)
+        transactionRepository.findById(expense.id!!).get().apply {
+            trackingAccountId.shouldBe(savings.id)
+            defaultCurrencyAmountMinor.shouldBe(1_000)
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+        }
+        transactionRepository.findById(income.id!!).get().apply {
+            trackingAccountId.shouldBe(savings.id)
+            defaultCurrencyAmountMinor.shouldBe(2_000)
+            defaultCurrencyConversionSource.shouldBe(DefaultCurrencyConversionSource.SAME_CURRENCY)
+        }
         fundsTransferRepository.findById(outgoing.id!!).get().sourceAccountId.shouldBe(savings.id)
         fundsTransferRepository.findById(incoming.id!!).get().targetAccountId.shouldBe(savings.id)
         fundsTransferRepository.findByUserIdOrderByDateDesc(alice.id!!).size.shouldBe(2)
