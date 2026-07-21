@@ -361,6 +361,7 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(label).setExact(true))
             .click()
+        assertThat(page.getByLabel("Search ${label.lowercase()}")).isFocused()
         dropdownOption(page, option).click()
         page.keyboard().press("Escape")
     }

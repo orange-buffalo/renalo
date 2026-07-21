@@ -75,6 +75,7 @@
 - Table loading states must use the shared `TableLoadingState` spinner with centered padding, not inline loading text.
 - Table row action groups must use the shared `TableRowActions` helpers so edit/delete icon colors and spacing stay consistent.
 - For searchable selects where search is part of the closed field, use documented Untitled `Select.ComboBox` and `Select.Item`; for dropdowns where search appears only after opening, follow the Untitled dropdown `Search simple` pattern with a regular trigger and search input inside the popover.
+- Search inputs rendered inside an opened dropdown popover must receive focus automatically so users can type immediately after opening the dropdown.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Standard authenticated pages should put page-level descriptions, counters/badges, and primary actions in `PageLayout`, not inside table panels or forms.

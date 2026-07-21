@@ -1,5 +1,5 @@
 import { ChevronDown, SearchLg } from "@untitledui/icons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button as AriaButton, type Selection } from "react-aria-components";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Input } from "@/components/untitled/base/input/input";
@@ -40,6 +40,7 @@ export function SearchableDropdown({
 }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const searchInputRef = useDropdownSearchFocus(isOpen);
   const selectedItem = items.find((item) => item.id === selectedKey);
   const visibleItems = useFilteredItems(items, search);
 
@@ -78,6 +79,7 @@ export function SearchableDropdown({
         >
           <div className="searchable-dropdown-search-wrap">
             <Input
+              ref={searchInputRef}
               aria-label={`Search ${label.toLowerCase()}`}
               size="sm"
               placeholder={searchPlaceholder}
@@ -134,6 +136,7 @@ export function SearchableMultiDropdown({
 }: SearchableMultiDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const searchInputRef = useDropdownSearchFocus(isOpen);
   const visibleItems = useFilteredItems(items, search);
   const selectedKeySet = new Set(selectedKeys);
 
@@ -179,6 +182,7 @@ export function SearchableMultiDropdown({
         >
           <div className="searchable-dropdown-search-wrap">
             <Input
+              ref={searchInputRef}
               aria-label={`Search ${label.toLowerCase()}`}
               size="sm"
               placeholder={searchPlaceholder}
@@ -209,6 +213,23 @@ export function SearchableMultiDropdown({
       </Dropdown.Root>
     </div>
   );
+}
+
+function useDropdownSearchFocus(isOpen: boolean) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const focusFrame = requestAnimationFrame(() =>
+      searchInputRef.current?.focus(),
+    );
+    return () => cancelAnimationFrame(focusFrame);
+  }, [isOpen]);
+
+  return searchInputRef;
 }
 
 function useFilteredItems(items: SearchableDropdownItem[], search: string) {

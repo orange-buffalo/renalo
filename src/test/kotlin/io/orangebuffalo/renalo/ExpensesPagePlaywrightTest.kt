@@ -1065,7 +1065,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
 
         page.getByLabel("Category").click()
-        page.getByLabel("Search category").fill("Rent")
+        assertThat(page.getByLabel("Search category")).isFocused()
+        page.keyboard().type("Rent")
         assertThat(dropdownOption(page, "Rent")).isVisible()
         assertThat(dropdownOption(page, "Groceries")).not().isVisible()
         assertThat(dropdownOption(page, "Utilities")).not().isVisible()
