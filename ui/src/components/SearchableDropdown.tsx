@@ -1,5 +1,11 @@
 import { ChevronDown, SearchLg } from "@untitledui/icons";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button as AriaButton, type Selection } from "react-aria-components";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Input } from "@/components/untitled/base/input/input";
@@ -86,9 +92,12 @@ export function SearchableDropdown({
               icon={SearchLg}
               value={search}
               onChange={setSearch}
+              onKeyDown={handleSearchKeyDown}
             />
           </div>
           <Dropdown.Menu
+            autoFocus={false}
+            shouldFocusWrap
             selectionMode="single"
             selectedKeys={selectedKey ? [selectedKey] : []}
             onAction={(key) => {
@@ -189,9 +198,13 @@ export function SearchableMultiDropdown({
               icon={SearchLg}
               value={search}
               onChange={setSearch}
+              onKeyDown={handleSearchKeyDown}
             />
           </div>
           <Dropdown.Menu
+            autoFocus={false}
+            shouldFocusWrap
+            shouldCloseOnSelect={false}
             selectionMode="multiple"
             selectedKeys={selectedKeySet}
             onSelectionChange={handleSelectionChange}
@@ -230,6 +243,33 @@ function useDropdownSearchFocus(isOpen: boolean) {
   }, [isOpen]);
 
   return searchInputRef;
+}
+
+function handleSearchKeyDown(event: KeyboardEvent) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const menuItems = event.currentTarget
+    .closest(".searchable-dropdown-popover")
+    ?.querySelectorAll<HTMLElement>(
+      '[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), [role="menuitemcheckbox"]:not([aria-disabled="true"])',
+    );
+
+  if (!menuItems?.length) {
+    return;
+  }
+
+  menuItems[event.key === "ArrowDown" ? 0 : menuItems.length - 1].focus();
 }
 
 function useFilteredItems(items: SearchableDropdownItem[], search: string) {

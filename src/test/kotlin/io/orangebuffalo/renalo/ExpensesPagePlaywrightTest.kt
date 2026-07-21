@@ -1072,6 +1072,50 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(dropdownOption(page, "Utilities")).not().isVisible()
     }
 
+    @Test
+    fun navigatesAndSelectsExpenseCategoriesWithKeyboard(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Groceries")
+        saveCategory(alice, "Rent")
+        saveCategory(alice, "Utilities")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+
+        val categoryTrigger = page.getByRole(
+            AriaRole.BUTTON,
+            Page.GetByRoleOptions().setName("Category").setExact(true),
+        )
+        val searchInput = page.getByLabel("Search category")
+        categoryTrigger.click()
+        assertThat(searchInput).isFocused()
+
+        page.keyboard().press("Enter")
+        assertThat(searchInput).isFocused()
+        assertThat(categoryTrigger).containsText("Choose category")
+
+        page.keyboard().press("ArrowDown")
+        assertThat(dropdownMenuItem(page, "Groceries")).isFocused()
+        assertThat(categoryTrigger).containsText("Choose category")
+
+        page.keyboard().press("ArrowUp")
+        assertThat(dropdownMenuItem(page, "Utilities")).isFocused()
+        page.keyboard().press("ArrowDown")
+        assertThat(dropdownMenuItem(page, "Groceries")).isFocused()
+
+        page.keyboard().press("Escape")
+        categoryTrigger.click()
+        assertThat(searchInput).isFocused()
+        page.keyboard().press("ArrowUp")
+        assertThat(dropdownMenuItem(page, "Utilities")).isFocused()
+
+        page.keyboard().press("Enter")
+        assertThat(categoryTrigger).containsText("Utilities")
+        assertThat(searchInput).not().isVisible()
+    }
+
     private fun selectOption(page: Page, label: String, option: String) {
         page.getByLabel(label).click()
         dropdownOption(page, option).click()
@@ -1085,6 +1129,9 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun dropdownOptions(page: Page): Locator =
         page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
+
+    private fun dropdownMenuItem(page: Page, option: String): Locator =
+        dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
 
     private fun dropdownOption(page: Page, option: String): Locator =
         page.locator(".searchable-dropdown-popover").getByText(option, Locator.GetByTextOptions().setExact(true))
