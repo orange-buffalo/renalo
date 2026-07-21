@@ -1017,7 +1017,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun showsCategoriesInUsageOrderOnExpenseForm(page: Page) {
+    fun showsMostUsedCategoriesFirstOnExpenseForm(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         val groceries = saveCategory(alice, "Groceries")
@@ -1025,7 +1025,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val utilities = saveCategory(alice, "Utilities")
         saveExpense(alice, main, rent, TestTimeProvider.DEFAULT_DATE, 1000, "Rent")
         saveExpense(alice, main, utilities, TestTimeProvider.DEFAULT_DATE.minusDays(5), 2000, "Utilities")
-        saveExpense(alice, main, groceries, TestTimeProvider.DEFAULT_DATE.minusDays(10), 3000, "Groceries")
+        saveExpense(alice, main, utilities, TestTimeProvider.DEFAULT_DATE.minusDays(10), 3000, "Utilities again")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/expenses/create")
@@ -1035,7 +1035,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val optionOrder = dropdownOptions(page).evaluateAll(
             "options => options.map(o => o.textContent.trim())",
         ) as List<String>
-        optionOrder.shouldBe(listOf("Rent", "Utilities", "Groceries"))
+        optionOrder.shouldBe(listOf("Utilities", "Rent", "Groceries"))
         page.keyboard().press("Escape")
     }
 

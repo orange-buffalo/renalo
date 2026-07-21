@@ -34,6 +34,7 @@
 - A regular user must always have at least one `TrackingAccount`; new and migrated users get a default `Main` account in `AUD` with zero initial balance.
 - Income and expense categories are regular-user-bound; new and migrated users get default `General` income and expense categories.
 - Archived income and expense categories remain visible in Settings when explicitly requested but must be excluded from transaction category dropdowns and transaction category filters.
+- Income and expense category lists are ordered by associated transaction count descending, then category name ascending, so the most-used categories appear first in transaction dropdowns.
 - Exactly one `TrackingAccount` per regular user must have `isDefault = true`; changing the default means nominating another account, not unchecking the current default.
 - Archived `TrackingAccount` rows remain visible in Settings when explicitly requested but must be excluded from dashboard summaries, transaction account dropdowns, and transaction account filters.
 - Browser-driven current-date calculations use the browser's IANA timezone from the `X-Time-Zone` API header; missing headers fall back to UTC for non-browser clients and invalid timezone IDs are rejected. Future transactions, transfers, and adjustments must be excluded consistently. Scheduled jobs without browser context use UTC unless a persisted user timezone is introduced. Monetary aggregate and merge arithmetic must use exact `Long` operations and fail on overflow rather than wrap.

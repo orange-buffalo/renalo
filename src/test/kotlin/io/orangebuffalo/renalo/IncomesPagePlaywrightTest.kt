@@ -539,7 +539,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun showsCategoriesInUsageOrderOnIncomeForm(page: Page) {
+    fun showsMostUsedCategoriesFirstOnIncomeForm(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
         val salary = saveCategory(alice, "Salary")
@@ -547,7 +547,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         val interest = saveCategory(alice, "Interest")
         saveIncome(alice, main, salary, TestTimeProvider.DEFAULT_DATE, 1000, "Salary")
         saveIncome(alice, main, bonus, TestTimeProvider.DEFAULT_DATE.minusDays(5), 2000, "Bonus")
-        saveIncome(alice, main, interest, TestTimeProvider.DEFAULT_DATE.minusDays(10), 3000, "Interest")
+        saveIncome(alice, main, bonus, TestTimeProvider.DEFAULT_DATE.minusDays(10), 3000, "Bonus again")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/incomes/create")
@@ -557,7 +557,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         val optionOrder = dropdownOptions(page).evaluateAll(
             "options => options.map(o => o.textContent.trim())",
         ) as List<String>
-        optionOrder.shouldBe(listOf("Salary", "Bonus", "Interest"))
+        optionOrder.shouldBe(listOf("Bonus", "Salary", "Interest"))
         page.keyboard().press("Escape")
     }
 

@@ -32,7 +32,7 @@ open class IncomeCategoryService(
             .associateBy { it.categoryId }
 
         return categories.sortedWith(
-            compareByDescending<IncomeCategory> { usageByCategoryId[it.id]?.lastUsedDate }
+            compareByDescending<IncomeCategory> { usageByCategoryId[it.id]?.entriesCount ?: 0L }
                 .thenBy { it.name },
         ).map { category ->
             IncomeCategoryOverview(category, usageByCategoryId[category.id]?.entriesCount ?: 0)

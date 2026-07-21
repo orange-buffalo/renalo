@@ -10,7 +10,6 @@ import java.time.LocalDate
 @Introspected
 data class CategoryUsage(
     val categoryId: Long,
-    val lastUsedDate: LocalDate,
     val entriesCount: Long,
 )
 
@@ -74,7 +73,7 @@ interface TransactionRepository : CrudRepository<Transaction, Long> {
 
     @Query(
         """
-            SELECT category_id, MAX(date) AS last_used_date, COUNT(*) AS entries_count
+            SELECT category_id, COUNT(*) AS entries_count
             FROM transactions
             WHERE user_id = :userId AND type = :type
             GROUP BY category_id
