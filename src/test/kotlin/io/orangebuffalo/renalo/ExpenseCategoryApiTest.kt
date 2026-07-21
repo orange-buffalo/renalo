@@ -65,11 +65,13 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
         val alice = saveUser("alice", UserType.USER)
         val bob = saveUser("bob", UserType.USER)
         val groceries = saveCategory(alice, "Groceries")
+        val dining = saveCategory(alice, "Dining")
         val rent = saveCategory(alice, "Rent")
         val bobCategory = saveCategory(bob, "Bob category")
         val aliceAccount = saveAccount(alice)
         saveTransaction(alice, aliceAccount, groceries, TransactionType.EXPENSE, 1_000)
         saveTransaction(alice, aliceAccount, groceries, TransactionType.EXPENSE, 2_000)
+        saveTransaction(alice, aliceAccount, dining, TransactionType.EXPENSE, 2_500)
         saveTransaction(alice, aliceAccount, saveIncomeCategory(alice), TransactionType.INCOME, 3_000)
         saveTransaction(bob, saveAccount(bob), bobCategory, TransactionType.EXPENSE, 4_000)
 
@@ -84,6 +86,12 @@ class ExpenseCategoryApiTest : IntegrationTestSupport() {
                     "name": "Groceries",
                     "archived": false,
                     "entriesCount": 2
+                  },
+                  {
+                    "id": ${dining.id},
+                    "name": "Dining",
+                    "archived": false,
+                    "entriesCount": 1
                   },
                   {
                     "id": ${rent.id},
