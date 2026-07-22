@@ -237,23 +237,10 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         sourceTrigger.click()
         val sourceSearch = page.getByLabel("Search source account")
         assertThat(sourceSearch).isFocused()
+        assertActiveDropdownItem(sourceSearch, dropdownMenuItem(page, "Main"))
 
         page.keyboard().press("Enter")
         assertThat(sourceSearch).isFocused()
-        assertThat(sourceTrigger).containsText("Choose source account")
-
-        page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Main")).isFocused()
-        assertThat(sourceTrigger).containsText("Choose source account")
-        page.keyboard().press("ArrowUp")
-        assertThat(sourceSearch).isFocused()
-        page.keyboard().press("ArrowUp")
-        assertThat(dropdownMenuItem(page, "Travel")).isFocused()
-        page.keyboard().press("ArrowDown")
-        assertThat(sourceSearch).isFocused()
-        page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Main")).isFocused()
-        page.keyboard().press("Enter")
         assertThat(sourceTrigger).containsText("1 selected")
         page.keyboard().press("Escape")
 
@@ -264,16 +251,19 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         targetTrigger.click()
         val targetSearch = page.getByLabel("Search target account")
         assertThat(targetSearch).isFocused()
+        assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Main"))
         page.keyboard().press("ArrowUp")
-        assertThat(dropdownMenuItem(page, "Travel")).isFocused()
+        assertThat(targetSearch).isFocused()
+        assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Travel"))
         page.keyboard().press("ArrowDown")
         assertThat(targetSearch).isFocused()
+        assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Main"))
         page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Main")).isFocused()
+        assertThat(targetSearch).isFocused()
+        assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Savings"))
         page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Savings")).isFocused()
-        page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Travel")).isFocused()
+        assertThat(targetSearch).isFocused()
+        assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Travel"))
         page.keyboard().press("Enter")
         assertThat(targetTrigger).containsText("1 selected")
         page.keyboard().press("Escape")
@@ -377,6 +367,10 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun dropdownMenuItem(page: Page, option: String): Locator =
         dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
+
+    private fun assertActiveDropdownItem(searchInput: Locator, item: Locator) {
+        assertThat(searchInput).hasAttribute("aria-activedescendant", item.getAttribute("id")!!)
+    }
 
     private fun dropdownOption(page: Page, option: String): Locator =
         page.locator(".searchable-dropdown-popover").getByText(option, Locator.GetByTextOptions().setExact(true))

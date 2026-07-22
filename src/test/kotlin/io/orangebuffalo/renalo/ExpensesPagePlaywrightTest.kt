@@ -1093,35 +1093,31 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val searchInput = page.getByLabel("Search category")
         categoryTrigger.click()
         assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Groceries"))
 
-        page.keyboard().press("Enter")
+        page.keyboard().press("ArrowDown")
         assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Rent"))
         assertThat(categoryTrigger).containsText("Choose category")
 
-        page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Groceries")).isFocused()
-        assertThat(categoryTrigger).containsText("Choose category")
-
         page.keyboard().press("ArrowUp")
         assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Groceries"))
         page.keyboard().press("ArrowUp")
-        assertThat(dropdownMenuItem(page, "Utilities")).isFocused()
-        page.keyboard().press("ArrowDown")
         assertThat(searchInput).isFocused()
-        page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Groceries")).isFocused()
-        page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Rent")).isFocused()
-        page.keyboard().press("ArrowDown")
-        assertThat(dropdownMenuItem(page, "Utilities")).isFocused()
-        page.keyboard().press("ArrowDown")
-        assertThat(searchInput).isFocused()
-        page.keyboard().press("ArrowUp")
-        assertThat(dropdownMenuItem(page, "Utilities")).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Utilities"))
 
         page.keyboard().press("Enter")
         assertThat(categoryTrigger).containsText("Utilities")
         assertThat(searchInput).not().isVisible()
+
+        categoryTrigger.click()
+        assertThat(searchInput).isFocused()
+        page.keyboard().type("Rent")
+        assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Rent"))
+        page.keyboard().press("Enter")
+        assertThat(categoryTrigger).containsText("Rent")
         consoleMessages.any { it.contains("stopPropagation is now the default behavior") }.shouldBe(false)
     }
 
@@ -1141,6 +1137,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun dropdownMenuItem(page: Page, option: String): Locator =
         dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
+
+    private fun assertActiveDropdownItem(searchInput: Locator, item: Locator) {
+        assertThat(searchInput).hasAttribute("aria-activedescendant", item.getAttribute("id")!!)
+    }
 
     private fun dropdownOption(page: Page, option: String): Locator =
         page.locator(".searchable-dropdown-popover").getByText(option, Locator.GetByTextOptions().setExact(true))

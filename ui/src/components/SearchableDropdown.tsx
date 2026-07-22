@@ -1,12 +1,10 @@
 import { ChevronDown, SearchLg } from "@untitledui/icons";
+import { useEffect, useRef, useState } from "react";
 import {
-  type KeyboardEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Button as AriaButton, type Selection } from "react-aria-components";
+  Button as AriaButton,
+  Autocomplete,
+  type Selection,
+} from "react-aria-components";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Input } from "@/components/untitled/base/input/input";
 import { Label } from "@/components/untitled/base/input/label";
@@ -48,7 +46,6 @@ export function SearchableDropdown({
   const [search, setSearch] = useState("");
   const searchInputRef = useDropdownSearchFocus(isOpen);
   const selectedItem = items.find((item) => item.id === selectedKey);
-  const visibleItems = useFilteredItems(items, search);
 
   return (
     <div className={className ?? "searchable-dropdown-field"}>
@@ -83,26 +80,31 @@ export function SearchableDropdown({
           placement="bottom left"
           className="searchable-dropdown-popover"
         >
-          <div
-            onKeyDownCapture={(event) =>
-              handleMenuKeyDown(event, searchInputRef.current)
-            }
+          <Autocomplete
+            inputValue={search}
+            onInputChange={setSearch}
+            filter={filterDropdownItem}
           >
-            <div className="searchable-dropdown-search-wrap">
+            <div
+              className="searchable-dropdown-search-wrap"
+              onKeyDownCapture={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setIsOpen(false);
+                }
+              }}
+            >
               <Input
                 ref={searchInputRef}
                 aria-label={`Search ${label.toLowerCase()}`}
                 size="sm"
                 placeholder={searchPlaceholder}
                 icon={SearchLg}
-                value={search}
-                onChange={setSearch}
-                onKeyDown={handleSearchKeyDown}
               />
             </div>
             <Dropdown.Menu
-              autoFocus={false}
-              shouldFocusWrap={false}
+              autoFocus="first"
+              shouldFocusWrap
               selectionMode="single"
               selectedKeys={selectedKey ? [selectedKey] : []}
               onAction={(key) => {
@@ -111,12 +113,15 @@ export function SearchableDropdown({
                 setSearch("");
               }}
               className="searchable-dropdown-menu"
+              renderEmptyState={() => (
+                <p className="searchable-dropdown-empty">No matches</p>
+              )}
             >
-              {visibleItems.map((item) => (
+              {items.map((item) => (
                 <Dropdown.Item
                   key={item.id}
                   id={item.id}
-                  textValue={item.label}
+                  textValue={getItemTextValue(item)}
                 >
                   <span className="searchable-dropdown-option">
                     <span>{item.label}</span>
@@ -125,10 +130,7 @@ export function SearchableDropdown({
                 </Dropdown.Item>
               ))}
             </Dropdown.Menu>
-            {visibleItems.length === 0 && (
-              <p className="searchable-dropdown-empty">No matches</p>
-            )}
-          </div>
+          </Autocomplete>
         </Dropdown.Popover>
       </Dropdown.Root>
       {isInvalid && hint && <p className="searchable-dropdown-error">{hint}</p>}
@@ -156,7 +158,6 @@ export function SearchableMultiDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const searchInputRef = useDropdownSearchFocus(isOpen);
-  const visibleItems = useFilteredItems(items, search);
   const selectedKeySet = new Set(selectedKeys);
 
   function handleSelectionChange(selection: Selection) {
@@ -199,37 +200,46 @@ export function SearchableMultiDropdown({
           placement="bottom left"
           className="searchable-dropdown-popover transaction-filter-select-popover"
         >
-          <div
-            onKeyDownCapture={(event) =>
-              handleMenuKeyDown(event, searchInputRef.current)
-            }
+          <Autocomplete
+            inputValue={search}
+            onInputChange={setSearch}
+            filter={filterDropdownItem}
           >
-            <div className="searchable-dropdown-search-wrap">
+            <div
+              className="searchable-dropdown-search-wrap"
+              onKeyDownCapture={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setIsOpen(false);
+                }
+              }}
+            >
               <Input
                 ref={searchInputRef}
                 aria-label={`Search ${label.toLowerCase()}`}
                 size="sm"
                 placeholder={searchPlaceholder}
                 icon={SearchLg}
-                value={search}
-                onChange={setSearch}
-                onKeyDown={handleSearchKeyDown}
               />
             </div>
             <Dropdown.Menu
-              autoFocus={false}
-              shouldFocusWrap={false}
+              autoFocus="first"
+              shouldFocusWrap
               shouldCloseOnSelect={false}
               selectionMode="multiple"
+              selectionBehavior="toggle"
               selectedKeys={selectedKeySet}
               onSelectionChange={handleSelectionChange}
               className="searchable-dropdown-menu"
+              renderEmptyState={() => (
+                <p className="searchable-dropdown-empty">No matches</p>
+              )}
             >
-              {visibleItems.map((item) => (
+              {items.map((item) => (
                 <Dropdown.Item
                   key={item.id}
                   id={item.id}
-                  textValue={item.label}
+                  textValue={getItemTextValue(item)}
                 >
                   <span className="searchable-dropdown-option">
                     <span>{item.label}</span>
@@ -238,10 +248,7 @@ export function SearchableMultiDropdown({
                 </Dropdown.Item>
               ))}
             </Dropdown.Menu>
-            {visibleItems.length === 0 && (
-              <p className="searchable-dropdown-empty">No matches</p>
-            )}
-          </div>
+          </Autocomplete>
         </Dropdown.Popover>
       </Dropdown.Root>
     </div>
@@ -265,64 +272,10 @@ function useDropdownSearchFocus(isOpen: boolean) {
   return searchInputRef;
 }
 
-function handleSearchKeyDown(event: KeyboardEvent) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    return;
-  }
-
-  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
-    return;
-  }
-
-  event.preventDefault();
-
-  const menuItems = event.currentTarget
-    .closest(".searchable-dropdown-popover")
-    ?.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR);
-
-  if (!menuItems?.length) {
-    return;
-  }
-
-  menuItems[event.key === "ArrowDown" ? 0 : menuItems.length - 1].focus();
+function getItemTextValue(item: SearchableDropdownItem) {
+  return [item.label, item.supportingText].filter(Boolean).join(" ");
 }
 
-function handleMenuKeyDown(
-  event: KeyboardEvent,
-  searchInput: HTMLInputElement | null,
-) {
-  if (!searchInput || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) {
-    return;
-  }
-
-  const menuItems = Array.from(
-    event.currentTarget.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR),
-  );
-  const focusedIndex = menuItems.indexOf(document.activeElement as HTMLElement);
-  const isLeavingFirst = event.key === "ArrowUp" && focusedIndex === 0;
-  const isLeavingLast =
-    event.key === "ArrowDown" && focusedIndex === menuItems.length - 1;
-
-  if (isLeavingFirst || isLeavingLast) {
-    event.preventDefault();
-    requestAnimationFrame(() => searchInput.focus());
-  }
-}
-
-const MENU_ITEM_SELECTOR =
-  '[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), [role="menuitemcheckbox"]:not([aria-disabled="true"])';
-
-function useFilteredItems(items: SearchableDropdownItem[], search: string) {
-  const normalizedSearch = search.trim().toLowerCase();
-  return useMemo(() => {
-    if (!normalizedSearch) {
-      return items;
-    }
-    return items.filter(
-      (item) =>
-        item.label.toLowerCase().includes(normalizedSearch) ||
-        item.supportingText?.toLowerCase().includes(normalizedSearch),
-    );
-  }, [items, normalizedSearch]);
+function filterDropdownItem(textValue: string, inputValue: string) {
+  return textValue.toLowerCase().includes(inputValue.trim().toLowerCase());
 }
