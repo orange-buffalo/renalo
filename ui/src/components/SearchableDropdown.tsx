@@ -227,7 +227,6 @@ export function SearchableMultiDropdown({
               shouldFocusWrap
               shouldCloseOnSelect={false}
               selectionMode="multiple"
-              selectionBehavior="toggle"
               selectedKeys={selectedKeySet}
               onSelectionChange={handleSelectionChange}
               className="searchable-dropdown-menu"
