@@ -1074,6 +1074,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     @Test
     fun navigatesAndSelectsExpenseCategoriesWithKeyboard(page: Page) {
+        val consoleMessages = mutableListOf<String>()
+        page.onConsoleMessage { consoleMessages.add(it.text()) }
         val alice = saveUser("alice")
         saveAccount(alice, "Main", "AUD", isDefault = true)
         saveCategory(alice, "Groceries")
@@ -1101,12 +1103,18 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(categoryTrigger).containsText("Choose category")
 
         page.keyboard().press("ArrowUp")
+        assertThat(searchInput).isFocused()
+        page.keyboard().press("ArrowUp")
         assertThat(dropdownMenuItem(page, "Utilities")).isFocused()
         page.keyboard().press("ArrowDown")
+        assertThat(searchInput).isFocused()
+        page.keyboard().press("ArrowDown")
         assertThat(dropdownMenuItem(page, "Groceries")).isFocused()
-
-        page.keyboard().press("Escape")
-        categoryTrigger.click()
+        page.keyboard().press("ArrowDown")
+        assertThat(dropdownMenuItem(page, "Rent")).isFocused()
+        page.keyboard().press("ArrowDown")
+        assertThat(dropdownMenuItem(page, "Utilities")).isFocused()
+        page.keyboard().press("ArrowDown")
         assertThat(searchInput).isFocused()
         page.keyboard().press("ArrowUp")
         assertThat(dropdownMenuItem(page, "Utilities")).isFocused()
@@ -1114,6 +1122,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.keyboard().press("Enter")
         assertThat(categoryTrigger).containsText("Utilities")
         assertThat(searchInput).not().isVisible()
+        consoleMessages.any { it.contains("stopPropagation is now the default behavior") }.shouldBe(false)
     }
 
     private fun selectOption(page: Page, label: String, option: String) {

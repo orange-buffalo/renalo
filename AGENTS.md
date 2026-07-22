@@ -76,7 +76,7 @@
 - Table row action groups must use the shared `TableRowActions` helpers so edit/delete icon colors and spacing stay consistent.
 - For searchable selects where search is part of the closed field, use documented Untitled `Select.ComboBox` and `Select.Item`; for dropdowns where search appears only after opening, follow the Untitled dropdown `Search simple` pattern with a regular trigger and search input inside the popover.
 - Search inputs rendered inside an opened dropdown popover must receive focus automatically so users can type immediately after opening the dropdown.
-- Searchable dropdown keyboard navigation starts from the search input: Enter there is inert, Arrow Down focuses the first visible item, Arrow Up focuses the last, and item focus wraps without changing selection until Enter activates the focused item.
+- Searchable dropdown keyboard navigation starts from the search input: Enter there is inert, Arrow Down focuses the first visible item, Arrow Up focuses the last, and focus cycles through the search input at either item-list boundary without changing selection until Enter activates a focused item.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Standard authenticated pages should put page-level descriptions, counters/badges, and primary actions in `PageLayout`, not inside table panels or forms.
