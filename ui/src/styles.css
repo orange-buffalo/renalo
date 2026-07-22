@@ -646,6 +646,10 @@ input {
   max-height: 260px;
 }
 
+.searchable-dropdown-menu [role^="menuitem"][data-focus-visible] > div {
+  outline: none;
+}
+
 .searchable-dropdown-menu [role="menuitem"] > div > span.grow {
   display: flex;
   align-items: center;

@@ -1065,10 +1065,60 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
 
         page.getByLabel("Category").click()
-        page.getByLabel("Search category").fill("Rent")
+        assertThat(page.getByLabel("Search category")).isFocused()
+        page.keyboard().type("Rent")
         assertThat(dropdownOption(page, "Rent")).isVisible()
         assertThat(dropdownOption(page, "Groceries")).not().isVisible()
         assertThat(dropdownOption(page, "Utilities")).not().isVisible()
+    }
+
+    @Test
+    fun navigatesAndSelectsExpenseCategoriesWithKeyboard(page: Page) {
+        val consoleMessages = mutableListOf<String>()
+        page.onConsoleMessage { consoleMessages.add(it.text()) }
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Groceries")
+        saveCategory(alice, "Rent")
+        saveCategory(alice, "Utilities")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/expenses/create")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add expense"))).isVisible()
+
+        val categoryTrigger = page.getByRole(
+            AriaRole.BUTTON,
+            Page.GetByRoleOptions().setName("Category").setExact(true),
+        )
+        val searchInput = page.getByLabel("Search category")
+        categoryTrigger.click()
+        assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Groceries"))
+
+        page.keyboard().press("ArrowDown")
+        assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Rent"))
+        assertThat(categoryTrigger).containsText("Choose category")
+
+        page.keyboard().press("ArrowUp")
+        assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Groceries"))
+        page.keyboard().press("ArrowUp")
+        assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Utilities"))
+
+        page.keyboard().press("Enter")
+        assertThat(categoryTrigger).containsText("Utilities")
+        assertThat(searchInput).not().isVisible()
+
+        categoryTrigger.click()
+        assertThat(searchInput).isFocused()
+        page.keyboard().type("Rent")
+        assertThat(searchInput).isFocused()
+        assertActiveDropdownItem(searchInput, dropdownMenuItem(page, "Rent"))
+        page.keyboard().press("Enter")
+        assertThat(categoryTrigger).containsText("Rent")
+        consoleMessages.any { it.contains("stopPropagation is now the default behavior") }.shouldBe(false)
     }
 
     private fun selectOption(page: Page, label: String, option: String) {
@@ -1084,6 +1134,13 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun dropdownOptions(page: Page): Locator =
         page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
+
+    private fun dropdownMenuItem(page: Page, option: String): Locator =
+        dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
+
+    private fun assertActiveDropdownItem(searchInput: Locator, item: Locator) {
+        assertThat(searchInput).hasAttribute("aria-activedescendant", item.getAttribute("id")!!)
+    }
 
     private fun dropdownOption(page: Page, option: String): Locator =
         page.locator(".searchable-dropdown-popover").getByText(option, Locator.GetByTextOptions().setExact(true))
