@@ -4,6 +4,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Line,
   matchByDataKey,
   ResponsiveContainer,
   Tooltip,
@@ -24,11 +25,13 @@ type TransactionTimeSeriesChartProps = {
   tone: "expense" | "income";
   timeSeries?: TransactionTimeSeries;
   error?: string;
+  showTrendLine?: boolean;
 };
 
 type ChartPoint = {
   bucket: string;
   amountMinor: number;
+  trendAmountMinor?: number;
 };
 
 type CurrencySeries = {
@@ -52,6 +55,7 @@ export function TransactionTimeSeriesChart({
   tone,
   timeSeries,
   error,
+  showTrendLine = false,
 }: TransactionTimeSeriesChartProps) {
   const titleId = useId();
   const gradientId = useId().replaceAll(":", "");
@@ -70,6 +74,9 @@ export function TransactionTimeSeriesChart({
         <div>
           <h2 id={titleId}>{title}</h2>
           {granularityLabel && <p>{granularityLabel}</p>}
+          {showTrendLine && timeSeries && currencySeries.length > 0 && (
+            <p className="transaction-chart-trend-key">Dashed line: trend</p>
+          )}
         </div>
       </header>
 
@@ -102,6 +109,7 @@ export function TransactionTimeSeriesChart({
               granularity={timeSeries.granularity}
               color={toneColors[tone]}
               gradientId={`${gradientId}-${series.currency}`}
+              showTrendLine={showTrendLine}
             />
           ))}
         </div>
@@ -146,11 +154,13 @@ function CurrencyAreaChart({
   granularity,
   color,
   gradientId,
+  showTrendLine,
 }: {
   series: CurrencySeries;
   granularity: TransactionTimeSeries["granularity"];
   color: string;
   gradientId: string;
+  showTrendLine: boolean;
 }) {
   const isDesktop = useBreakpoint("md");
   const axisTicks = selectEvenlySpacedItems(series.points, 5).map(
@@ -227,7 +237,22 @@ function CurrencyAreaChart({
               fill={`url(#${gradientId})`}
               activeDot={<ChartActiveDot color={color} />}
               animationMatchBy={matchByDataKey("bucket")}
+              isAnimationActive={!showTrendLine}
             />
+            {showTrendLine && series.points.length > 1 && (
+              <Line
+                type="linear"
+                dataKey="trendAmountMinor"
+                name="Trend"
+                stroke={color}
+                strokeWidth={2}
+                strokeDasharray="6 5"
+                strokeOpacity={0.8}
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            )}
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -302,12 +327,41 @@ function buildCurrencySeries(timeSeries: TransactionTimeSeries) {
     new Set(timeSeries.points.map((point) => point.currency)),
   ).sort();
 
-  return currencies.map((currency) => ({
-    currency,
-    points: buckets.map((bucket) => ({
+  return currencies.map((currency) => {
+    const points = buckets.map((bucket) => ({
       bucket,
       amountMinor: amounts.get(`${currency}:${bucket}`) ?? 0,
-    })),
+    }));
+    return {
+      currency,
+      points: addLinearTrend(points),
+    };
+  });
+}
+
+function addLinearTrend(points: ChartPoint[]) {
+  if (points.length < 2) {
+    return points;
+  }
+
+  const xMean = (points.length - 1) / 2;
+  const yMean =
+    points.reduce((total, point) => total + point.amountMinor, 0) /
+    points.length;
+  const slopeNumerator = points.reduce(
+    (total, point, index) =>
+      total + (index - xMean) * (point.amountMinor - yMean),
+    0,
+  );
+  const slopeDenominator = points.reduce(
+    (total, _, index) => total + (index - xMean) ** 2,
+    0,
+  );
+  const slope = slopeNumerator / slopeDenominator;
+
+  return points.map((point, index) => ({
+    ...point,
+    trendAmountMinor: Math.round(yMean + slope * (index - xMean)),
   }));
 }
 

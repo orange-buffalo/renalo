@@ -219,6 +219,16 @@ input {
   gap: 20px;
 }
 
+.dashboard-date-filter {
+  margin-top: 24px;
+}
+
+.dashboard-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
 .dashboard-quick-add-trigger {
   min-width: 96px;
 }
@@ -392,6 +402,10 @@ input {
   margin: 3px 0 0;
   color: #838b95;
   font-size: 0.8125rem;
+}
+
+.transaction-chart-header .transaction-chart-trend-key {
+  color: #626872;
 }
 
 .transaction-chart-grid {
@@ -2349,6 +2363,10 @@ input {
 @media (max-width: 900px) {
   .dashboard-account-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-chart-grid {
+    grid-template-columns: 1fr;
   }
 }
 

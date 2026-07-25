@@ -216,6 +216,49 @@ export function createDefaultTransactionDateFilter(now: Date) {
   return filterForPreset("THIS_MONTH", now);
 }
 
+export function restoreStoredDateFilter(
+  storedValue: string | null,
+  now: Date,
+): TransactionDateFilterValue {
+  if (!storedValue) {
+    return createDefaultTransactionDateFilter(now);
+  }
+
+  try {
+    const storedFilter = JSON.parse(storedValue) as Record<string, unknown>;
+    if (
+      typeof storedFilter.preset === "string" &&
+      presetOrder.includes(storedFilter.preset as DateFilterPreset)
+    ) {
+      return filterForPreset(storedFilter.preset as DateFilterPreset, now);
+    }
+    if (
+      typeof storedFilter.from === "string" &&
+      typeof storedFilter.to === "string" &&
+      isIsoDate(storedFilter.from) &&
+      isIsoDate(storedFilter.to) &&
+      storedFilter.from <= storedFilter.to
+    ) {
+      return filterForCalendarRange({
+        start: isoDateToCalendarDate(storedFilter.from),
+        end: isoDateToCalendarDate(storedFilter.to),
+      });
+    }
+  } catch {
+    // Invalid browser storage falls back to the normal default.
+  }
+
+  return createDefaultTransactionDateFilter(now);
+}
+
+export function storeDateFilter(value: TransactionDateFilterValue) {
+  return JSON.stringify(
+    value.preset
+      ? { preset: value.preset }
+      : { from: value.from, to: value.to },
+  );
+}
+
 export function filterForPreset(
   preset: DateFilterPreset,
   now: Date,
@@ -375,4 +418,12 @@ function formatFullDate(isoDate: string) {
 function parseIsoDate(isoDate: string) {
   const [year, month, day] = isoDate.split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function isIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const parsed = isoDateToCalendarDate(value);
+  return calendarDateToIsoDate(parsed) === value;
 }

@@ -104,6 +104,9 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         authenticate(page, testAuthTokens.issueToken(fixture.musician.username, UserType.USER))
         page.navigate(server.url.toString() + "/tracking")
         assertThat(page.locator("[data-testid='dashboard-account-card']").first()).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(page.getByText("Dashed line: trend")).hasCount(2)
         capture(page, layout, "03-dashboard")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record new").setExact(true)).click()

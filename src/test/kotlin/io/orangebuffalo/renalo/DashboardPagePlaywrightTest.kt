@@ -1,5 +1,6 @@
 package io.orangebuffalo.renalo
 
+import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
@@ -98,6 +99,53 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun showsTrendChartsAndRestoresSemanticDateRange(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", 0, isDefault = true)
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        val salary = saveIncomeCategory(alice, "Salary")
+        saveTransaction(alice, main, groceries, TransactionType.EXPENSE, LocalDate.of(2099, 1, 4), 2_000)
+        saveTransaction(alice, main, groceries, TransactionType.EXPENSE, LocalDate.of(2099, 6, 8), 4_000)
+        saveTransaction(alice, main, salary, TransactionType.INCOME, LocalDate.of(2099, 1, 7), 9_000)
+        saveTransaction(alice, main, salary, TransactionType.INCOME, LocalDate.of(2099, 6, 10), 12_000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("June 2099").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("This year").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Apply").setExact(true)).click()
+
+        val charts = page.locator("[data-testid='transaction-time-series-chart']")
+        assertThat(charts).hasCount(2)
+        assertThat(charts.nth(0).getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("Expenses"))).isVisible()
+        assertThat(charts.nth(1).getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(charts.nth(0).getByText("Dashed line: trend")).isVisible()
+        assertThat(charts.nth(1).getByText("Dashed line: trend")).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            charts.nth(0),
+            ChartPoint("2099-01-01", "AUD", 2_000),
+            ChartPoint("2099-06-01", "AUD", 4_000),
+        )
+        page.shouldEventuallyContainChartPoints(
+            charts.nth(1),
+            ChartPoint("2099-01-01", "AUD", 9_000),
+            ChartPoint("2099-06-01", "AUD", 12_000),
+        )
+        page.evaluate("window.localStorage.getItem('renalo.dashboard.dateFilter')")
+            .shouldBe("""{"preset":"THIS_YEAR"}""")
+
+        page.reload()
+
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("This year").setExact(true))).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            charts.nth(0),
+            ChartPoint("2099-01-01", "AUD", 2_000),
+            ChartPoint("2099-06-01", "AUD", 4_000),
+        )
+    }
+
+    @Test
     fun centersQuickAddButtonOnMobile(page: Page) {
         saveUser("alice")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
@@ -167,6 +215,8 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             },
             date = date,
             amountMinor = amountMinor,
+            defaultCurrencyAmountMinor = amountMinor,
+            defaultCurrency = "AUD",
             notes = null,
         ),
     )
@@ -202,6 +252,31 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         ) as List<String>
         return cards.map(::DashboardCardText)
     }
+
+
+    private fun Page.shouldEventuallyContainChartPoints(chart: Locator, vararg expectedPoints: ChartPoint) {
+        shouldEventually {
+            @Suppress("UNCHECKED_CAST")
+            val points = chart.locator("[data-testid='transaction-chart-point']").evaluateAll(
+                """
+                    points => points.map(point => ({
+                        bucket: point.dataset.bucket,
+                        currency: point.dataset.currency,
+                        amountMinor: Number(point.dataset.amountMinor),
+                    }))
+                """.trimIndent(),
+            ) as List<Map<String, Any>>
+            points.map {
+                ChartPoint(
+                    bucket = it.getValue("bucket") as String,
+                    currency = it.getValue("currency") as String,
+                    amountMinor = (it.getValue("amountMinor") as Number).toLong(),
+                )
+            }.shouldContainExactly(*expectedPoints)
+        }
+    }
 }
 
 private data class DashboardCardText(val text: String)
+
+private data class ChartPoint(val bucket: String, val currency: String, val amountMinor: Long)
