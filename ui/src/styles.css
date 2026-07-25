@@ -219,6 +219,16 @@ input {
   gap: 20px;
 }
 
+.dashboard-date-filter {
+  margin-top: 24px;
+}
+
+.dashboard-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
 .dashboard-quick-add-trigger {
   min-width: 96px;
 }
@@ -377,8 +387,7 @@ input {
   padding: 18px 20px 0;
 }
 
-.transaction-chart-header h2,
-.transaction-currency-chart h3 {
+.transaction-chart-header h2 {
   margin: 0;
   color: #343841;
   font-weight: 600;
@@ -405,15 +414,47 @@ input {
   min-width: 0;
 }
 
-.transaction-currency-chart h3 {
-  margin-bottom: 8px;
-  font-size: 0.8125rem;
-  letter-spacing: 0.04em;
-}
-
 .transaction-chart-canvas {
   width: 100%;
   height: 240px;
+}
+
+.transaction-chart-modal-overlay {
+  padding: 0;
+}
+
+.transaction-chart-modal {
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+}
+
+.transaction-chart-modal-dialog {
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
+
+.transaction-chart-panel-maximized {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.transaction-chart-panel-maximized .transaction-chart-grid,
+.transaction-chart-panel-maximized .transaction-currency-chart,
+.transaction-chart-panel-maximized .transaction-chart-canvas {
+  min-height: 0;
+  flex: 1;
+}
+
+.transaction-chart-panel-maximized .transaction-currency-chart {
+  display: flex;
+  flex-direction: column;
 }
 
 .transaction-chart-tooltip {
@@ -772,6 +813,15 @@ input {
 .date-filter-preset-selected {
   background: #fcfcfd;
   color: #343841;
+}
+
+.date-filter-preset:disabled {
+  color: #a4abb4;
+  cursor: not-allowed;
+}
+
+.date-filter-preset:disabled:hover {
+  background: transparent;
 }
 
 .date-filter-calendar-panel {
@@ -2349,6 +2399,10 @@ input {
 @media (max-width: 900px) {
   .dashboard-account-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-chart-grid {
+    grid-template-columns: 1fr;
   }
 }
 

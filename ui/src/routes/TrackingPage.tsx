@@ -1,3 +1,4 @@
+import { getLocalTimeZone, today } from "@internationalized/date";
 import {
   CreditCard02,
   Plus,
@@ -10,6 +11,19 @@ import {
   type AccountDashboardSummary,
   fetchAccountDashboardSummaries,
 } from "@/api/dashboard";
+import {
+  expenseTransactionApi,
+  fetchTransactionTimeSeries,
+  incomeTransactionApi,
+  type TransactionTimeSeries,
+} from "@/api/transactions";
+import { TransactionTimeSeriesChart } from "@/components/charts/TransactionTimeSeriesChart";
+import {
+  DateRangeFilter,
+  restoreStoredDateFilter,
+  storeDateFilter,
+  type TransactionDateFilterValue,
+} from "@/components/DateRangeFilter";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
@@ -17,13 +31,32 @@ import { Button } from "@/components/untitled/base/buttons/button";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { formatMoney } from "@/utils/money";
 
+const dashboardDateFilterStorageKey = "renalo.dashboard.dateFilter";
+
 export function TrackingPage() {
   const navigate = useNavigate();
+  const dashboardToday = today(getLocalTimeZone());
+  const dashboardTodayIso = dashboardToday.toString();
   const [accountSummaries, setAccountSummaries] = useState<
     AccountDashboardSummary[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [dateFilter, setDateFilter] = useState<TransactionDateFilterValue>(() =>
+    restoreStoredDateFilter(
+      window.localStorage.getItem(dashboardDateFilterStorageKey),
+      new Date(),
+      "LAST_12_MONTHS",
+    ),
+  );
+  const [expenseTimeSeries, setExpenseTimeSeries] = useState<
+    TransactionTimeSeries | undefined
+  >();
+  const [incomeTimeSeries, setIncomeTimeSeries] = useState<
+    TransactionTimeSeries | undefined
+  >();
+  const [expenseChartError, setExpenseChartError] = useState(false);
+  const [incomeChartError, setIncomeChartError] = useState(false);
   useEffect(() => {
     let isActive = true;
 
@@ -52,10 +85,62 @@ export function TrackingPage() {
     };
   }, []);
 
+  useEffect(() => {
+    window.localStorage.setItem(
+      dashboardDateFilterStorageKey,
+      storeDateFilter(dateFilter),
+    );
+    let isActive = true;
+    setExpenseTimeSeries(undefined);
+    setIncomeTimeSeries(undefined);
+    setExpenseChartError(false);
+    setIncomeChartError(false);
+
+    const analyticsDateFilter = {
+      from:
+        dateFilter.from && dateFilter.from <= dashboardTodayIso
+          ? dateFilter.from
+          : dateFilter.from
+            ? dashboardTodayIso
+            : null,
+      to:
+        dateFilter.to && dateFilter.to < dashboardTodayIso
+          ? dateFilter.to
+          : dashboardTodayIso,
+    };
+
+    fetchTransactionTimeSeries(expenseTransactionApi, analyticsDateFilter)
+      .then((timeSeries) => {
+        if (isActive) {
+          setExpenseTimeSeries(timeSeries);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setExpenseChartError(true);
+        }
+      });
+    fetchTransactionTimeSeries(incomeTransactionApi, analyticsDateFilter)
+      .then((timeSeries) => {
+        if (isActive) {
+          setIncomeTimeSeries(timeSeries);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setIncomeChartError(true);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [dashboardTodayIso, dateFilter]);
+
   return (
     <PageLayout
       title="Dashboard"
-      description="Review account balances and current-month money flow."
+      description="Review account balances, money flow, and trends."
       actions={<DashboardQuickAddButton onNavigate={navigate} />}
       className="dashboard-page-surface"
     >
@@ -84,14 +169,47 @@ export function TrackingPage() {
       )}
 
       {!isLoading && !error && accountSummaries.length > 0 && (
-        <section
-          className="dashboard-account-grid"
-          aria-label="Account balances"
-        >
-          {accountSummaries.map((summary) => (
-            <AccountSummaryCard key={summary.accountId} summary={summary} />
-          ))}
-        </section>
+        <>
+          <section
+            className="dashboard-account-grid"
+            aria-label="Account balances"
+          >
+            {accountSummaries.map((summary) => (
+              <AccountSummaryCard key={summary.accountId} summary={summary} />
+            ))}
+          </section>
+          <div className="dashboard-date-filter">
+            <DateRangeFilter
+              value={dateFilter}
+              onChange={setDateFilter}
+              maxValue={dashboardToday}
+            />
+          </div>
+          <div className="dashboard-chart-grid">
+            <TransactionTimeSeriesChart
+              title="Expenses"
+              tone="expense"
+              timeSeries={expenseTimeSeries}
+              error={
+                expenseChartError
+                  ? "Expense chart could not be loaded. Try again in a moment."
+                  : undefined
+              }
+              showTrendLine
+            />
+            <TransactionTimeSeriesChart
+              title="Income"
+              tone="income"
+              timeSeries={incomeTimeSeries}
+              error={
+                incomeChartError
+                  ? "Income chart could not be loaded. Try again in a moment."
+                  : undefined
+              }
+              showTrendLine
+            />
+          </div>
+        </>
       )}
     </PageLayout>
   );

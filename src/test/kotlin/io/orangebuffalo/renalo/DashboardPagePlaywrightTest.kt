@@ -1,5 +1,6 @@
 package io.orangebuffalo.renalo
 
+import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
@@ -98,6 +99,94 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun showsTrendChartsAndRestoresSemanticDateRange(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", 0, isDefault = true)
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        val salary = saveIncomeCategory(alice, "Salary")
+        saveTransaction(alice, main, groceries, TransactionType.EXPENSE, LocalDate.of(2099, 1, 4), 2_000)
+        saveTransaction(alice, main, groceries, TransactionType.EXPENSE, LocalDate.of(2099, 6, 8), 4_000)
+        saveTransaction(alice, main, groceries, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE.plusDays(1), 8_000)
+        saveTransaction(alice, main, salary, TransactionType.INCOME, LocalDate.of(2099, 1, 7), 9_000)
+        saveTransaction(alice, main, salary, TransactionType.INCOME, LocalDate.of(2099, 6, 10), 12_000)
+        saveTransaction(alice, main, salary, TransactionType.INCOME, TestTimeProvider.DEFAULT_DATE.plusDays(1), 16_000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range"))).isDisabled()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
+        val dateDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Last 12 months"))).isVisible()
+        assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Next month"))).isDisabled()
+        dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("This month").setExact(true)).click()
+        assertThat(
+            dateDialog.locator("[role='gridcell'][aria-disabled='true']")
+                .filter(Locator.FilterOptions().setHasText(Pattern.compile("^15$")))
+                .first(),
+        ).isVisible()
+        dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("This year").setExact(true)).click()
+        dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply").setExact(true)).click()
+
+        val charts = page.locator("[data-testid='transaction-time-series-chart']")
+        assertThat(charts).hasCount(2)
+        assertThat(charts.nth(0).getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("Expenses"))).isVisible()
+        assertThat(charts.nth(1).getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(charts.nth(0).getByText("Weekly totals (AUD)")).isVisible()
+        assertThat(charts.nth(1).getByText("Weekly totals (AUD)")).isVisible()
+        assertThat(page.getByText("Dashed line: trend")).hasCount(0)
+        page.shouldEventuallyContainChartPoints(
+            charts.nth(0),
+            ChartPoint("2098-12-29", "AUD", 2_000),
+            ChartPoint("2099-06-08", "AUD", 4_000),
+        )
+        page.shouldEventuallyContainChartPoints(
+            charts.nth(1),
+            ChartPoint("2099-01-05", "AUD", 9_000),
+            ChartPoint("2099-06-08", "AUD", 12_000),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Maximize Expenses chart")).click()
+        val maximizedChart = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Expenses chart"))
+        assertThat(maximizedChart).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            maximizedChart.locator("[data-testid='transaction-time-series-chart']"),
+            ChartPoint("2098-12-29", "AUD", 2_000),
+            ChartPoint("2099-06-08", "AUD", 4_000),
+        )
+        maximizedChart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Close Expenses chart")).click()
+        assertThat(maximizedChart).not().isVisible()
+
+        page.evaluate("window.localStorage.getItem('renalo.dashboard.dateFilter')")
+            .shouldBe("""{"preset":"THIS_YEAR"}""")
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("This year").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("All time").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Apply").setExact(true)).click()
+        page.shouldEventuallyContainChartPoints(
+            charts.nth(0),
+            ChartPoint("2098-12-29", "AUD", 2_000),
+            ChartPoint("2099-06-08", "AUD", 4_000),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("All time").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Apply").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true))).isVisible()
+        page.evaluate("window.localStorage.getItem('renalo.dashboard.dateFilter')")
+            .shouldBe("""{"preset":"LAST_12_MONTHS"}""")
+
+        page.reload()
+
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true))).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            charts.nth(0),
+            ChartPoint("2099-01-01", "AUD", 2_000),
+            ChartPoint("2099-06-01", "AUD", 4_000),
+        )
+    }
+
+    @Test
     fun centersQuickAddButtonOnMobile(page: Page) {
         saveUser("alice")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
@@ -167,6 +256,8 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             },
             date = date,
             amountMinor = amountMinor,
+            defaultCurrencyAmountMinor = amountMinor,
+            defaultCurrency = "AUD",
             notes = null,
         ),
     )
@@ -202,6 +293,31 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         ) as List<String>
         return cards.map(::DashboardCardText)
     }
+
+
+    private fun Page.shouldEventuallyContainChartPoints(chart: Locator, vararg expectedPoints: ChartPoint) {
+        shouldEventually {
+            @Suppress("UNCHECKED_CAST")
+            val points = chart.locator("[data-testid='transaction-chart-point']").evaluateAll(
+                """
+                    points => points.map(point => ({
+                        bucket: point.dataset.bucket,
+                        currency: point.dataset.currency,
+                        amountMinor: Number(point.dataset.amountMinor),
+                    }))
+                """.trimIndent(),
+            ) as List<Map<String, Any>>
+            points.map {
+                ChartPoint(
+                    bucket = it.getValue("bucket") as String,
+                    currency = it.getValue("currency") as String,
+                    amountMinor = (it.getValue("amountMinor") as Number).toLong(),
+                )
+            }.shouldContainExactly(*expectedPoints)
+        }
+    }
 }
 
 private data class DashboardCardText(val text: String)
+
+private data class ChartPoint(val bucket: String, val currency: String, val amountMinor: Long)

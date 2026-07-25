@@ -30,7 +30,7 @@ class TransactionAnalyticsController(
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
-        val filter = parseTransactionFilter(from, to, categoryIds, accountIds, notes)
+        val filter = parseTransactionFilter(from, to, categoryIds, accountIds, notes, allowOpenEndedDates = true)
             ?: return HttpResponse.badRequest<Any>()
         val timeSeries = transactionService.getTimeSeries(user.id!!, type, filter, granularity)
         return HttpResponse.ok(

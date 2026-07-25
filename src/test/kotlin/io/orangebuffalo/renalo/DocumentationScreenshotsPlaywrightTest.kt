@@ -42,6 +42,7 @@ import java.nio.file.Path
 import java.time.Instant
 import java.time.LocalDate
 import java.util.Comparator
+import java.util.regex.Pattern
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -104,6 +105,9 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         authenticate(page, testAuthTokens.issueToken(fixture.musician.username, UserType.USER))
         page.navigate(server.url.toString() + "/tracking")
         assertThat(page.locator("[data-testid='dashboard-account-card']").first()).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) chart")))).hasCount(2)
         capture(page, layout, "03-dashboard")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record new").setExact(true)).click()
