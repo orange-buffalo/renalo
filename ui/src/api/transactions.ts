@@ -107,7 +107,7 @@ export async function fetchTransactionTimeSeries(
   secondaryFilters?: TransactionSecondaryFilterParams,
   granularity: TransactionTimeSeriesGranularity = "AUTO",
 ) {
-  const params = transactionFilterQuery(dateFilter, secondaryFilters);
+  const params = transactionFilterQuery(dateFilter, secondaryFilters, true);
   params.set("granularity", granularity);
   const timeSeries = await apiRequest<TransactionTimeSeries>(
     `/api/tracking/analytics/transactions/${config.type}/time-series?${params.toString()}`,
@@ -125,9 +125,17 @@ export async function fetchTransactionTimeSeries(
 function transactionFilterQuery(
   dateFilter?: TransactionDateFilterParams,
   secondaryFilters?: TransactionSecondaryFilterParams,
+  allowOpenEndedDates = false,
 ) {
   const params = new URLSearchParams();
-  if (dateFilter?.from && dateFilter.to) {
+  if (allowOpenEndedDates) {
+    if (dateFilter?.from) {
+      params.set("from", dateFilter.from);
+    }
+    if (dateFilter?.to) {
+      params.set("to", dateFilter.to);
+    }
+  } else if (dateFilter?.from && dateFilter.to) {
     params.set("from", dateFilter.from);
     params.set("to", dateFilter.to);
   }

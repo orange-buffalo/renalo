@@ -216,6 +216,55 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun supportsOpenEndedAnalyticsDateFilters() {
+        val alice = saveUser("alice", UserType.USER)
+        val account = saveAccount(alice, "Main", "AUD", true)
+        val category = saveExpenseCategory(alice, "General")
+        saveTransaction(alice, TransactionType.EXPENSE, account, category.id!!, "2026-06-01", 100, null)
+        saveTransaction(alice, TransactionType.EXPENSE, account, category.id!!, "2026-06-10", 200, null)
+        saveTransaction(alice, TransactionType.EXPENSE, account, category.id!!, "2026-07-01", 300, null)
+        val token = api().login("alice", "password")
+
+        val throughJune = api().get(
+            "/api/tracking/analytics/transactions/EXPENSE/time-series?to=2026-06-10",
+            token,
+        )
+        throughJune.statusCode().shouldBe(200)
+        throughJune.body().shouldEqualJson(
+            """
+                {
+                  "granularity": "DAY",
+                  "from": "2026-06-01",
+                  "to": "2026-06-10",
+                  "points": [
+                    { "bucket": "2026-06-01", "currency": "AUD", "amountMinor": 100 },
+                    { "bucket": "2026-06-10", "currency": "AUD", "amountMinor": 200 }
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        val fromJune = api().get(
+            "/api/tracking/analytics/transactions/EXPENSE/time-series?from=2026-06-10",
+            token,
+        )
+        fromJune.statusCode().shouldBe(200)
+        fromJune.body().shouldEqualJson(
+            """
+                {
+                  "granularity": "DAY",
+                  "from": "2026-06-10",
+                  "to": "2026-07-01",
+                  "points": [
+                    { "bucket": "2026-06-10", "currency": "AUD", "amountMinor": 200 },
+                    { "bucket": "2026-07-01", "currency": "AUD", "amountMinor": 300 }
+                  ]
+                }
+            """.trimIndent(),
+        )
+    }
+
+    @Test
     fun returnsEmptyPointsAndRejectsInvalidFilters() {
         val alice = saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")
@@ -236,10 +285,6 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
             """.trimIndent(),
         )
 
-        api().get(
-            "/api/tracking/analytics/transactions/EXPENSE/time-series?from=2026-06-01",
-            token,
-        ).statusCode().shouldBe(400)
         api().get(
             "/api/tracking/analytics/transactions/EXPENSE/time-series?categoryIds=invalid",
             token,

@@ -17,6 +17,7 @@ export type DateFilterPreset =
   | "THIS_MONTH"
   | "PREVIOUS_MONTH"
   | "NEXT_MONTH"
+  | "LAST_12_MONTHS"
   | "THIS_YEAR"
   | "ALL_TIME";
 
@@ -35,12 +36,14 @@ type CalendarRange = {
 type DateRangeFilterProps = {
   value: TransactionDateFilterValue;
   onChange: (value: TransactionDateFilterValue) => void;
+  maxValue?: CalendarDate;
 };
 
 const presetLabels: Record<DateFilterPreset, string> = {
   THIS_MONTH: "This month",
   PREVIOUS_MONTH: "Previous month",
   NEXT_MONTH: "Next month",
+  LAST_12_MONTHS: "Last 12 months",
   THIS_YEAR: "This year",
   ALL_TIME: "All time",
 };
@@ -49,15 +52,20 @@ const presetOrder: DateFilterPreset[] = [
   "THIS_MONTH",
   "PREVIOUS_MONTH",
   "NEXT_MONTH",
+  "LAST_12_MONTHS",
   "THIS_YEAR",
   "ALL_TIME",
 ];
 
-export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
+export function DateRangeFilter({
+  value,
+  onChange,
+  maxValue,
+}: DateRangeFilterProps) {
   const isDesktop = useBreakpoint("md");
   const [isOpen, setIsOpen] = useState(false);
   const [draftRange, setDraftRange] = useState<CalendarRange>(() =>
-    calendarRangeFromFilter(value),
+    calendarRangeFromFilter(value, maxValue),
   );
   const [draftPreset, setDraftPreset] = useState<DateFilterPreset | undefined>(
     value.preset,
@@ -66,11 +74,18 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
     draftRange.start,
   );
   const canNavigateByMonth = isSingleFullMonthFilter(value);
+  const canNavigateToNextMonth =
+    canNavigateByMonth &&
+    (!maxValue ||
+      monthNavigationBase(value)
+        .add({ months: 1 })
+        .set({ day: 1 })
+        .compare(maxValue) <= 0);
 
   function openChanged(open: boolean) {
     setIsOpen(open);
     if (open) {
-      const nextDraftRange = calendarRangeFromFilter(value);
+      const nextDraftRange = calendarRangeFromFilter(value, maxValue);
       setDraftRange(nextDraftRange);
       setDraftPreset(value.preset);
       setFocusedValue(nextDraftRange.start);
@@ -82,7 +97,10 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
     if (preset === "ALL_TIME") {
       return;
     }
-    const nextRange = calendarRangeForPreset(preset, new Date());
+    const nextRange = constrainRangeToMax(
+      calendarRangeForPreset(preset, new Date()),
+      maxValue,
+    );
     setDraftRange(nextRange);
     setFocusedValue(nextRange.start);
   }
@@ -117,6 +135,7 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
               "date-filter-preset",
               draftPreset === preset && "date-filter-preset-selected",
             )}
+            disabled={isPresetAfterMax(preset, maxValue)}
             onClick={() => applyPreset(preset)}
           >
             {presetLabels[preset]}
@@ -137,6 +156,7 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
             });
           }}
           highlightedDates={[today(getLocalTimeZone())]}
+          maxValue={maxValue}
         />
         <div className="date-filter-dialog-footer">
           <div className="date-filter-selected-range">
@@ -204,7 +224,7 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
           color="tertiary"
           size="sm"
           iconLeading={ChevronRight}
-          isDisabled={!canNavigateByMonth}
+          isDisabled={!canNavigateToNextMonth}
           onPress={() => onChange(nextMonthFilter(value))}
         />
       </div>
@@ -272,7 +292,7 @@ export function filterForPreset(
     from: calendarDateToIsoDate(range.start),
     to: calendarDateToIsoDate(range.end),
     label:
-      preset === "THIS_YEAR"
+      preset === "THIS_YEAR" || preset === "LAST_12_MONTHS"
         ? presetLabels[preset]
         : smartRangeLabel(range.start, range.end),
     preset,
@@ -326,20 +346,52 @@ function calendarRangeForPreset(
     const start = currentDate.set({ day: 1 }).add({ months: 1 });
     return { start, end: endOfMonth(start) };
   }
+  if (preset === "LAST_12_MONTHS") {
+    return {
+      start: currentDate.subtract({ months: 12 }).add({ days: 1 }),
+      end: currentDate,
+    };
+  }
 
   const start = currentDate.set({ month: 1, day: 1 });
   return { start, end: currentDate.set({ month: 12, day: 31 }) };
 }
 
-function calendarRangeFromFilter(value: TransactionDateFilterValue) {
+function calendarRangeFromFilter(
+  value: TransactionDateFilterValue,
+  maxValue?: CalendarDate,
+) {
   if (value.from && value.to) {
-    return {
-      start: isoDateToCalendarDate(value.from),
-      end: isoDateToCalendarDate(value.to),
-    };
+    return constrainRangeToMax(
+      {
+        start: isoDateToCalendarDate(value.from),
+        end: isoDateToCalendarDate(value.to),
+      },
+      maxValue,
+    );
   }
 
-  return calendarRangeForPreset("THIS_MONTH", new Date());
+  return constrainRangeToMax(
+    calendarRangeForPreset("THIS_MONTH", new Date()),
+    maxValue,
+  );
+}
+
+function constrainRangeToMax(range: CalendarRange, maxValue?: CalendarDate) {
+  if (!maxValue || range.end.compare(maxValue) <= 0) {
+    return range;
+  }
+  return {
+    start: range.start.compare(maxValue) <= 0 ? range.start : maxValue,
+    end: maxValue,
+  };
+}
+
+function isPresetAfterMax(preset: DateFilterPreset, maxValue?: CalendarDate) {
+  if (!maxValue || preset === "ALL_TIME") {
+    return false;
+  }
+  return calendarRangeForPreset(preset, new Date()).start.compare(maxValue) > 0;
 }
 
 function monthNavigationBase(value: TransactionDateFilterValue) {

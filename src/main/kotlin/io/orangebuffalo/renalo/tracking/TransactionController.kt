@@ -129,8 +129,9 @@ internal fun parseTransactionFilter(
     categoryIds: String?,
     accountIds: String?,
     notes: String?,
+    allowOpenEndedDates: Boolean = false,
 ): TransactionDateFilter? {
-    if ((from == null) != (to == null) || (from != null && to != null && from.isAfter(to))) {
+    if ((!allowOpenEndedDates && (from == null) != (to == null)) || (from != null && to != null && from.isAfter(to))) {
         return null
     }
     val categoryIdFilter = parseIdFilter(categoryIds) ?: return null

@@ -1,3 +1,4 @@
+import { getLocalTimeZone, today } from "@internationalized/date";
 import {
   CreditCard02,
   Plus,
@@ -34,6 +35,8 @@ const dashboardDateFilterStorageKey = "renalo.dashboard.dateFilter";
 
 export function TrackingPage() {
   const navigate = useNavigate();
+  const dashboardToday = today(getLocalTimeZone());
+  const dashboardTodayIso = dashboardToday.toString();
   const [accountSummaries, setAccountSummaries] = useState<
     AccountDashboardSummary[]
   >([]);
@@ -92,7 +95,20 @@ export function TrackingPage() {
     setExpenseChartError(false);
     setIncomeChartError(false);
 
-    fetchTransactionTimeSeries(expenseTransactionApi, dateFilter)
+    const analyticsDateFilter = {
+      from:
+        dateFilter.from && dateFilter.from <= dashboardTodayIso
+          ? dateFilter.from
+          : dateFilter.from
+            ? dashboardTodayIso
+            : null,
+      to:
+        dateFilter.to && dateFilter.to < dashboardTodayIso
+          ? dateFilter.to
+          : dashboardTodayIso,
+    };
+
+    fetchTransactionTimeSeries(expenseTransactionApi, analyticsDateFilter)
       .then((timeSeries) => {
         if (isActive) {
           setExpenseTimeSeries(timeSeries);
@@ -103,7 +119,7 @@ export function TrackingPage() {
           setExpenseChartError(true);
         }
       });
-    fetchTransactionTimeSeries(incomeTransactionApi, dateFilter)
+    fetchTransactionTimeSeries(incomeTransactionApi, analyticsDateFilter)
       .then((timeSeries) => {
         if (isActive) {
           setIncomeTimeSeries(timeSeries);
@@ -118,7 +134,7 @@ export function TrackingPage() {
     return () => {
       isActive = false;
     };
-  }, [dateFilter]);
+  }, [dashboardTodayIso, dateFilter]);
 
   return (
     <PageLayout
@@ -162,7 +178,11 @@ export function TrackingPage() {
             ))}
           </section>
           <div className="dashboard-date-filter">
-            <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+            <DateRangeFilter
+              value={dateFilter}
+              onChange={setDateFilter}
+              maxValue={dashboardToday}
+            />
           </div>
           <div className="dashboard-chart-grid">
             <TransactionTimeSeriesChart

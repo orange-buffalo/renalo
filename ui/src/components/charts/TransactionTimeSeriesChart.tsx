@@ -1,4 +1,5 @@
-import { useId } from "react";
+import { Maximize01, XClose } from "@untitledui/icons";
+import { useId, useState } from "react";
 import type { TooltipContentProps } from "recharts";
 import {
   Area,
@@ -17,7 +18,14 @@ import {
   selectEvenlySpacedItems,
 } from "@/components/untitled/application/charts/charts-base";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
+import {
+  Dialog,
+  Modal,
+  ModalOverlay,
+} from "@/components/untitled/application/modals/modal";
+import { Button } from "@/components/untitled/base/buttons/button";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { cx } from "@/utils/cx";
 import { formatMoney, formatMoneyInput } from "@/utils/money";
 
 type TransactionTimeSeriesChartProps = {
@@ -58,94 +66,134 @@ export function TransactionTimeSeriesChart({
   showTrendLine = false,
 }: TransactionTimeSeriesChartProps) {
   const titleId = useId();
+  const modalTitleId = useId();
   const gradientId = useId().replaceAll(":", "");
+  const modalGradientId = useId().replaceAll(":", "");
+  const [isMaximized, setIsMaximized] = useState(false);
   const currencySeries = timeSeries ? buildCurrencySeries(timeSeries) : [];
   const granularityLabel = timeSeries
     ? granularityLabels[timeSeries.granularity]
     : undefined;
+  const subtitle =
+    granularityLabel && currencySeries[0]
+      ? `${granularityLabel} (${currencySeries[0].currency})`
+      : granularityLabel;
+
+  function renderChartPanel(maximized: boolean) {
+    const panelTitleId = maximized ? modalTitleId : titleId;
+    const panelGradientId = maximized ? modalGradientId : gradientId;
+
+    return (
+      <section
+        className={cx(
+          "transaction-chart-panel",
+          maximized && "transaction-chart-panel-maximized",
+        )}
+        aria-labelledby={panelTitleId}
+        data-testid="transaction-time-series-chart"
+      >
+        <header className="transaction-chart-header">
+          <div>
+            <h2 id={panelTitleId}>{title}</h2>
+            {subtitle && <p>{subtitle}</p>}
+          </div>
+          <Button
+            aria-label={`${maximized ? "Close" : "Maximize"} ${title} chart`}
+            color="tertiary"
+            size="sm"
+            iconLeading={maximized ? XClose : Maximize01}
+            onPress={() => setIsMaximized(!maximized)}
+          />
+        </header>
+
+        {error ? (
+          <p
+            className="transaction-chart-message transaction-chart-error"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : !timeSeries ? (
+          <div
+            className="transaction-chart-message"
+            role="status"
+            aria-busy="true"
+            aria-label={`Loading ${title.toLowerCase()}`}
+          >
+            <LoadingIndicator size="sm" />
+          </div>
+        ) : currencySeries.length === 0 ? (
+          <p className="transaction-chart-message">
+            No matching transactions to chart.
+          </p>
+        ) : (
+          <div className="transaction-chart-grid">
+            {currencySeries.map((series) => (
+              <CurrencyAreaChart
+                key={series.currency}
+                series={series}
+                granularity={timeSeries.granularity}
+                color={toneColors[tone]}
+                gradientId={`${panelGradientId}-${series.currency}`}
+                showTrendLine={showTrendLine}
+              />
+            ))}
+          </div>
+        )}
+
+        {timeSeries && (
+          <table
+            className="sr-only"
+            aria-label={`${title} data`}
+            data-testid="transaction-chart-data"
+          >
+            <thead>
+              <tr>
+                <th>Bucket</th>
+                <th>Currency</th>
+                <th>Amount in minor units</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timeSeries.points.map((point) => (
+                <tr
+                  key={`${point.bucket}-${point.currency}`}
+                  data-testid="transaction-chart-point"
+                  data-bucket={point.bucket}
+                  data-currency={point.currency}
+                  data-amount-minor={point.amountMinor}
+                >
+                  <td>{point.bucket}</td>
+                  <td>{point.currency}</td>
+                  <td>{point.amountMinor}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    );
+  }
 
   return (
-    <section
-      className="transaction-chart-panel"
-      aria-labelledby={titleId}
-      data-testid="transaction-time-series-chart"
-    >
-      <header className="transaction-chart-header">
-        <div>
-          <h2 id={titleId}>{title}</h2>
-          {granularityLabel && <p>{granularityLabel}</p>}
-          {showTrendLine && timeSeries && currencySeries.length > 0 && (
-            <p className="transaction-chart-trend-key">Dashed line: trend</p>
-          )}
-        </div>
-      </header>
-
-      {error ? (
-        <p
-          className="transaction-chart-message transaction-chart-error"
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : !timeSeries ? (
-        <div
-          className="transaction-chart-message"
-          role="status"
-          aria-busy="true"
-          aria-label={`Loading ${title.toLowerCase()}`}
-        >
-          <LoadingIndicator size="sm" />
-        </div>
-      ) : currencySeries.length === 0 ? (
-        <p className="transaction-chart-message">
-          No matching transactions to chart.
-        </p>
-      ) : (
-        <div className="transaction-chart-grid">
-          {currencySeries.map((series) => (
-            <CurrencyAreaChart
-              key={series.currency}
-              series={series}
-              granularity={timeSeries.granularity}
-              color={toneColors[tone]}
-              gradientId={`${gradientId}-${series.currency}`}
-              showTrendLine={showTrendLine}
-            />
-          ))}
-        </div>
-      )}
-
-      {timeSeries && (
-        <table
-          className="sr-only"
-          aria-label={`${title} data`}
-          data-testid="transaction-chart-data"
-        >
-          <thead>
-            <tr>
-              <th>Bucket</th>
-              <th>Currency</th>
-              <th>Amount in minor units</th>
-            </tr>
-          </thead>
-          <tbody>
-            {timeSeries.points.map((point) => (
-              <tr
-                key={`${point.bucket}-${point.currency}`}
-                data-testid="transaction-chart-point"
-                data-bucket={point.bucket}
-                data-currency={point.currency}
-                data-amount-minor={point.amountMinor}
-              >
-                <td>{point.bucket}</td>
-                <td>{point.currency}</td>
-                <td>{point.amountMinor}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
+    <>
+      {renderChartPanel(false)}
+      <ModalOverlay
+        isOpen={isMaximized}
+        onOpenChange={setIsMaximized}
+        isDismissable
+        className="transaction-chart-modal-overlay"
+      >
+        <Modal className="transaction-chart-modal">
+          <Dialog
+            aria-label={`${title} chart`}
+            className="transaction-chart-modal-dialog"
+          >
+            {renderChartPanel(true)}
+          </Dialog>
+        </Modal>
+      </ModalOverlay>
+    </>
   );
 }
 
@@ -169,7 +217,6 @@ function CurrencyAreaChart({
 
   return (
     <div className="transaction-currency-chart">
-      <h3>{series.currency}</h3>
       <div className="transaction-chart-canvas">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart

@@ -175,9 +175,12 @@ open class TransactionService(
         val whereClauses = mutableListOf("t.user_id = ?", "t.type = ?")
         val parameters = mutableListOf<Any>(userId, type.name)
 
-        if (filter.from != null && filter.to != null) {
-            whereClauses += "t.date BETWEEN ? AND ?"
+        if (filter.from != null) {
+            whereClauses += "t.date >= ?"
             parameters += filter.from
+        }
+        if (filter.to != null) {
+            whereClauses += "t.date <= ?"
             parameters += filter.to
         }
         if (filter.categoryIds.isNotEmpty()) {
