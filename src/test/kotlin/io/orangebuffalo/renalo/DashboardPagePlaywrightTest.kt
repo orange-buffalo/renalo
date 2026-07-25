@@ -115,10 +115,11 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range"))).isDisabled()
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("June 2099").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
         val dateDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
         assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Last 12 months"))).isVisible()
         assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Next month"))).isDisabled()
+        dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("This month").setExact(true)).click()
         assertThat(
             dateDialog.locator("[role='gridcell'][aria-disabled='true']")
                 .filter(Locator.FilterOptions().setHasText(Pattern.compile("^15$")))

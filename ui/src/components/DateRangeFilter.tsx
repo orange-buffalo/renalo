@@ -239,9 +239,10 @@ export function createDefaultTransactionDateFilter(now: Date) {
 export function restoreStoredDateFilter(
   storedValue: string | null,
   now: Date,
+  defaultPreset: DateFilterPreset = "THIS_MONTH",
 ): TransactionDateFilterValue {
   if (!storedValue) {
-    return createDefaultTransactionDateFilter(now);
+    return filterForPreset(defaultPreset, now);
   }
 
   try {
@@ -268,7 +269,7 @@ export function restoreStoredDateFilter(
     // Invalid browser storage falls back to the normal default.
   }
 
-  return createDefaultTransactionDateFilter(now);
+  return filterForPreset(defaultPreset, now);
 }
 
 export function storeDateFilter(value: TransactionDateFilterValue) {

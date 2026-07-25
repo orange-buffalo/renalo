@@ -46,6 +46,7 @@ export function TrackingPage() {
     restoreStoredDateFilter(
       window.localStorage.getItem(dashboardDateFilterStorageKey),
       new Date(),
+      "LAST_12_MONTHS",
     ),
   );
   const [expenseTimeSeries, setExpenseTimeSeries] = useState<
