@@ -539,6 +539,10 @@ input {
   line-height: 1;
 }
 
+.transaction-filter-count-badge:empty {
+  visibility: hidden;
+}
+
 .transaction-more-filters-popover,
 .transaction-filter-select-popover {
   z-index: 50;
@@ -567,6 +571,16 @@ input {
   color: #343841;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.transaction-more-filters-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.transaction-more-filters-close {
+  display: none;
 }
 
 .transaction-more-filters-form {
@@ -952,6 +966,40 @@ input {
 
   .transaction-more-filters-label {
     display: none;
+  }
+
+  .transaction-more-filters-mobile-overlay {
+    position: fixed;
+    z-index: 60;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    background: #ffffff;
+    outline: none;
+  }
+
+  .transaction-more-filters-mobile-modal {
+    width: 100%;
+    height: 100dvh;
+    background: #ffffff;
+    outline: none;
+  }
+
+  .transaction-more-filters-dialog {
+    width: 100%;
+    height: 100%;
+    padding: max(16px, env(safe-area-inset-top)) 16px
+      max(16px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .transaction-more-filters-close {
+    display: inline-flex;
+  }
+
+  .transaction-filter-select-popover {
+    z-index: 70;
   }
 
   .date-filter-control {

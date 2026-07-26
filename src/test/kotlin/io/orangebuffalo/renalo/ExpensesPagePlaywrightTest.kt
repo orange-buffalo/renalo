@@ -31,6 +31,7 @@ import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import java.util.regex.Pattern
+import kotlin.math.abs
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -446,6 +447,36 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun usesClosableFullScreenMoreFiltersOnMobile(page: Page) {
+        val alice = saveUser("alice")
+        saveAccount(alice, "Main", "AUD", isDefault = true)
+        saveCategory(alice, "Groceries")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/expenses")
+        openMoreFilters(page)
+
+        val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
+        assertThat(dialog.getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("More filters"))).isVisible()
+        assertThat(dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Close filters"))).isVisible()
+        page.locator(".transaction-more-filters-mobile-overlay").evaluate(
+            """
+                overlay => {
+                    const rect = overlay.getBoundingClientRect();
+                    return Math.abs(rect.top) < 1
+                        && Math.abs(rect.left) < 1
+                        && Math.abs(rect.width - window.innerWidth) < 1
+                        && Math.abs(rect.height - window.innerHeight) < 1;
+                }
+            """.trimIndent(),
+        ).shouldBe(true)
+
+        dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Close filters")).click()
+        assertThat(dialog).not().isVisible()
+    }
+
+    @Test
     fun filtersExpensesByCategoryAccountAndNotes(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", "AUD", isDefault = true)
@@ -492,6 +523,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         openMoreFilters(page)
         val moreFilters = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
+        val initialFilterDialogBounds = moreFilters.boundingBox()
         val categoryTrigger = moreFilters.getByRole(
             AriaRole.BUTTON,
             Locator.GetByRoleOptions().setName("Category").setExact(true),
@@ -506,6 +538,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         groceriesRow.click()
         assertThat(categoryTrigger).containsText("1 selected")
+        (abs(moreFilters.boundingBox().x - initialFilterDialogBounds.x) <= 1.0).shouldBe(true)
+        (abs(moreFilters.boundingBox().y - initialFilterDialogBounds.y) <= 1.0).shouldBe(true)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Rent", "A$15.00", "Today", "Main", "Coffee beans rent", "edit delete"),
         )
@@ -569,6 +603,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         openMoreFilters(page)
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Clear all")).click()
         assertThat(page.locator(".transaction-filter-count-badge")).not().isVisible()
+        (abs(moreFilters.boundingBox().x - initialFilterDialogBounds.x) <= 1.0).shouldBe(true)
+        (abs(moreFilters.boundingBox().y - initialFilterDialogBounds.y) <= 1.0).shouldBe(true)
         assertThat(categoryTrigger).containsText("All categories")
         assertThat(accountTrigger).containsText("All accounts")
         assertThat(page.getByLabel("Selected category")).hasCount(0)
