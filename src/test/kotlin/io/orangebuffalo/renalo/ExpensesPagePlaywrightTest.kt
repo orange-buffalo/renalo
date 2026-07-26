@@ -513,7 +513,22 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(groceriesRow).hasAttribute("aria-selected", "true")
         assertThat(rentRow).hasAttribute("aria-selected", "false")
         groceriesRow.click()
+        assertThat(categoryTrigger).containsText("All categories")
         assertThat(groceriesRow).hasAttribute("aria-selected", "true")
+        assertThat(rentRow).hasAttribute("aria-selected", "true")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Only Groceries")).click()
+        page.keyboard().press("Escape")
+
+        val selectedCategory = page.getByLabel("Selected category")
+        assertThat(selectedCategory.getByText("Groceries")).isVisible()
+        selectedCategory.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Remove this tag"),
+        ).click()
+        assertThat(categoryTrigger).containsText("All categories")
+        assertThat(selectedCategory).hasCount(0)
+        categoryTrigger.click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Only Groceries")).click()
         page.keyboard().press("Escape")
 
         val accountTrigger = moreFilters.getByRole(
@@ -527,10 +542,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.keyboard().press("Escape")
         page.getByLabel("Notes").fill("coffee beans")
 
-        assertThat(page.getByLabel("Selected category").getByText("Groceries")).isVisible()
+        assertThat(selectedCategory.getByText("Groceries")).isVisible()
         assertThat(page.getByLabel("Selected account").getByText("Main")).isVisible()
-        assertThat(page.getByLabel("Selected category").getByRole(AriaRole.BUTTON)).hasCount(0)
-        assertThat(page.getByLabel("Selected account").getByRole(AriaRole.BUTTON)).hasCount(0)
+        assertThat(selectedCategory.getByRole(AriaRole.BUTTON)).hasCount(1)
+        assertThat(page.getByLabel("Selected account").getByRole(AriaRole.BUTTON)).hasCount(1)
         assertThat(page.locator(".transaction-filter-count-badge")).hasText("3")
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$0.01", "Today", "Main", "Coffee beans wholesale", "edit delete"),
@@ -1182,6 +1197,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun assertActiveDropdownItem(searchInput: Locator, item: Locator) {
         assertThat(searchInput).hasAttribute("aria-activedescendant", item.getAttribute("id")!!)
+        assertThat(item).hasAttribute("data-active", "true")
     }
 
     private fun dropdownOption(page: Page, option: String): Locator =

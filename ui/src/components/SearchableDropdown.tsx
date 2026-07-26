@@ -47,8 +47,27 @@ export function SearchableDropdown({
 }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [activeKey, setActiveKey] = useState<string>();
   const searchInputRef = useDropdownSearchFocus(isOpen);
   const selectedItem = items.find((item) => item.id === selectedKey);
+  const visibleItems = items.filter((item) =>
+    filterDropdownItem(getItemTextValue(item), search),
+  );
+  const effectiveActiveKey = visibleItems.some((item) => item.id === activeKey)
+    ? activeKey
+    : visibleItems[0]?.id;
+
+  function moveActiveItem(direction: 1 | -1) {
+    if (visibleItems.length === 0) {
+      return;
+    }
+    const currentIndex = visibleItems.findIndex(
+      (item) => item.id === effectiveActiveKey,
+    );
+    const nextIndex =
+      (currentIndex + direction + visibleItems.length) % visibleItems.length;
+    setActiveKey(visibleItems[nextIndex].id);
+  }
 
   return (
     <div className={className ?? "searchable-dropdown-field"}>
@@ -59,6 +78,7 @@ export function SearchableDropdown({
           setIsOpen(open);
           if (!open) {
             setSearch("");
+            setActiveKey(undefined);
           }
         }}
       >
@@ -85,7 +105,10 @@ export function SearchableDropdown({
         >
           <Autocomplete
             inputValue={search}
-            onInputChange={setSearch}
+            onInputChange={(value) => {
+              setSearch(value);
+              setActiveKey(undefined);
+            }}
             filter={filterDropdownItem}
           >
             <div
@@ -103,6 +126,11 @@ export function SearchableDropdown({
                 size="sm"
                 placeholder={searchPlaceholder}
                 icon={SearchLg}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                    moveActiveItem(event.key === "ArrowDown" ? 1 : -1);
+                  }
+                }}
               />
             </div>
             <Dropdown.Menu
@@ -125,6 +153,7 @@ export function SearchableDropdown({
                   key={item.id}
                   id={item.id}
                   textValue={getItemTextValue(item)}
+                  data-active={item.id === effectiveActiveKey || undefined}
                 >
                   <span className="searchable-dropdown-option">
                     <span>{item.label}</span>
@@ -206,9 +235,6 @@ export function SearchableMultiDropdown({
     }
     const selectedKeySet = new Set(effectiveSelectedKeys);
     if (selectedKeySet.has(effectiveActiveKey)) {
-      if (selectedKeySet.size === 1) {
-        return;
-      }
       selectedKeySet.delete(effectiveActiveKey);
     } else {
       selectedKeySet.add(effectiveActiveKey);
@@ -291,7 +317,6 @@ export function SearchableMultiDropdown({
                 aria-label={label}
                 selectionMode="multiple"
                 selectionBehavior="toggle"
-                disallowEmptySelection={items.length > 0}
                 selectedKeys={new Set(effectiveSelectedKeys)}
                 onSelectionChange={handleSelectionChange}
                 className="searchable-dropdown-menu searchable-multi-dropdown-list"

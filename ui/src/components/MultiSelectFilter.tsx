@@ -55,10 +55,7 @@ export function MultiSelectFilter({
             }))}
           >
             {(item) => (
-              <Tag
-                id={item.id}
-                onClose={selectedOptions.length > 1 ? removeOption : undefined}
-              >
+              <Tag id={item.id} onClose={removeOption}>
                 {item.label}
               </Tag>
             )}
