@@ -543,7 +543,7 @@ input {
   bottom: 0;
   display: inline-flex;
   width: 33.333%;
-  aspect-ratio: 1;
+  height: 33.333%;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;

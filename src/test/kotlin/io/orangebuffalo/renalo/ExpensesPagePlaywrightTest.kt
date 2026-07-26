@@ -584,6 +584,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         val filterIconBounds = page.locator(".transaction-filter-icon").boundingBox()
         val filterBadgeBounds = page.locator(".transaction-filter-count-badge").boundingBox()
         (abs(filterBadgeBounds.width - filterIconBounds.width / 3) <= 1.0).shouldBe(true)
+        (abs(filterBadgeBounds.width - filterBadgeBounds.height) <= 1.0).shouldBe(true)
         (abs(filterBadgeBounds.x + filterBadgeBounds.width - filterIconBounds.x - filterIconBounds.width) <= 1.0)
             .shouldBe(true)
         (abs(filterBadgeBounds.y + filterBadgeBounds.height - filterIconBounds.y - filterIconBounds.height) <= 1.0)
