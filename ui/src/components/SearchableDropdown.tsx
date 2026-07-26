@@ -333,19 +333,6 @@ export function SearchableMultiDropdown({
                           >
                             Only
                           </AriaButton>
-                          <AriaButton
-                            aria-label={`Exclude ${item.label}`}
-                            className="searchable-multi-dropdown-action"
-                            isDisabled={items.length <= 1}
-                            preventFocusOnPress
-                            onPress={() =>
-                              emitNormalizedSelection(
-                                allItemKeys.filter((key) => key !== item.id),
-                              )
-                            }
-                          >
-                            Exclude
-                          </AriaButton>
                         </span>
                       </>
                     )}

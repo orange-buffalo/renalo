@@ -522,7 +522,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         )
         assertThat(accountTrigger).containsText("All accounts")
         accountTrigger.click()
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Exclude Travel")).click()
+        multiDropdownRow(page, "Travel").click()
         assertThat(accountTrigger).containsText("1 selected")
         page.keyboard().press("Escape")
         page.getByLabel("Notes").fill("coffee beans")
