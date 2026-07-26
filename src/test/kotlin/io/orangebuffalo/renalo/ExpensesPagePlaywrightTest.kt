@@ -491,12 +491,46 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             .shouldBe("10")
 
         openMoreFilters(page)
-        selectMoreFilterOption(page, "Category", "Groceries")
-        selectMoreFilterOption(page, "Account", "Main")
+        val moreFilters = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
+        val categoryTrigger = moreFilters.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Category").setExact(true),
+        )
+        assertThat(categoryTrigger).containsText("All categories")
+        assertThat(page.getByLabel("Selected category")).hasCount(0)
+        categoryTrigger.click()
+        val groceriesRow = multiDropdownRow(page, "Groceries")
+        val rentRow = multiDropdownRow(page, "Rent")
+        assertThat(groceriesRow).hasAttribute("aria-selected", "true")
+        assertThat(rentRow).hasAttribute("aria-selected", "true")
+
+        groceriesRow.click()
+        assertThat(categoryTrigger).containsText("1 selected")
+        page.shouldEventuallyContainExpenseRows(
+            ExpenseRow("Rent", "A$15.00", "Today", "Main", "Coffee beans rent", "edit delete"),
+        )
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Only Groceries")).click()
+        assertThat(groceriesRow).hasAttribute("aria-selected", "true")
+        assertThat(rentRow).hasAttribute("aria-selected", "false")
+        groceriesRow.click()
+        assertThat(groceriesRow).hasAttribute("aria-selected", "true")
+        page.keyboard().press("Escape")
+
+        val accountTrigger = moreFilters.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Account").setExact(true),
+        )
+        assertThat(accountTrigger).containsText("All accounts")
+        accountTrigger.click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Exclude Travel")).click()
+        assertThat(accountTrigger).containsText("1 selected")
+        page.keyboard().press("Escape")
         page.getByLabel("Notes").fill("coffee beans")
 
         assertThat(page.getByLabel("Selected category").getByText("Groceries")).isVisible()
         assertThat(page.getByLabel("Selected account").getByText("Main")).isVisible()
+        assertThat(page.getByLabel("Selected category").getByRole(AriaRole.BUTTON)).hasCount(0)
+        assertThat(page.getByLabel("Selected account").getByRole(AriaRole.BUTTON)).hasCount(0)
         assertThat(page.locator(".transaction-filter-count-badge")).hasText("3")
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$0.01", "Today", "Main", "Coffee beans wholesale", "edit delete"),
@@ -520,6 +554,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         openMoreFilters(page)
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Clear all")).click()
         assertThat(page.locator(".transaction-filter-count-badge")).not().isVisible()
+        assertThat(categoryTrigger).containsText("All categories")
+        assertThat(accountTrigger).containsText("All accounts")
+        assertThat(page.getByLabel("Selected category")).hasCount(0)
+        assertThat(page.getByLabel("Selected account")).hasCount(0)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Rent", "A$15.00", "Today", "Main", "Coffee beans rent", "edit delete"),
             ExpenseRow("Groceries", "A$14.00", "Today", "Travel", "Coffee beans travel", "edit delete"),
@@ -1138,6 +1176,10 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
     private fun dropdownMenuItem(page: Page, option: String): Locator =
         dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
 
+    private fun multiDropdownRow(page: Page, option: String): Locator =
+        page.locator(".searchable-multi-dropdown-row")
+            .filter(Locator.FilterOptions().setHas(page.getByText(option, Page.GetByTextOptions().setExact(true))))
+
     private fun assertActiveDropdownItem(searchInput: Locator, item: Locator) {
         assertThat(searchInput).hasAttribute("aria-activedescendant", item.getAttribute("id")!!)
     }
@@ -1196,7 +1238,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(label).setExact(true))
             .click()
-        dropdownOption(page, option).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Only $option")).click()
         page.keyboard().press("Escape")
     }
 
