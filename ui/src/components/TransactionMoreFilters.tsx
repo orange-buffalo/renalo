@@ -1,4 +1,4 @@
-import { FilterLines, XClose } from "@untitledui/icons";
+import { XClose } from "@untitledui/icons";
 import { useState } from "react";
 import {
   Dialog as AriaDialog,
@@ -7,6 +7,7 @@ import {
   ModalOverlay as AriaModalOverlay,
   Popover as AriaPopover,
 } from "react-aria-components";
+import { FilterIcon } from "@/components/FilterIcon";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Input } from "@/components/untitled/base/input/input";
@@ -118,12 +119,9 @@ export function TransactionMoreFilters({
           aria-label="More filters"
           color="tertiary"
           size="sm"
-          iconLeading={FilterLines}
+          iconLeading={<FilterIcon activeFilterCount={activeFilterCount} />}
         >
           <span className="transaction-more-filters-label">More filters</span>
-          <span className="transaction-filter-count-badge">
-            {activeFilterCount || null}
-          </span>
         </Button>
         {isDesktop ? (
           <AriaPopover className="transaction-more-filters-popover" offset={8}>

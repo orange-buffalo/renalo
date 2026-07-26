@@ -581,6 +581,13 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(selectedCategory.getByRole(AriaRole.BUTTON)).hasCount(1)
         assertThat(page.getByLabel("Selected account").getByRole(AriaRole.BUTTON)).hasCount(1)
         assertThat(page.locator(".transaction-filter-count-badge")).hasText("3")
+        val filterIconBounds = page.locator(".transaction-filter-icon").boundingBox()
+        val filterBadgeBounds = page.locator(".transaction-filter-count-badge").boundingBox()
+        (abs(filterBadgeBounds.width - filterIconBounds.width / 3) <= 1.0).shouldBe(true)
+        (abs(filterBadgeBounds.x + filterBadgeBounds.width - filterIconBounds.x - filterIconBounds.width) <= 1.0)
+            .shouldBe(true)
+        (abs(filterBadgeBounds.y + filterBadgeBounds.height - filterIconBounds.y - filterIconBounds.height) <= 1.0)
+            .shouldBe(true)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Groceries", "A$0.01", "Today", "Main", "Coffee beans wholesale", "edit delete"),
         )
