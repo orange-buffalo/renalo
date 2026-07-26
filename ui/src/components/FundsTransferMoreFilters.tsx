@@ -5,9 +5,8 @@ import {
   DialogTrigger as AriaDialogTrigger,
   Popover as AriaPopover,
 } from "react-aria-components";
-import { SearchableMultiDropdown } from "@/components/SearchableDropdown";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { Button } from "@/components/untitled/base/buttons/button";
-import { Tag, TagGroup, TagList } from "@/components/untitled/base/tags/tags";
 
 export type FundsTransferFilterOption = {
   id: number;
@@ -76,12 +75,14 @@ export function FundsTransferMoreFilters({
             <div className="transaction-more-filters-form">
               <MultiSelectFilter
                 label="Source account"
+                allLabel="All source accounts"
                 options={accounts}
                 selectedIds={value.sourceAccountIds}
                 onChange={(sourceAccountIds) => update({ sourceAccountIds })}
               />
               <MultiSelectFilter
                 label="Target account"
+                allLabel="All target accounts"
                 options={accounts}
                 selectedIds={value.targetAccountIds}
                 onChange={(targetAccountIds) => update({ targetAccountIds })}
@@ -91,62 +92,6 @@ export function FundsTransferMoreFilters({
         </AriaPopover>
       </AriaDialogTrigger>
     </div>
-  );
-}
-
-function MultiSelectFilter({
-  label,
-  options,
-  selectedIds,
-  onChange,
-}: {
-  label: string;
-  options: FundsTransferFilterOption[];
-  selectedIds: number[];
-  onChange: (selectedIds: number[]) => void;
-}) {
-  const selectedOptions = options.filter((option) =>
-    selectedIds.includes(option.id),
-  );
-
-  function removeOption(optionId: string) {
-    onChange(
-      selectedIds.filter((selectedId) => selectedId !== Number(optionId)),
-    );
-  }
-
-  return (
-    <>
-      <SearchableMultiDropdown
-        label={label}
-        placeholder={`Choose ${label.toLowerCase()}`}
-        items={options.map((option) => ({
-          id: String(option.id),
-          label: option.name,
-        }))}
-        selectedKeys={selectedIds.map(String)}
-        onSelectionChange={(nextSelectedIds) =>
-          onChange(nextSelectedIds.map(Number))
-        }
-      />
-      {selectedOptions.length > 0 && (
-        <TagGroup label={`Selected ${label.toLowerCase()}`} size="sm">
-          <TagList
-            className="transaction-filter-tags"
-            items={selectedOptions.map((option) => ({
-              id: option.id.toString(),
-              label: option.name,
-            }))}
-          >
-            {(item) => (
-              <Tag id={item.id} onClose={removeOption}>
-                {item.label}
-              </Tag>
-            )}
-          </TagList>
-        </TagGroup>
-      )}
-    </>
   );
 }
 

@@ -274,7 +274,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         filtersDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Income category").setExact(true)).click()
         assertThat(dropdownOption(page, "Salary")).isVisible()
         assertThat(dropdownOption(page, "Old category")).not().isVisible()
-        dropdownOption(page, "Salary").click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Only Salary")).click()
         page.keyboard().press("Escape")
         selectMoreFilterOption(page, "Account", "Main")
         page.getByLabel("Notes").fill("monthly consulting")
@@ -483,7 +483,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
             .getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(label).setExact(true))
             .click()
-        dropdownOption(page, option).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Only $option")).click()
         page.keyboard().press("Escape")
     }
 

@@ -134,6 +134,8 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("More filters")).click()
         assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Category").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Category").setExact(true))).isVisible()
         capture(page, layout, "06-expense-filters")
 
         page.navigate(server.url.toString() + "/expenses/create")

@@ -234,13 +234,17 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
             AriaRole.BUTTON,
             Locator.GetByRoleOptions().setName("Source account").setExact(true),
         )
+        assertThat(sourceTrigger).containsText("All source accounts")
         sourceTrigger.click()
         val sourceSearch = page.getByLabel("Search source account")
         assertThat(sourceSearch).isFocused()
         assertActiveDropdownItem(sourceSearch, dropdownMenuItem(page, "Main"))
+        assertThat(dropdownMenuItem(page, "Main")).hasAttribute("aria-selected", "true")
 
         page.keyboard().press("Enter")
         assertThat(sourceSearch).isFocused()
+        assertThat(sourceTrigger).containsText("2 selected")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Only Main")).click()
         assertThat(sourceTrigger).containsText("1 selected")
         page.keyboard().press("Escape")
 
@@ -248,14 +252,9 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
             AriaRole.BUTTON,
             Locator.GetByRoleOptions().setName("Target account").setExact(true),
         )
+        assertThat(targetTrigger).containsText("All target accounts")
         targetTrigger.click()
         val targetSearch = page.getByLabel("Search target account")
-        assertThat(targetSearch).isFocused()
-        assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Main"))
-        page.keyboard().press("ArrowUp")
-        assertThat(targetSearch).isFocused()
-        assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Travel"))
-        page.keyboard().press("ArrowDown")
         assertThat(targetSearch).isFocused()
         assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Main"))
         page.keyboard().press("ArrowDown")
@@ -265,6 +264,9 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(targetSearch).isFocused()
         assertActiveDropdownItem(targetSearch, dropdownMenuItem(page, "Travel"))
         page.keyboard().press("Enter")
+        assertThat(targetSearch).isFocused()
+        assertThat(targetTrigger).containsText("2 selected")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Only Travel")).click()
         assertThat(targetTrigger).containsText("1 selected")
         page.keyboard().press("Escape")
 
@@ -278,6 +280,10 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Clear all")).click()
 
         assertThat(page.locator(".transaction-filter-count-badge")).not().isVisible()
+        assertThat(sourceTrigger).containsText("All source accounts")
+        assertThat(targetTrigger).containsText("All target accounts")
+        assertThat(page.getByLabel("Selected source account")).hasCount(0)
+        assertThat(page.getByLabel("Selected target account")).hasCount(0)
         page.shouldEventuallyContainTransferRows(
             TransferRow("Main -> Travel", "A$30.00 → €18.00", "Today", "edit delete"),
             TransferRow("Main -> Savings", "A$15.00", "Today", "edit delete"),
@@ -363,7 +369,12 @@ class FundsTransfersPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     private fun dropdownOptions(page: Page): Locator =
-        page.locator("[role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']")
+        page.locator(
+            ".searchable-dropdown-popover [role='row'], " +
+                ".searchable-dropdown-popover [role='menuitem'], " +
+                ".searchable-dropdown-popover [role='menuitemradio'], " +
+                ".searchable-dropdown-popover [role='menuitemcheckbox']",
+        )
 
     private fun dropdownMenuItem(page: Page, option: String): Locator =
         dropdownOptions(page).filter(Locator.FilterOptions().setHasText(option))
