@@ -687,7 +687,7 @@ input {
   max-height: 260px;
 }
 
-.searchable-dropdown-menu [role="menuitem"][data-active] > div {
+.searchable-dropdown-menu [role^="menuitem"][data-active] > div {
   background: #f9fafb;
 }
 
