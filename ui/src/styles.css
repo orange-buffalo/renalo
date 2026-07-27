@@ -542,8 +542,8 @@ input {
   right: 0;
   bottom: 0;
   display: inline-flex;
-  width: 33.333%;
-  height: 33.333%;
+  width: 60%;
+  height: 60%;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
