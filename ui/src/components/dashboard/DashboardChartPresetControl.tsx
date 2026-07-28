@@ -356,6 +356,7 @@ export function DashboardChartPresetControl({
                       emptySelectionMeansAll={
                         formValue.categoryFilterMode === "INCLUDE"
                       }
+                      showSelectedTags={false}
                       onChange={(categoryIds) =>
                         setFormValue({ ...formValue, categoryIds })
                       }
@@ -388,6 +389,7 @@ export function DashboardChartPresetControl({
                       emptySelectionMeansAll={
                         formValue.accountFilterMode === "INCLUDE"
                       }
+                      showSelectedTags={false}
                       onChange={(accountIds) =>
                         setFormValue({ ...formValue, accountIds })
                       }

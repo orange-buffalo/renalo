@@ -410,6 +410,13 @@ input {
   gap: 2px;
 }
 
+.transaction-chart-refresh-indicator {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+}
+
 .dashboard-preset-modal-header {
   display: flex;
   align-items: flex-start;

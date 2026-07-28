@@ -12,6 +12,7 @@ type MultiSelectFilterProps = {
   options: MultiSelectFilterOption[];
   selectedIds: number[];
   emptySelectionMeansAll?: boolean;
+  showSelectedTags?: boolean;
   onChange: (selectedIds: number[]) => void;
 };
 
@@ -21,6 +22,7 @@ export function MultiSelectFilter({
   options,
   selectedIds,
   emptySelectionMeansAll,
+  showSelectedTags = true,
   onChange,
 }: MultiSelectFilterProps) {
   const selectedOptions = options.filter((option) =>
@@ -48,7 +50,7 @@ export function MultiSelectFilter({
           onChange(nextSelectedIds.map(Number))
         }
       />
-      {selectedOptions.length > 0 && (
+      {showSelectedTags && selectedOptions.length > 0 && (
         <TagGroup label={`Selected ${label.toLowerCase()}`} size="sm">
           <TagList
             className="transaction-filter-tags"

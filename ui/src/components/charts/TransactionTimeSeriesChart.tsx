@@ -33,6 +33,7 @@ type TransactionTimeSeriesChartProps = {
   title: string;
   tone: "expense" | "income";
   timeSeries?: TransactionTimeSeries;
+  isLoading?: boolean;
   error?: string;
   showTrendLine?: boolean;
   viewLabel?: string;
@@ -65,6 +66,7 @@ export function TransactionTimeSeriesChart({
   title,
   tone,
   timeSeries,
+  isLoading = !timeSeries,
   error,
   showTrendLine = false,
   viewLabel,
@@ -96,6 +98,7 @@ export function TransactionTimeSeriesChart({
           maximized && "transaction-chart-panel-maximized",
         )}
         aria-labelledby={panelTitleId}
+        aria-busy={isLoading}
         data-testid="transaction-time-series-chart"
       >
         <header className="transaction-chart-header">
@@ -104,6 +107,15 @@ export function TransactionTimeSeriesChart({
             {subtitle && <p>{subtitle}</p>}
           </div>
           <div className="transaction-chart-header-actions">
+            {isLoading && timeSeries && (
+              <span
+                className="transaction-chart-refresh-indicator"
+                role="status"
+                aria-label={`Refreshing ${title.toLowerCase()}`}
+              >
+                <LoadingIndicator size="sm" />
+              </span>
+            )}
             {!maximized && settingsControl}
             <Button
               aria-label={`${maximized ? "Close" : "Maximize"} ${title} chart`}

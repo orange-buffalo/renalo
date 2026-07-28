@@ -29,6 +29,7 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 import org.junit.jupiter.api.Test
 
@@ -195,6 +196,11 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         saveTransaction(alice, main, groceries, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE, 1_000)
         saveTransaction(alice, main, taxes, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE, 5_000)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        val incomeAnalyticsRequests = AtomicInteger()
+        page.route("**/api/tracking/analytics/transactions/INCOME/time-series**") { route ->
+            incomeAnalyticsRequests.incrementAndGet()
+            route.resume()
+        }
 
         page.navigate(server.url.toString() + "/tracking")
 
@@ -224,6 +230,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         ).click()
         multiDropdownRow(page, "Taxes").click()
         page.keyboard().press("Escape")
+        createDialog.getByText("Taxes", Locator.GetByTextOptions().setExact(true)).count().shouldBe(0)
         createDialog.getByRole(
             AriaRole.BUTTON,
             Locator.GetByRoleOptions().setName(Pattern.compile("Grouping")),
@@ -240,6 +247,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             expenseChart,
             ChartPoint("2099-06-08", "AUD", 1_000),
         )
+        incomeAnalyticsRequests.get().shouldBe(1)
 
         page.reload()
 

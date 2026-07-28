@@ -62,6 +62,8 @@ export function TrackingPage() {
   >();
   const [expenseChartError, setExpenseChartError] = useState(false);
   const [incomeChartError, setIncomeChartError] = useState(false);
+  const [isExpenseChartLoading, setIsExpenseChartLoading] = useState(true);
+  const [isIncomeChartLoading, setIsIncomeChartLoading] = useState(true);
   const [chartPresets, setChartPresets] = useState<
     DashboardChartPreset[] | undefined
   >();
@@ -99,6 +101,8 @@ export function TrackingPage() {
       .catch(() => {
         if (isActive) {
           setChartPresetsError(true);
+          setIsExpenseChartLoading(false);
+          setIsIncomeChartLoading(false);
         }
       });
 
@@ -107,44 +111,35 @@ export function TrackingPage() {
     };
   }, []);
 
+  const expensePresets =
+    chartPresets?.filter((preset) => preset.transactionType === "EXPENSE") ??
+    [];
+  const incomePresets =
+    chartPresets?.filter((preset) => preset.transactionType === "INCOME") ?? [];
+  const activeExpensePreset = expensePresets.find((preset) => preset.isActive);
+  const activeIncomePreset = incomePresets.find((preset) => preset.isActive);
+  const chartPresetsLoaded = chartPresets !== undefined;
+
   useEffect(() => {
-    if (!chartPresets) {
-      return;
-    }
     window.localStorage.setItem(
       dashboardDateFilterStorageKey,
       storeDateFilter(dateFilter),
     );
-    let isActive = true;
-    setExpenseTimeSeries(undefined);
-    setIncomeTimeSeries(undefined);
-    setExpenseChartError(false);
-    setIncomeChartError(false);
+  }, [dateFilter]);
 
-    const analyticsDateFilter = {
-      from:
-        dateFilter.from && dateFilter.from <= dashboardTodayIso
-          ? dateFilter.from
-          : dateFilter.from
-            ? dashboardTodayIso
-            : null,
-      to:
-        dateFilter.to && dateFilter.to < dashboardTodayIso
-          ? dateFilter.to
-          : dashboardTodayIso,
-    };
-    const expensePreset = chartPresets.find(
-      (preset) => preset.transactionType === "EXPENSE" && preset.isActive,
-    );
-    const incomePreset = chartPresets.find(
-      (preset) => preset.transactionType === "INCOME" && preset.isActive,
-    );
+  useEffect(() => {
+    if (!chartPresetsLoaded) {
+      return;
+    }
+    let isActive = true;
+    setIsExpenseChartLoading(true);
+    setExpenseChartError(false);
 
     fetchTransactionTimeSeries(
       expenseTransactionApi,
-      analyticsDateFilter,
-      toAnalyticsFilters(expensePreset),
-      expensePreset?.granularity,
+      toAnalyticsDateFilter(dateFilter, dashboardTodayIso),
+      toAnalyticsFilters(activeExpensePreset),
+      activeExpensePreset?.granularity,
     )
       .then((timeSeries) => {
         if (isActive) {
@@ -155,12 +150,31 @@ export function TrackingPage() {
         if (isActive) {
           setExpenseChartError(true);
         }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsExpenseChartLoading(false);
+        }
       });
+
+    return () => {
+      isActive = false;
+    };
+  }, [activeExpensePreset, chartPresetsLoaded, dashboardTodayIso, dateFilter]);
+
+  useEffect(() => {
+    if (!chartPresetsLoaded) {
+      return;
+    }
+    let isActive = true;
+    setIsIncomeChartLoading(true);
+    setIncomeChartError(false);
+
     fetchTransactionTimeSeries(
       incomeTransactionApi,
-      analyticsDateFilter,
-      toAnalyticsFilters(incomePreset),
-      incomePreset?.granularity,
+      toAnalyticsDateFilter(dateFilter, dashboardTodayIso),
+      toAnalyticsFilters(activeIncomePreset),
+      activeIncomePreset?.granularity,
     )
       .then((timeSeries) => {
         if (isActive) {
@@ -171,20 +185,17 @@ export function TrackingPage() {
         if (isActive) {
           setIncomeChartError(true);
         }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsIncomeChartLoading(false);
+        }
       });
 
     return () => {
       isActive = false;
     };
-  }, [chartPresets, dashboardTodayIso, dateFilter]);
-
-  const expensePresets =
-    chartPresets?.filter((preset) => preset.transactionType === "EXPENSE") ??
-    [];
-  const incomePresets =
-    chartPresets?.filter((preset) => preset.transactionType === "INCOME") ?? [];
-  const activeExpensePreset = expensePresets.find((preset) => preset.isActive);
-  const activeIncomePreset = incomePresets.find((preset) => preset.isActive);
+  }, [activeIncomePreset, chartPresetsLoaded, dashboardTodayIso, dateFilter]);
 
   function updatePresets(
     transactionType: DashboardChartPreset["transactionType"],
@@ -251,6 +262,7 @@ export function TrackingPage() {
               title="Expenses"
               tone="expense"
               timeSeries={expenseTimeSeries}
+              isLoading={isExpenseChartLoading}
               error={
                 chartPresetsError
                   ? "Expense chart settings could not be loaded. Refresh the page to try again."
@@ -276,6 +288,7 @@ export function TrackingPage() {
               title="Income"
               tone="income"
               timeSeries={incomeTimeSeries}
+              isLoading={isIncomeChartLoading}
               error={
                 chartPresetsError
                   ? "Income chart settings could not be loaded. Refresh the page to try again."
@@ -315,6 +328,24 @@ function toAnalyticsFilters(preset?: DashboardChartPreset) {
     excludedAccountIds:
       preset?.accountFilterMode === "EXCLUDE" ? preset.accountIds : [],
     notes: "",
+  };
+}
+
+function toAnalyticsDateFilter(
+  dateFilter: TransactionDateFilterValue,
+  dashboardTodayIso: string,
+) {
+  return {
+    from:
+      dateFilter.from && dateFilter.from <= dashboardTodayIso
+        ? dateFilter.from
+        : dateFilter.from
+          ? dashboardTodayIso
+          : null,
+    to:
+      dateFilter.to && dateFilter.to < dashboardTodayIso
+        ? dateFilter.to
+        : dashboardTodayIso,
   };
 }
 
