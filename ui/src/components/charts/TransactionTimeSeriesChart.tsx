@@ -1,4 +1,5 @@
 import { Maximize01, XClose } from "@untitledui/icons";
+import type { ReactNode } from "react";
 import { useId, useState } from "react";
 import type { TooltipContentProps } from "recharts";
 import {
@@ -34,6 +35,8 @@ type TransactionTimeSeriesChartProps = {
   timeSeries?: TransactionTimeSeries;
   error?: string;
   showTrendLine?: boolean;
+  viewLabel?: string;
+  settingsControl?: ReactNode;
 };
 
 type ChartPoint = {
@@ -64,6 +67,8 @@ export function TransactionTimeSeriesChart({
   timeSeries,
   error,
   showTrendLine = false,
+  viewLabel,
+  settingsControl,
 }: TransactionTimeSeriesChartProps) {
   const titleId = useId();
   const modalTitleId = useId();
@@ -74,10 +79,11 @@ export function TransactionTimeSeriesChart({
   const granularityLabel = timeSeries
     ? granularityLabels[timeSeries.granularity]
     : undefined;
-  const subtitle =
+  const dataSubtitle =
     granularityLabel && currencySeries[0]
       ? `${granularityLabel} (${currencySeries[0].currency})`
       : granularityLabel;
+  const subtitle = [viewLabel, dataSubtitle].filter(Boolean).join(" · ");
 
   function renderChartPanel(maximized: boolean) {
     const panelTitleId = maximized ? modalTitleId : titleId;
@@ -97,13 +103,16 @@ export function TransactionTimeSeriesChart({
             <h2 id={panelTitleId}>{title}</h2>
             {subtitle && <p>{subtitle}</p>}
           </div>
-          <Button
-            aria-label={`${maximized ? "Close" : "Maximize"} ${title} chart`}
-            color="tertiary"
-            size="sm"
-            iconLeading={maximized ? XClose : Maximize01}
-            onPress={() => setIsMaximized(!maximized)}
-          />
+          <div className="transaction-chart-header-actions">
+            {!maximized && settingsControl}
+            <Button
+              aria-label={`${maximized ? "Close" : "Maximize"} ${title} chart`}
+              color="tertiary"
+              size="sm"
+              iconLeading={maximized ? XClose : Maximize01}
+              onPress={() => setIsMaximized(!maximized)}
+            />
+          </div>
         </header>
 
         {error ? (

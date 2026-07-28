@@ -403,6 +403,70 @@ input {
   font-size: 0.8125rem;
 }
 
+.transaction-chart-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.dashboard-preset-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e3e7ec;
+  padding: 24px;
+}
+
+.dashboard-preset-modal-header h2,
+.dashboard-preset-modal-header p {
+  margin: 0;
+}
+
+.dashboard-preset-modal-header h2 {
+  color: #343841;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.dashboard-preset-modal-header p {
+  margin-top: 4px;
+  color: #626872;
+  font-size: 0.875rem;
+}
+
+.dashboard-preset-form {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+
+.dashboard-preset-form > [data-slot="input-root"] {
+  max-width: 300px;
+}
+
+.dashboard-preset-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px 28px;
+}
+
+.dashboard-preset-loading {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+}
+
+.dashboard-preset-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #e3e7ec;
+  padding: 16px 24px;
+}
+
 .transaction-chart-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));

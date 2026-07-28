@@ -12,6 +12,10 @@ import {
   fetchAccountDashboardSummaries,
 } from "@/api/dashboard";
 import {
+  type DashboardChartPreset,
+  fetchDashboardChartPresets,
+} from "@/api/dashboardChartPresets";
+import {
   expenseTransactionApi,
   fetchTransactionTimeSeries,
   incomeTransactionApi,
@@ -24,6 +28,7 @@ import {
   storeDateFilter,
   type TransactionDateFilterValue,
 } from "@/components/DateRangeFilter";
+import { DashboardChartPresetControl } from "@/components/dashboard/DashboardChartPresetControl";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
@@ -57,6 +62,10 @@ export function TrackingPage() {
   >();
   const [expenseChartError, setExpenseChartError] = useState(false);
   const [incomeChartError, setIncomeChartError] = useState(false);
+  const [chartPresets, setChartPresets] = useState<
+    DashboardChartPreset[] | undefined
+  >();
+  const [chartPresetsError, setChartPresetsError] = useState(false);
   useEffect(() => {
     let isActive = true;
 
@@ -80,12 +89,28 @@ export function TrackingPage() {
         }
       });
 
+    fetchDashboardChartPresets()
+      .then(({ presets }) => {
+        if (isActive) {
+          setChartPresets(presets);
+          setChartPresetsError(false);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setChartPresetsError(true);
+        }
+      });
+
     return () => {
       isActive = false;
     };
   }, []);
 
   useEffect(() => {
+    if (!chartPresets) {
+      return;
+    }
     window.localStorage.setItem(
       dashboardDateFilterStorageKey,
       storeDateFilter(dateFilter),
@@ -108,8 +133,19 @@ export function TrackingPage() {
           ? dateFilter.to
           : dashboardTodayIso,
     };
+    const expensePreset = chartPresets.find(
+      (preset) => preset.transactionType === "EXPENSE" && preset.isActive,
+    );
+    const incomePreset = chartPresets.find(
+      (preset) => preset.transactionType === "INCOME" && preset.isActive,
+    );
 
-    fetchTransactionTimeSeries(expenseTransactionApi, analyticsDateFilter)
+    fetchTransactionTimeSeries(
+      expenseTransactionApi,
+      analyticsDateFilter,
+      toAnalyticsFilters(expensePreset),
+      expensePreset?.granularity,
+    )
       .then((timeSeries) => {
         if (isActive) {
           setExpenseTimeSeries(timeSeries);
@@ -120,7 +156,12 @@ export function TrackingPage() {
           setExpenseChartError(true);
         }
       });
-    fetchTransactionTimeSeries(incomeTransactionApi, analyticsDateFilter)
+    fetchTransactionTimeSeries(
+      incomeTransactionApi,
+      analyticsDateFilter,
+      toAnalyticsFilters(incomePreset),
+      incomePreset?.granularity,
+    )
       .then((timeSeries) => {
         if (isActive) {
           setIncomeTimeSeries(timeSeries);
@@ -135,7 +176,27 @@ export function TrackingPage() {
     return () => {
       isActive = false;
     };
-  }, [dashboardTodayIso, dateFilter]);
+  }, [chartPresets, dashboardTodayIso, dateFilter]);
+
+  const expensePresets =
+    chartPresets?.filter((preset) => preset.transactionType === "EXPENSE") ??
+    [];
+  const incomePresets =
+    chartPresets?.filter((preset) => preset.transactionType === "INCOME") ?? [];
+  const activeExpensePreset = expensePresets.find((preset) => preset.isActive);
+  const activeIncomePreset = incomePresets.find((preset) => preset.isActive);
+
+  function updatePresets(
+    transactionType: DashboardChartPreset["transactionType"],
+    nextPresets: DashboardChartPreset[],
+  ) {
+    setChartPresets((current) => [
+      ...(current ?? []).filter(
+        (preset) => preset.transactionType !== transactionType,
+      ),
+      ...nextPresets,
+    ]);
+  }
 
   return (
     <PageLayout
@@ -191,28 +252,70 @@ export function TrackingPage() {
               tone="expense"
               timeSeries={expenseTimeSeries}
               error={
-                expenseChartError
-                  ? "Expense chart could not be loaded. Try again in a moment."
-                  : undefined
+                chartPresetsError
+                  ? "Expense chart settings could not be loaded. Refresh the page to try again."
+                  : expenseChartError
+                    ? "Expense chart could not be loaded. Try again in a moment."
+                    : undefined
               }
               showTrendLine
+              viewLabel={activeExpensePreset?.name ?? "All expenses"}
+              settingsControl={
+                chartPresets ? (
+                  <DashboardChartPresetControl
+                    transactionType="EXPENSE"
+                    presets={expensePresets}
+                    onPresetsChange={(presets) =>
+                      updatePresets("EXPENSE", presets)
+                    }
+                  />
+                ) : undefined
+              }
             />
             <TransactionTimeSeriesChart
               title="Income"
               tone="income"
               timeSeries={incomeTimeSeries}
               error={
-                incomeChartError
-                  ? "Income chart could not be loaded. Try again in a moment."
-                  : undefined
+                chartPresetsError
+                  ? "Income chart settings could not be loaded. Refresh the page to try again."
+                  : incomeChartError
+                    ? "Income chart could not be loaded. Try again in a moment."
+                    : undefined
               }
               showTrendLine
+              viewLabel={activeIncomePreset?.name ?? "All income"}
+              settingsControl={
+                chartPresets ? (
+                  <DashboardChartPresetControl
+                    transactionType="INCOME"
+                    presets={incomePresets}
+                    onPresetsChange={(presets) =>
+                      updatePresets("INCOME", presets)
+                    }
+                  />
+                ) : undefined
+              }
             />
           </div>
         </>
       )}
     </PageLayout>
   );
+}
+
+function toAnalyticsFilters(preset?: DashboardChartPreset) {
+  return {
+    categoryIds:
+      preset?.categoryFilterMode === "INCLUDE" ? preset.categoryIds : [],
+    excludedCategoryIds:
+      preset?.categoryFilterMode === "EXCLUDE" ? preset.categoryIds : [],
+    accountIds:
+      preset?.accountFilterMode === "INCLUDE" ? preset.accountIds : [],
+    excludedAccountIds:
+      preset?.accountFilterMode === "EXCLUDE" ? preset.accountIds : [],
+    notes: "",
+  };
 }
 
 function DashboardQuickAddButton({

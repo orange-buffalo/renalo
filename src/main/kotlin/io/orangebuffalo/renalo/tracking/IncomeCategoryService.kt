@@ -7,6 +7,7 @@ import jakarta.inject.Singleton
 open class IncomeCategoryService(
     private val incomeCategoryRepository: IncomeCategoryRepository,
     private val transactionRepository: TransactionRepository,
+    private val dashboardChartPresetRepository: DashboardChartPresetRepository,
 ) {
     @Transactional
     open fun createDefaultCategoryForUser(userId: Long): IncomeCategory {
@@ -117,6 +118,12 @@ open class IncomeCategoryService(
             type = TransactionType.INCOME,
             sourceCategoryId = sourceCategoryId,
             targetCategoryId = request.targetCategoryId,
+        )
+        dashboardChartPresetRepository.replaceCategoryReference(
+            userId,
+            TransactionType.INCOME,
+            sourceCategoryId,
+            request.targetCategoryId,
         )
         incomeCategoryRepository.deleteByIdAndUserId(sourceCategoryId, userId)
         return CategoryMergeResult.MERGED

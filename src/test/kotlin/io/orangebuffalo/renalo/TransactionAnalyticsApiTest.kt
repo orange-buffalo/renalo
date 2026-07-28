@@ -216,6 +216,46 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun excludesSelectedCategoriesAndAccounts() {
+        val alice = saveUser("alice", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", true)
+        val savings = saveAccount(alice, "Savings", "AUD")
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        val taxes = saveExpenseCategory(alice, "Taxes")
+        saveTransaction(alice, TransactionType.EXPENSE, main, groceries.id!!, "2026-06-01", 100, null)
+        saveTransaction(alice, TransactionType.EXPENSE, main, taxes.id!!, "2026-06-01", 200, null)
+        saveTransaction(alice, TransactionType.EXPENSE, savings, groceries.id!!, "2026-06-01", 400, null)
+        val token = api().login("alice", "password")
+
+        val response = api().get(
+            "/api/tracking/analytics/transactions/EXPENSE/time-series" +
+                "?from=2026-06-01&to=2026-06-01" +
+                "&excludedCategoryIds=${taxes.id}&excludedAccountIds=${savings.id}",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "granularity": "DAY",
+                  "from": "2026-06-01",
+                  "to": "2026-06-01",
+                  "points": [
+                    { "bucket": "2026-06-01", "currency": "AUD", "amountMinor": 100 }
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        api().get(
+            "/api/tracking/analytics/transactions/EXPENSE/time-series" +
+                "?categoryIds=${groceries.id}&excludedCategoryIds=${taxes.id}",
+            token,
+        ).statusCode().shouldBe(400)
+    }
+
+    @Test
     fun supportsOpenEndedAnalyticsDateFilters() {
         val alice = saveUser("alice", UserType.USER)
         val account = saveAccount(alice, "Main", "AUD", true)

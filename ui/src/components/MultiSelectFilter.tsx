@@ -11,6 +11,7 @@ type MultiSelectFilterProps = {
   allLabel: string;
   options: MultiSelectFilterOption[];
   selectedIds: number[];
+  emptySelectionMeansAll?: boolean;
   onChange: (selectedIds: number[]) => void;
 };
 
@@ -19,6 +20,7 @@ export function MultiSelectFilter({
   allLabel,
   options,
   selectedIds,
+  emptySelectionMeansAll,
   onChange,
 }: MultiSelectFilterProps) {
   const selectedOptions = options.filter((option) =>
@@ -41,6 +43,7 @@ export function MultiSelectFilter({
           label: option.name,
         }))}
         selectedKeys={selectedIds.map(String)}
+        emptySelectionMeansAll={emptySelectionMeansAll}
         onSelectionChange={(nextSelectedIds) =>
           onChange(nextSelectedIds.map(Number))
         }

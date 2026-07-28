@@ -130,17 +130,29 @@ internal fun parseTransactionFilter(
     accountIds: String?,
     notes: String?,
     allowOpenEndedDates: Boolean = false,
+    excludedCategoryIds: String? = null,
+    excludedAccountIds: String? = null,
 ): TransactionDateFilter? {
     if ((!allowOpenEndedDates && (from == null) != (to == null)) || (from != null && to != null && from.isAfter(to))) {
         return null
     }
     val categoryIdFilter = parseIdFilter(categoryIds) ?: return null
+    val excludedCategoryIdFilter = parseIdFilter(excludedCategoryIds) ?: return null
     val accountIdFilter = parseIdFilter(accountIds) ?: return null
+    val excludedAccountIdFilter = parseIdFilter(excludedAccountIds) ?: return null
+    if (categoryIdFilter.isNotEmpty() && excludedCategoryIdFilter.isNotEmpty()) {
+        return null
+    }
+    if (accountIdFilter.isNotEmpty() && excludedAccountIdFilter.isNotEmpty()) {
+        return null
+    }
     return TransactionDateFilter(
         from = from,
         to = to,
         categoryIds = categoryIdFilter,
+        excludedCategoryIds = excludedCategoryIdFilter,
         accountIds = accountIdFilter,
+        excludedAccountIds = excludedAccountIdFilter,
         notesTokens = notes?.split(Regex("\\s+"))
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }

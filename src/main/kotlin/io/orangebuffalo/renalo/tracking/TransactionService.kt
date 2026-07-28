@@ -187,9 +187,17 @@ open class TransactionService(
             whereClauses += "t.category_id IN (${filter.categoryIds.joinToString(",") { "?" }})"
             parameters.addAll(filter.categoryIds)
         }
+        if (filter.excludedCategoryIds.isNotEmpty()) {
+            whereClauses += "t.category_id NOT IN (${filter.excludedCategoryIds.joinToString(",") { "?" }})"
+            parameters.addAll(filter.excludedCategoryIds)
+        }
         if (filter.accountIds.isNotEmpty()) {
             whereClauses += "t.tracking_account_id IN (${filter.accountIds.joinToString(",") { "?" }})"
             parameters.addAll(filter.accountIds)
+        }
+        if (filter.excludedAccountIds.isNotEmpty()) {
+            whereClauses += "t.tracking_account_id NOT IN (${filter.excludedAccountIds.joinToString(",") { "?" }})"
+            parameters.addAll(filter.excludedAccountIds)
         }
         for (token in filter.notesTokens) {
             whereClauses += "LOWER(COALESCE(t.notes, '')) LIKE ?"
@@ -567,7 +575,9 @@ data class TransactionDateFilter(
     val from: LocalDate? = null,
     val to: LocalDate? = null,
     val categoryIds: List<Long> = emptyList(),
+    val excludedCategoryIds: List<Long> = emptyList(),
     val accountIds: List<Long> = emptyList(),
+    val excludedAccountIds: List<Long> = emptyList(),
     val notesTokens: List<String> = emptyList(),
 )
 

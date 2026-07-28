@@ -108,6 +108,7 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) chart")))).hasCount(2)
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Configure (expenses|income) chart")))).hasCount(2)
         capture(page, layout, "03-dashboard")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record new").setExact(true)).click()

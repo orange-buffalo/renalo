@@ -60,7 +60,9 @@ export type TransactionDateFilterParams = {
 
 export type TransactionSecondaryFilterParams = {
   categoryIds: number[];
+  excludedCategoryIds?: number[];
   accountIds: number[];
+  excludedAccountIds?: number[];
   notes: string;
 };
 
@@ -142,8 +144,20 @@ function transactionFilterQuery(
   if (secondaryFilters?.categoryIds.length) {
     params.set("categoryIds", secondaryFilters.categoryIds.join(","));
   }
+  if (secondaryFilters?.excludedCategoryIds?.length) {
+    params.set(
+      "excludedCategoryIds",
+      secondaryFilters.excludedCategoryIds.join(","),
+    );
+  }
   if (secondaryFilters?.accountIds.length) {
     params.set("accountIds", secondaryFilters.accountIds.join(","));
+  }
+  if (secondaryFilters?.excludedAccountIds?.length) {
+    params.set(
+      "excludedAccountIds",
+      secondaryFilters.excludedAccountIds.join(","),
+    );
   }
   const notes = secondaryFilters?.notes.trim();
   if (notes) {
