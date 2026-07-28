@@ -167,6 +167,9 @@ class SettingsPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/settings/accounts/create")
 
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Add new account"))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Currency")).click()
+        assertThat(page.getByLabel("Search currency")).not().isFocused()
+        page.keyboard().press("Escape")
         page.locator(".tracking-account-default-checkbox").click()
         assertThat(page.getByLabel("Default account")).isChecked()
         page.getByLabel("Name").fill("Cash")

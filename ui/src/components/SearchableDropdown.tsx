@@ -1,5 +1,5 @@
 import { ChevronDown, SearchLg } from "@untitledui/icons";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import {
   Button as AriaButton,
   Autocomplete,
@@ -48,7 +48,8 @@ export function SearchableDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [activeKey, setActiveKey] = useState<string>();
-  const searchInputRef = useDropdownSearchFocus(isOpen);
+  const mobileFocusRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useDropdownSearchFocus(isOpen, mobileFocusRef);
   const selectedItem = items.find((item) => item.id === selectedKey);
   const visibleItems = items.filter((item) =>
     filterDropdownItem(getItemTextValue(item), search),
@@ -112,6 +113,8 @@ export function SearchableDropdown({
             filter={filterDropdownItem}
           >
             <div
+              ref={mobileFocusRef}
+              tabIndex={-1}
               className="searchable-dropdown-search-wrap"
               onKeyDownCapture={(event) => {
                 if (event.key === "Escape") {
@@ -191,7 +194,8 @@ export function SearchableMultiDropdown({
   const [search, setSearch] = useState("");
   const [activeKey, setActiveKey] = useState<string>();
   const [rowDomIds, setRowDomIds] = useState<Record<string, string>>({});
-  const searchInputRef = useDropdownSearchFocus(isOpen);
+  const mobileFocusRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useDropdownSearchFocus(isOpen, mobileFocusRef);
   const allItemKeys = items.map((item) => item.id);
   const visibleItems = items.filter((item) =>
     filterDropdownItem(getItemTextValue(item), search),
@@ -276,6 +280,8 @@ export function SearchableMultiDropdown({
           className="searchable-dropdown-popover transaction-filter-select-popover"
         >
           <div
+            ref={mobileFocusRef}
+            tabIndex={-1}
             onKeyDownCapture={(event) => {
               if (event.key === "Escape") {
                 event.preventDefault();
@@ -372,7 +378,10 @@ export function SearchableMultiDropdown({
   );
 }
 
-function useDropdownSearchFocus(isOpen: boolean) {
+function useDropdownSearchFocus(
+  isOpen: boolean,
+  mobileFocusRef: RefObject<HTMLDivElement | null>,
+) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -380,11 +389,15 @@ function useDropdownSearchFocus(isOpen: boolean) {
       return;
     }
 
-    const focusFrame = requestAnimationFrame(() =>
-      searchInputRef.current?.focus(),
-    );
+    const focusFrame = requestAnimationFrame(() => {
+      if (window.matchMedia("(min-width: 768px)").matches) {
+        searchInputRef.current?.focus();
+      } else {
+        mobileFocusRef.current?.focus({ preventScroll: true });
+      }
+    });
     return () => cancelAnimationFrame(focusFrame);
-  }, [isOpen]);
+  }, [isOpen, mobileFocusRef]);
 
   return searchInputRef;
 }
