@@ -2678,9 +2678,32 @@ input {
 
   .create-user-form,
   .edit-user-form,
-  .profile-form,
-  .tracking-account-form {
+  .profile-form {
     grid-template-columns: 1fr;
+  }
+
+  .tracking-account-form,
+  .create-user-form,
+  .edit-user-form {
+    grid-template-columns: 1fr;
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+
+  .tracking-account-actions,
+  .create-user-actions,
+  .edit-user-actions {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    align-items: center;
+    border-top: 1px solid #d1d7e0;
+    background: #ffffff;
+    padding: 12px max(12px, env(safe-area-inset-right))
+      calc(12px + env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+    box-shadow: 0 -4px 12px rgba(16, 24, 40, 0.08);
   }
 
   .transaction-recurrence-controls {
