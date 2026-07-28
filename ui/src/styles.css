@@ -684,6 +684,14 @@ input {
   font-weight: 500;
 }
 
+.dashboard-preset-filter-grid .transaction-filter-field {
+  gap: 6px;
+}
+
+.dashboard-preset-filter-grid .transaction-filter-field-label {
+  line-height: 20px;
+}
+
 .searchable-dropdown-field {
   display: flex;
   flex-direction: column;
