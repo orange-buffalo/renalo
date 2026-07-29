@@ -114,9 +114,15 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(page.locator("[data-testid='dashboard-account-card']").first()).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Net Worth"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) chart")))).hasCount(2)
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Maximize Net Worth chart"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Configure (expenses|income) chart")))).hasCount(2)
         capture(page, layout, "03-dashboard")
+
+        page.locator("[data-chart-title='Net Worth']").scrollIntoViewIfNeeded()
+        page.waitForTimeout(1_600.0)
+        capture(page, layout, "26-dashboard-net-worth")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
         assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName(Pattern.compile("Everyday spending.*Current")))).isVisible()

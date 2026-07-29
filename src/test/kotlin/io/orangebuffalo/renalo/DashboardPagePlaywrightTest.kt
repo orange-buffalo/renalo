@@ -130,9 +130,10 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Apply").setExact(true)).click()
 
         val charts = page.locator("[data-testid='transaction-time-series-chart']")
-        assertThat(charts).hasCount(2)
+        assertThat(charts).hasCount(3)
         assertThat(charts.nth(0).getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("Expenses"))).isVisible()
         assertThat(charts.nth(1).getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(charts.nth(2).getByRole(AriaRole.HEADING, Locator.GetByRoleOptions().setName("Net Worth"))).isVisible()
         assertThat(charts.nth(0).getByText("Weekly totals (AUD)")).isVisible()
         assertThat(charts.nth(1).getByText("Weekly totals (AUD)")).isVisible()
         assertThat(page.getByText("Dashed line: trend")).hasCount(0)
@@ -185,6 +186,36 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             ChartPoint("2099-01-01", "AUD", 2_000),
             ChartPoint("2099-06-01", "AUD", 4_000),
         )
+    }
+
+    @Test
+    fun showsNetWorthAcrossActiveAndArchivedAccounts(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", 10_000, isDefault = true)
+        val archived = saveAccount(alice, "Old savings", 5_000, archived = true)
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        val salary = saveIncomeCategory(alice, "Salary")
+        saveTransaction(alice, main, salary, TransactionType.INCOME, LocalDate.of(2099, 1, 1), 1_000)
+        saveTransaction(alice, archived, groceries, TransactionType.EXPENSE, LocalDate.of(2099, 1, 2), 200)
+        saveTransfer(alice, main, archived, LocalDate.of(2099, 1, 3), 300, 300)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.addInitScript(
+            "window.localStorage.setItem('renalo.dashboard.dateFilter', " +
+                "JSON.stringify({ from: '2099-01-01', to: '2099-01-03' }))",
+        )
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        val netWorthChart = page.locator("[data-chart-title='Net Worth']")
+        assertThat(netWorthChart.getByText("All accounts · Daily balances (AUD)")).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            netWorthChart,
+            ChartPoint("2099-01-01", "AUD", 16_000),
+            ChartPoint("2099-01-02", "AUD", 15_800),
+            ChartPoint("2099-01-03", "AUD", 15_800),
+        )
+        netWorthChart.scrollIntoViewIfNeeded()
+        page.waitForTimeout(1_600.0)
     }
 
     @Test
@@ -361,7 +392,13 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
     private fun saveUser(username: String): User =
         userRepository.save(User(username = username, passwordHash = passwordHasher.hash("password"), type = UserType.USER))
 
-    private fun saveAccount(user: User, name: String, initialBalanceMinor: Long, isDefault: Boolean = false): TrackingAccount =
+    private fun saveAccount(
+        user: User,
+        name: String,
+        initialBalanceMinor: Long,
+        isDefault: Boolean = false,
+        archived: Boolean = false,
+    ): TrackingAccount =
         trackingAccountRepository.save(
             TrackingAccount(
                 userId = user.id!!,
@@ -369,6 +406,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
                 currency = "AUD",
                 initialBalanceMinor = initialBalanceMinor,
                 isDefault = isDefault,
+                archived = archived,
             ),
         )
 

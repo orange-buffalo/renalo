@@ -10,6 +10,7 @@ import { useNavigate } from "react-router";
 import {
   type AccountDashboardSummary,
   fetchAccountDashboardSummaries,
+  fetchNetWorthTimeSeries,
 } from "@/api/dashboard";
 import {
   type DashboardChartPreset,
@@ -60,10 +61,15 @@ export function TrackingPage() {
   const [incomeTimeSeries, setIncomeTimeSeries] = useState<
     TransactionTimeSeries | undefined
   >();
+  const [netWorthTimeSeries, setNetWorthTimeSeries] = useState<
+    TransactionTimeSeries | undefined
+  >();
   const [expenseChartError, setExpenseChartError] = useState(false);
   const [incomeChartError, setIncomeChartError] = useState(false);
+  const [netWorthChartError, setNetWorthChartError] = useState(false);
   const [isExpenseChartLoading, setIsExpenseChartLoading] = useState(true);
   const [isIncomeChartLoading, setIsIncomeChartLoading] = useState(true);
+  const [isNetWorthChartLoading, setIsNetWorthChartLoading] = useState(true);
   const [chartPresets, setChartPresets] = useState<
     DashboardChartPreset[] | undefined
   >();
@@ -197,6 +203,35 @@ export function TrackingPage() {
     };
   }, [activeIncomePreset, chartPresetsLoaded, dashboardTodayIso, dateFilter]);
 
+  useEffect(() => {
+    let isActive = true;
+    setIsNetWorthChartLoading(true);
+    setNetWorthChartError(false);
+
+    fetchNetWorthTimeSeries(
+      toAnalyticsDateFilter(dateFilter, dashboardTodayIso),
+    )
+      .then((timeSeries) => {
+        if (isActive) {
+          setNetWorthTimeSeries(timeSeries);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setNetWorthChartError(true);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsNetWorthChartLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [dashboardTodayIso, dateFilter]);
+
   function updatePresets(
     transactionType: DashboardChartPreset["transactionType"],
     nextPresets: DashboardChartPreset[],
@@ -309,6 +344,19 @@ export function TrackingPage() {
                   />
                 ) : undefined
               }
+            />
+            <TransactionTimeSeriesChart
+              title="Net Worth"
+              tone="netWorth"
+              timeSeries={netWorthTimeSeries}
+              isLoading={isNetWorthChartLoading}
+              error={
+                netWorthChartError
+                  ? "Net worth chart could not be loaded. Try again in a moment."
+                  : undefined
+              }
+              valueKind="balance"
+              viewLabel="All accounts"
             />
           </div>
         </>
