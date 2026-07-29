@@ -2719,6 +2719,10 @@ input {
     padding: 20px;
   }
 
+  .dashboard-preset-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
   .standard-page-header {
     display: block;
   }
