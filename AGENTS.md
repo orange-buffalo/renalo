@@ -81,6 +81,7 @@
 - Search inputs rendered inside an opened dropdown popover must receive focus automatically on desktop so users can type immediately; do not focus them automatically on mobile because that opens the software keyboard.
 - Searchable dropdown keyboard navigation keeps DOM focus in the search input while Arrow Up and Arrow Down change the background-highlighted active option through `aria-activedescendant`; Enter selects the active option, with the first visible option active initially.
 - Overview **More filters** controls must overlay the active-count badge on the filter icon so it does not affect the trigger width and an open desktop popover stays anchored; on mobile, render the filters as a closable full-page modal.
+- On mobile, modal or popover content with forms, filters, calendars, multi-step controls, or otherwise substantial interaction must render as a closable full-page overlay. Reserve centered mobile dialogs for brief confirmations and simple prompts.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Standard authenticated pages should put page-level descriptions, counters/badges, and primary actions in `PageLayout`, not inside table panels or forms.

@@ -329,6 +329,35 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Expense"))).isVisible()
     }
 
+    @Test
+    fun opensChartPresetEditorAsFullPageOverlayOnMobile(page: Page) {
+        val user = saveUser("alice")
+        saveAccount(user, "Everyday", 0, isDefault = true)
+        saveExpenseCategory(user, "General")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/tracking")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Create preset")).click()
+
+        val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Create expenses chart preset"))
+        assertThat(dialog).isVisible()
+        assertThat(dialog.getByLabel("Preset name")).isVisible()
+
+        @Suppress("UNCHECKED_CAST")
+        val overlayBounds = page.locator(".dashboard-preset-modal-overlay").evaluate(
+            """
+                overlay => {
+                    const rect = overlay.getBoundingClientRect();
+                    return [rect.left, rect.top, rect.width, rect.height];
+                }
+            """.trimIndent(),
+        ) as List<Number>
+
+        overlayBounds.map(Number::toDouble).shouldBe(listOf(0.0, 0.0, 390.0, 844.0))
+    }
+
     private fun saveUser(username: String): User =
         userRepository.save(User(username = username, passwordHash = passwordHasher.hash("password"), type = UserType.USER))
 

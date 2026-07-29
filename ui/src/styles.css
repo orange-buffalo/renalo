@@ -1023,6 +1023,49 @@ input {
 }
 
 @media (max-width: 767px) {
+  .dashboard-preset-modal-overlay {
+    align-items: stretch;
+    width: 100%;
+    height: 100dvh;
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .dashboard-preset-modal {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .dashboard-preset-dialog {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dashboard-preset-modal-header {
+    flex-shrink: 0;
+    padding-top: max(20px, env(safe-area-inset-top));
+  }
+
+  .dashboard-preset-form {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .dashboard-preset-modal-actions {
+    flex-shrink: 0;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
   .transaction-filter-row {
     display: flex;
     align-items: center;

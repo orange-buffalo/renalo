@@ -282,11 +282,13 @@ export function DashboardChartPresetControl({
       <ModalOverlay
         isOpen={isEditorOpen}
         isDismissable
+        className="dashboard-preset-modal-overlay"
         onOpenChange={setIsEditorOpen}
       >
-        <Modal className="w-full max-w-2xl">
+        <Modal className="dashboard-preset-modal w-full max-w-2xl">
           <Dialog
             aria-label={`${editingPreset ? "Edit" : "Create"} ${typeLabel} chart preset`}
+            className="dashboard-preset-dialog"
           >
             <div className="dashboard-preset-modal-header">
               <div>
