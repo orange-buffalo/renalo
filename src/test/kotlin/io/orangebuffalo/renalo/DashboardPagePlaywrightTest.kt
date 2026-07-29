@@ -29,6 +29,7 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 import org.junit.jupiter.api.Test
 
@@ -187,6 +188,117 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun managesPersistedExpenseChartPresets(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", 0, isDefault = true)
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        val taxes = saveExpenseCategory(alice, "Taxes")
+        saveTransaction(alice, main, groceries, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE, 1_000)
+        saveTransaction(alice, main, taxes, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE, 5_000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        val incomeAnalyticsRequests = AtomicInteger()
+        page.route("**/api/tracking/analytics/transactions/INCOME/time-series**") { route ->
+            incomeAnalyticsRequests.incrementAndGet()
+            route.resume()
+        }
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        val expenseChart = page.locator("[data-testid='transaction-time-series-chart']").nth(0)
+        page.shouldEventuallyContainChartPoints(
+            expenseChart,
+            ChartPoint("2099-06-01", "AUD", 6_000),
+        )
+        assertThat(expenseChart.getByText(Pattern.compile("All expenses.*Monthly totals \\(AUD\\)"))).isVisible()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Create preset")).click()
+        val createDialog = page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Create expenses chart preset"),
+        )
+        assertThat(createDialog).isVisible()
+        createDialog.getByLabel("Preset name").fill("Everyday spending")
+        createDialog.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName(Pattern.compile("Category filter")),
+        ).click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Exclude").setExact(true)).click()
+        createDialog.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Categories").setExact(true),
+        ).click()
+        multiDropdownRow(page, "Taxes").click()
+        page.keyboard().press("Escape")
+        createDialog.getByText("Taxes", Locator.GetByTextOptions().setExact(true)).count().shouldBe(0)
+        createDialog.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName(Pattern.compile("Grouping")),
+        ).click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Weekly").setExact(true)).click()
+        createDialog.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Create preset").setExact(true),
+        ).click()
+
+        assertThat(createDialog).not().isVisible()
+        assertThat(expenseChart.getByText(Pattern.compile("Everyday spending.*Weekly totals \\(AUD\\)"))).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            expenseChart,
+            ChartPoint("2099-06-08", "AUD", 1_000),
+        )
+        incomeAnalyticsRequests.get().shouldBe(1)
+
+        page.reload()
+
+        assertThat(expenseChart.getByText(Pattern.compile("Everyday spending.*Weekly totals \\(AUD\\)"))).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            expenseChart,
+            ChartPoint("2099-06-08", "AUD", 1_000),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Edit current preset")).click()
+        val editDialog = page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Edit expenses chart preset"),
+        )
+        editDialog.getByLabel("Preset name").fill("Taxes only")
+        editDialog.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName(Pattern.compile("Category filter")),
+        ).click()
+        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Include only").setExact(true)).click()
+        editDialog.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Save changes").setExact(true),
+        ).click()
+
+        assertThat(editDialog).not().isVisible()
+        assertThat(expenseChart.getByText(Pattern.compile("Taxes only.*Weekly totals \\(AUD\\)"))).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            expenseChart,
+            ChartPoint("2099-06-08", "AUD", 5_000),
+        )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Delete current preset")).click()
+        val deleteDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Delete “Taxes only”?"))
+        assertThat(deleteDialog).isVisible()
+        deleteDialog.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Delete preset").setExact(true),
+        ).click()
+
+        assertThat(deleteDialog).not().isVisible()
+        assertThat(expenseChart.getByText(Pattern.compile("All expenses.*Monthly totals \\(AUD\\)"))).isVisible()
+        page.shouldEventuallyContainChartPoints(
+            expenseChart,
+            ChartPoint("2099-06-01", "AUD", 6_000),
+        )
+    }
+
+    @Test
     fun centersQuickAddButtonOnMobile(page: Page) {
         saveUser("alice")
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
@@ -215,6 +327,35 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         (kotlin.math.abs(left - ((actionsWidth - width) / 2)) < 3).shouldBe(true)
         addButton.click()
         assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Expense"))).isVisible()
+    }
+
+    @Test
+    fun opensChartPresetEditorAsFullPageOverlayOnMobile(page: Page) {
+        val user = saveUser("alice")
+        saveAccount(user, "Everyday", 0, isDefault = true)
+        saveExpenseCategory(user, "General")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+
+        page.navigate(server.url.toString() + "/tracking")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Create preset")).click()
+
+        val dialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Create expenses chart preset"))
+        assertThat(dialog).isVisible()
+        assertThat(dialog.getByLabel("Preset name")).isVisible()
+
+        @Suppress("UNCHECKED_CAST")
+        val overlayBounds = page.locator(".dashboard-preset-modal-overlay").evaluate(
+            """
+                overlay => {
+                    const rect = overlay.getBoundingClientRect();
+                    return [rect.left, rect.top, rect.width, rect.height];
+                }
+            """.trimIndent(),
+        ) as List<Number>
+
+        overlayBounds.map(Number::toDouble).shouldBe(listOf(0.0, 0.0, 390.0, 844.0))
     }
 
     private fun saveUser(username: String): User =
@@ -293,6 +434,10 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         ) as List<String>
         return cards.map(::DashboardCardText)
     }
+
+    private fun multiDropdownRow(page: Page, option: String): Locator =
+        page.locator(".searchable-multi-dropdown-row")
+            .filter(Locator.FilterOptions().setHas(page.getByText(option, Page.GetByTextOptions().setExact(true))))
 
 
     private fun Page.shouldEventuallyContainChartPoints(chart: Locator, vararg expectedPoints: ChartPoint) {

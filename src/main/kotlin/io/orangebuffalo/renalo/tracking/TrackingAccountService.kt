@@ -12,6 +12,7 @@ open class TrackingAccountService(
     private val accountAdjustmentRepository: AccountAdjustmentRepository,
     private val recurringTransactionRuleRepository: RecurringTransactionRuleRepository,
     private val transactionDefaultCurrencyService: TransactionDefaultCurrencyService,
+    private val dashboardChartPresetRepository: DashboardChartPresetRepository,
 ) {
     @Transactional
     open fun createDefaultAccountForUser(userId: Long): TrackingAccount {
@@ -202,6 +203,7 @@ open class TrackingAccountService(
         recurringTransactionRuleRepository.reassignTrackingAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         fundsTransferRepository.reassignSourceAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
         fundsTransferRepository.reassignTargetAccount(userId, persistedSourceAccountId, persistedTargetAccountId)
+        dashboardChartPresetRepository.replaceAccountReference(userId, persistedSourceAccountId, persistedTargetAccountId)
         trackingAccountRepository.deleteByIdAndUserId(persistedSourceAccountId, userId)
         transactionDefaultCurrencyService.recalculateForCurrencies(userId, listOf(sourceAccount.currency))
 

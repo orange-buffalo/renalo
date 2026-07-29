@@ -14,6 +14,9 @@ import io.orangebuffalo.renalo.test.TestAuthTokens
 import io.orangebuffalo.renalo.test.TestTimeProvider
 import io.orangebuffalo.renalo.tracking.AccountAdjustment
 import io.orangebuffalo.renalo.tracking.AccountAdjustmentRepository
+import io.orangebuffalo.renalo.tracking.DashboardChartFilterMode
+import io.orangebuffalo.renalo.tracking.DashboardChartPreset
+import io.orangebuffalo.renalo.tracking.DashboardChartPresetRepository
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
 import io.orangebuffalo.renalo.tracking.FundsTransfer
@@ -28,6 +31,7 @@ import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
 import io.orangebuffalo.renalo.tracking.Transaction
 import io.orangebuffalo.renalo.tracking.TransactionRepository
 import io.orangebuffalo.renalo.tracking.TransactionType
+import io.orangebuffalo.renalo.tracking.TransactionTimeSeriesGranularity
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserActivationToken
@@ -81,6 +85,9 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
     @Inject
     lateinit var accountAdjustmentRepository: AccountAdjustmentRepository
 
+    @Inject
+    lateinit var dashboardChartPresetRepository: DashboardChartPresetRepository
+
     @Test
     fun capturesApplicationFeatureTour(page: Page) {
         resetScreenshotDirectory()
@@ -108,7 +115,20 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) chart")))).hasCount(2)
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Configure (expenses|income) chart")))).hasCount(2)
         capture(page, layout, "03-dashboard")
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
+        assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName(Pattern.compile("Everyday spending.*Current")))).isVisible()
+        capture(page, layout, "24-dashboard-chart-views-menu")
+
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Edit current preset")).click()
+        val chartPresetDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Edit expenses chart preset"))
+        assertThat(chartPresetDialog).isVisible()
+        assertThat(chartPresetDialog.getByLabel("Preset name")).hasValue("Everyday spending")
+        assertThat(chartPresetDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName(Pattern.compile("Category filter")))).containsText("Exclude")
+        capture(page, layout, "25-dashboard-chart-view-dialog")
+        chartPresetDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Close preset editor")).click()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record new").setExact(true)).click()
         assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Expense"))).isVisible()
@@ -286,6 +306,20 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         saveTransaction(musician, everyday, studioHire, TransactionType.EXPENSE, today.minusDays(1), 8_500, "Evening rehearsal with the full band")
         saveTransaction(musician, tourFund, travel, TransactionType.EXPENSE, today.minusDays(4), 12_900, "Van fuel for the coastal run")
         saveTransaction(musician, everyday, promotion, TransactionType.EXPENSE, today.minusDays(6), 4_500, "Poster printing and promoted posts")
+
+        dashboardChartPresetRepository.save(
+            DashboardChartPreset(
+                userId = musician.id!!,
+                name = "Everyday spending",
+                transactionType = TransactionType.EXPENSE,
+                categoryFilterMode = DashboardChartFilterMode.EXCLUDE,
+                categoryIds = listOf(software.id!!),
+                accountFilterMode = DashboardChartFilterMode.INCLUDE,
+                accountIds = emptyList(),
+                granularity = TransactionTimeSeriesGranularity.AUTO,
+                isActive = true,
+            ),
+        )
 
         val softwareRule = recurringTransactionRuleRepository.save(
             RecurringTransactionRule(

@@ -24,13 +24,24 @@ class TransactionAnalyticsController(
         @QueryValue from: LocalDate?,
         @QueryValue to: LocalDate?,
         @QueryValue categoryIds: String?,
+        @QueryValue excludedCategoryIds: String?,
         @QueryValue accountIds: String?,
+        @QueryValue excludedAccountIds: String?,
         @QueryValue notes: String?,
         @QueryValue(defaultValue = "AUTO") granularity: TransactionTimeSeriesGranularity,
     ): HttpResponse<*> {
         val user = userRepository.findByUsername(authentication.name)
             ?: return HttpResponse.unauthorized<Any>()
-        val filter = parseTransactionFilter(from, to, categoryIds, accountIds, notes, allowOpenEndedDates = true)
+        val filter = parseTransactionFilter(
+            from,
+            to,
+            categoryIds,
+            accountIds,
+            notes,
+            allowOpenEndedDates = true,
+            excludedCategoryIds = excludedCategoryIds,
+            excludedAccountIds = excludedAccountIds,
+        )
             ?: return HttpResponse.badRequest<Any>()
         val timeSeries = transactionService.getTimeSeries(user.id!!, type, filter, granularity)
         return HttpResponse.ok(

@@ -89,8 +89,8 @@ class TransactionDefaultCurrencyMigrationTest : IntegrationTestSupport() {
                 connection.countProjections(schema, "UNAVAILABLE").shouldBe(501)
             }
 
-            val currentFlyway = flyway(schema)
-            currentFlyway.migrate().migrationsExecuted.shouldBe(1)
+            val flywayAtV28 = flyway(schema, MigrationVersion.fromVersion("28"))
+            flywayAtV28.migrate().migrationsExecuted.shouldBe(1)
             connection().use { connection ->
                 connection.projection(schema, ids.sameCurrencyTransactionId).shouldBe(
                     MigrationProjection(500, "AUD", "SAME_CURRENCY", null),
@@ -113,7 +113,7 @@ class TransactionDefaultCurrencyMigrationTest : IntegrationTestSupport() {
                 }
             }
 
-            currentFlyway.migrate().migrationsExecuted.shouldBe(0)
+            flywayAtV28.migrate().migrationsExecuted.shouldBe(0)
             connection().use { connection ->
                 connection.projection(schema, ids.foreignTransactionId).shouldBe(
                     MigrationProjection(null, null, "UNAVAILABLE", null),

@@ -178,6 +178,7 @@ type SearchableMultiDropdownProps = {
   allLabel: string;
   items: SearchableDropdownItem[];
   selectedKeys: string[];
+  emptySelectionMeansAll?: boolean;
   searchPlaceholder?: string;
   onSelectionChange: (keys: string[]) => void;
 };
@@ -187,6 +188,7 @@ export function SearchableMultiDropdown({
   allLabel,
   items,
   selectedKeys,
+  emptySelectionMeansAll = true,
   searchPlaceholder = "Search",
   onSelectionChange,
 }: SearchableMultiDropdownProps) {
@@ -204,18 +206,20 @@ export function SearchableMultiDropdown({
     ? activeKey
     : visibleItems[0]?.id;
   const effectiveSelectedKeys =
-    selectedKeys.length === 0 ? allItemKeys : selectedKeys;
+    emptySelectionMeansAll && selectedKeys.length === 0
+      ? allItemKeys
+      : selectedKeys;
 
   function emitNormalizedSelection(keys: string[]) {
     const keySet = new Set(keys);
     const hasEveryItem =
       items.length > 0 && items.every((item) => keySet.has(item.id));
-    onSelectionChange(hasEveryItem ? [] : keys);
+    onSelectionChange(emptySelectionMeansAll && hasEveryItem ? [] : keys);
   }
 
   function handleSelectionChange(selection: Selection) {
     if (selection === "all") {
-      onSelectionChange([]);
+      onSelectionChange(emptySelectionMeansAll ? [] : allItemKeys);
       return;
     }
     emitNormalizedSelection(Array.from(selection).map(String));

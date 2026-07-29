@@ -7,6 +7,7 @@ import jakarta.inject.Singleton
 open class ExpenseCategoryService(
     private val expenseCategoryRepository: ExpenseCategoryRepository,
     private val transactionRepository: TransactionRepository,
+    private val dashboardChartPresetRepository: DashboardChartPresetRepository,
 ) {
     @Transactional
     open fun createDefaultCategoryForUser(userId: Long): ExpenseCategory {
@@ -117,6 +118,12 @@ open class ExpenseCategoryService(
             type = TransactionType.EXPENSE,
             sourceCategoryId = sourceCategoryId,
             targetCategoryId = request.targetCategoryId,
+        )
+        dashboardChartPresetRepository.replaceCategoryReference(
+            userId,
+            TransactionType.EXPENSE,
+            sourceCategoryId,
+            request.targetCategoryId,
         )
         expenseCategoryRepository.deleteByIdAndUserId(sourceCategoryId, userId)
         return CategoryMergeResult.MERGED

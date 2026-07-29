@@ -8,6 +8,10 @@ import desktop from "../../../assets/screenshots/desktop/03-dashboard.png";
 import mobile from "../../../assets/screenshots/mobile/03-dashboard.png";
 import menuDesktop from "../../../assets/screenshots/desktop/04-dashboard-record-new.png";
 import menuMobile from "../../../assets/screenshots/mobile/04-dashboard-record-new.png";
+import chartViewsMenuDesktop from "../../../assets/screenshots/desktop/24-dashboard-chart-views-menu.png";
+import chartViewsMenuMobile from "../../../assets/screenshots/mobile/24-dashboard-chart-views-menu.png";
+import chartViewDialogDesktop from "../../../assets/screenshots/desktop/25-dashboard-chart-view-dialog.png";
+import chartViewDialogMobile from "../../../assets/screenshots/mobile/25-dashboard-chart-view-dialog.png";
 
 The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense and income charts show how your finances change over a selected period.
 
@@ -28,6 +32,20 @@ The dashboard initially shows **Last 12 months**. Use the date selector below th
 Dashboard ranges stop at today in your browser's timezone. Future dates cannot be selected here, and planned transactions are excluded even for **This year** and **All time**. Expense, income, and transfer overviews still allow future ranges for planning.
 
 The expense and income charts use the same default-currency projections as their overview pages and automatically group totals by day, week, or month. The dashed line is a linear trend that makes the overall direction easier to see. Transactions without an available default-currency conversion are omitted from these charts. Use the maximize button in a chart's top-right corner to open it across the full page.
+
+### Save chart views
+
+Use the gear beside a chart's maximize button to create a named view for that chart. A view can include only selected categories or accounts, or exclude selected categories or accounts. Exclusion is useful for removing unavoidable spending such as taxes while continuing to include new discretionary categories automatically. You can also choose automatic, daily, weekly, or monthly grouping.
+
+Expense and income views are independent. Selecting a view changes only that chart; the balance cards and the other chart are unaffected. The dashboard date range also remains separate and applies to every chart view.
+
+Renalo saves named views and each chart's active selection to your account, so they follow you across browsers and devices. Choose **All expenses** or **All income** from the gear menu to return to the built-in unfiltered view. The same menu lets you edit or delete the current named view.
+
+<ScreenshotPair desktop={chartViewsMenuDesktop} mobile={chartViewsMenuMobile} alt="Dashboard expense chart menu with an active saved view" />
+
+The view editor keeps category and account rules independent. Choose **Include only** to chart selected values, or **Exclude** to remove selected values while automatically retaining new categories or accounts.
+
+<ScreenshotPair desktop={chartViewDialogDesktop} mobile={chartViewDialogMobile} alt="Dashboard chart view editor with category and account filters" />
 
 ## Record something quickly
 

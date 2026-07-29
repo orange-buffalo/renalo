@@ -12,6 +12,10 @@ import {
   fetchAccountDashboardSummaries,
 } from "@/api/dashboard";
 import {
+  type DashboardChartPreset,
+  fetchDashboardChartPresets,
+} from "@/api/dashboardChartPresets";
+import {
   expenseTransactionApi,
   fetchTransactionTimeSeries,
   incomeTransactionApi,
@@ -24,6 +28,7 @@ import {
   storeDateFilter,
   type TransactionDateFilterValue,
 } from "@/components/DateRangeFilter";
+import { DashboardChartPresetControl } from "@/components/dashboard/DashboardChartPresetControl";
 import { PageLayout } from "@/components/PageLayout";
 import { Alert } from "@/components/untitled/application/alerts/alert";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
@@ -57,6 +62,12 @@ export function TrackingPage() {
   >();
   const [expenseChartError, setExpenseChartError] = useState(false);
   const [incomeChartError, setIncomeChartError] = useState(false);
+  const [isExpenseChartLoading, setIsExpenseChartLoading] = useState(true);
+  const [isIncomeChartLoading, setIsIncomeChartLoading] = useState(true);
+  const [chartPresets, setChartPresets] = useState<
+    DashboardChartPreset[] | undefined
+  >();
+  const [chartPresetsError, setChartPresetsError] = useState(false);
   useEffect(() => {
     let isActive = true;
 
@@ -80,36 +91,56 @@ export function TrackingPage() {
         }
       });
 
+    fetchDashboardChartPresets()
+      .then(({ presets }) => {
+        if (isActive) {
+          setChartPresets(presets);
+          setChartPresetsError(false);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setChartPresetsError(true);
+          setIsExpenseChartLoading(false);
+          setIsIncomeChartLoading(false);
+        }
+      });
+
     return () => {
       isActive = false;
     };
   }, []);
+
+  const expensePresets =
+    chartPresets?.filter((preset) => preset.transactionType === "EXPENSE") ??
+    [];
+  const incomePresets =
+    chartPresets?.filter((preset) => preset.transactionType === "INCOME") ?? [];
+  const activeExpensePreset = expensePresets.find((preset) => preset.isActive);
+  const activeIncomePreset = incomePresets.find((preset) => preset.isActive);
+  const chartPresetsLoaded = chartPresets !== undefined;
 
   useEffect(() => {
     window.localStorage.setItem(
       dashboardDateFilterStorageKey,
       storeDateFilter(dateFilter),
     );
+  }, [dateFilter]);
+
+  useEffect(() => {
+    if (!chartPresetsLoaded) {
+      return;
+    }
     let isActive = true;
-    setExpenseTimeSeries(undefined);
-    setIncomeTimeSeries(undefined);
+    setIsExpenseChartLoading(true);
     setExpenseChartError(false);
-    setIncomeChartError(false);
 
-    const analyticsDateFilter = {
-      from:
-        dateFilter.from && dateFilter.from <= dashboardTodayIso
-          ? dateFilter.from
-          : dateFilter.from
-            ? dashboardTodayIso
-            : null,
-      to:
-        dateFilter.to && dateFilter.to < dashboardTodayIso
-          ? dateFilter.to
-          : dashboardTodayIso,
-    };
-
-    fetchTransactionTimeSeries(expenseTransactionApi, analyticsDateFilter)
+    fetchTransactionTimeSeries(
+      expenseTransactionApi,
+      toAnalyticsDateFilter(dateFilter, dashboardTodayIso),
+      toAnalyticsFilters(activeExpensePreset),
+      activeExpensePreset?.granularity,
+    )
       .then((timeSeries) => {
         if (isActive) {
           setExpenseTimeSeries(timeSeries);
@@ -119,8 +150,32 @@ export function TrackingPage() {
         if (isActive) {
           setExpenseChartError(true);
         }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsExpenseChartLoading(false);
+        }
       });
-    fetchTransactionTimeSeries(incomeTransactionApi, analyticsDateFilter)
+
+    return () => {
+      isActive = false;
+    };
+  }, [activeExpensePreset, chartPresetsLoaded, dashboardTodayIso, dateFilter]);
+
+  useEffect(() => {
+    if (!chartPresetsLoaded) {
+      return;
+    }
+    let isActive = true;
+    setIsIncomeChartLoading(true);
+    setIncomeChartError(false);
+
+    fetchTransactionTimeSeries(
+      incomeTransactionApi,
+      toAnalyticsDateFilter(dateFilter, dashboardTodayIso),
+      toAnalyticsFilters(activeIncomePreset),
+      activeIncomePreset?.granularity,
+    )
       .then((timeSeries) => {
         if (isActive) {
           setIncomeTimeSeries(timeSeries);
@@ -130,12 +185,29 @@ export function TrackingPage() {
         if (isActive) {
           setIncomeChartError(true);
         }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsIncomeChartLoading(false);
+        }
       });
 
     return () => {
       isActive = false;
     };
-  }, [dashboardTodayIso, dateFilter]);
+  }, [activeIncomePreset, chartPresetsLoaded, dashboardTodayIso, dateFilter]);
+
+  function updatePresets(
+    transactionType: DashboardChartPreset["transactionType"],
+    nextPresets: DashboardChartPreset[],
+  ) {
+    setChartPresets((current) => [
+      ...(current ?? []).filter(
+        (preset) => preset.transactionType !== transactionType,
+      ),
+      ...nextPresets,
+    ]);
+  }
 
   return (
     <PageLayout
@@ -190,29 +262,91 @@ export function TrackingPage() {
               title="Expenses"
               tone="expense"
               timeSeries={expenseTimeSeries}
+              isLoading={isExpenseChartLoading}
               error={
-                expenseChartError
-                  ? "Expense chart could not be loaded. Try again in a moment."
-                  : undefined
+                chartPresetsError
+                  ? "Expense chart settings could not be loaded. Refresh the page to try again."
+                  : expenseChartError
+                    ? "Expense chart could not be loaded. Try again in a moment."
+                    : undefined
               }
               showTrendLine
+              viewLabel={activeExpensePreset?.name ?? "All expenses"}
+              settingsControl={
+                chartPresets ? (
+                  <DashboardChartPresetControl
+                    transactionType="EXPENSE"
+                    presets={expensePresets}
+                    onPresetsChange={(presets) =>
+                      updatePresets("EXPENSE", presets)
+                    }
+                  />
+                ) : undefined
+              }
             />
             <TransactionTimeSeriesChart
               title="Income"
               tone="income"
               timeSeries={incomeTimeSeries}
+              isLoading={isIncomeChartLoading}
               error={
-                incomeChartError
-                  ? "Income chart could not be loaded. Try again in a moment."
-                  : undefined
+                chartPresetsError
+                  ? "Income chart settings could not be loaded. Refresh the page to try again."
+                  : incomeChartError
+                    ? "Income chart could not be loaded. Try again in a moment."
+                    : undefined
               }
               showTrendLine
+              viewLabel={activeIncomePreset?.name ?? "All income"}
+              settingsControl={
+                chartPresets ? (
+                  <DashboardChartPresetControl
+                    transactionType="INCOME"
+                    presets={incomePresets}
+                    onPresetsChange={(presets) =>
+                      updatePresets("INCOME", presets)
+                    }
+                  />
+                ) : undefined
+              }
             />
           </div>
         </>
       )}
     </PageLayout>
   );
+}
+
+function toAnalyticsFilters(preset?: DashboardChartPreset) {
+  return {
+    categoryIds:
+      preset?.categoryFilterMode === "INCLUDE" ? preset.categoryIds : [],
+    excludedCategoryIds:
+      preset?.categoryFilterMode === "EXCLUDE" ? preset.categoryIds : [],
+    accountIds:
+      preset?.accountFilterMode === "INCLUDE" ? preset.accountIds : [],
+    excludedAccountIds:
+      preset?.accountFilterMode === "EXCLUDE" ? preset.accountIds : [],
+    notes: "",
+  };
+}
+
+function toAnalyticsDateFilter(
+  dateFilter: TransactionDateFilterValue,
+  dashboardTodayIso: string,
+) {
+  return {
+    from:
+      dateFilter.from && dateFilter.from <= dashboardTodayIso
+        ? dateFilter.from
+        : dateFilter.from
+          ? dashboardTodayIso
+          : null,
+    to:
+      dateFilter.to && dateFilter.to < dashboardTodayIso
+        ? dateFilter.to
+        : dashboardTodayIso,
+  };
 }
 
 function DashboardQuickAddButton({

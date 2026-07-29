@@ -25,6 +25,7 @@
 - Income and expense rows share the type-discriminated `Transaction` backend model and transaction-oriented API; expense and income pages use shared transaction UI components configured with type-specific labels, routes, category loaders, and `TransactionType` filters.
 - Transaction and funds-transfer overview date filtering is app-global in-memory UI state and must be applied through API/database query parameters, not by client-side filtering of already-loaded rows.
 - Dashboard analytics date filtering is dashboard-specific browser-persisted state. Persist presets symbolically so relative ranges are recalculated when restored, while custom ranges retain their exact dates. Dashboard analytics and date selection stop at browser-local today; transaction and transfer overviews continue to support future planning ranges.
+- Dashboard transaction chart views are named, database-backed presets scoped independently to expense or income. Their active selections are also persisted per transaction type; category and account filters support explicit include or exclude modes, while the dashboard date range remains separate.
 - Transaction time-series analytics must reuse the overview's database filter predicates, aggregate available transaction projections by calendar bucket in the current default account currency, and preserve exact `Long` overflow behavior. Automatic grouping chooses month, then Monday-based week, then day when that unit provides at least 10 inclusive calendar buckets.
 - Expense dates are date-only values (`LocalDate` / ISO `YYYY-MM-DD`), not timestamps.
 - Recurrence schedule calculation and display formatting must stay in shared code under `io.orangebuffalo.renalo.recurrence`, not in expense- or income-specific services.
@@ -80,6 +81,7 @@
 - Search inputs rendered inside an opened dropdown popover must receive focus automatically on desktop so users can type immediately; do not focus them automatically on mobile because that opens the software keyboard.
 - Searchable dropdown keyboard navigation keeps DOM focus in the search input while Arrow Up and Arrow Down change the background-highlighted active option through `aria-activedescendant`; Enter selects the active option, with the first visible option active initially.
 - Overview **More filters** controls must overlay the active-count badge on the filter icon so it does not affect the trigger width and an open desktop popover stays anchored; on mobile, render the filters as a closable full-page modal.
+- On mobile, modal or popover content with forms, filters, calendars, multi-step controls, or otherwise substantial interaction must render as a closable full-page overlay. Reserve centered mobile dialogs for brief confirmations and simple prompts.
 - Required Untitled UI support dependencies include React Aria components, Tailwind utilities, `tailwind-merge`, and `tailwindcss-animate`; keep them in `ui/package.json` when generated components need them.
 - Keep custom CSS minimal and scoped. Prefer using Untitled UI copied components over page-specific element selectors.
 - Standard authenticated pages should put page-level descriptions, counters/badges, and primary actions in `PageLayout`, not inside table panels or forms.
@@ -96,7 +98,7 @@
 ## Documentation
 
 - User documentation is the Astro Starlight site under `docs/user`; developer references live under `docs/developer`.
-- Every user-facing change must update the relevant user documentation in the same task. When the changed UI appears in the feature tour, also update `DocumentationScreenshotsPlaywrightTest`, regenerate its desktop and mobile screenshots, and replace the corresponding images under `docs/user/src/assets/screenshots`; do not leave documentation or screenshots describing the previous behavior.
+- Every user-facing change must update the relevant user documentation in the same task. Every newly introduced user-visible UI surface or interactive state must also be demonstrated visually: extend `DocumentationScreenshotsPlaywrightTest` with representative desktop and mobile captures, including important menus, dialogs, forms, and configured states rather than documenting them only in prose. Regenerate the screenshots, add or replace the corresponding images under `docs/user/src/assets/screenshots`, and render them in the relevant documentation with `ScreenshotPair`; do not leave documentation or screenshots describing the previous behavior.
 - Keep desktop and mobile feature-tour images under `docs/user/src/assets/screenshots` synchronized with `DocumentationScreenshotsPlaywrightTest` output. Use the shared `ScreenshotPair` component for responsive side-by-side presentation.
 - Verify user documentation from `docs/user` with `bun install --frozen-lockfile`, `bun run check`, and `bun run build`. The static Caddy image is built from `docs/user/Dockerfile` and published separately as `ghcr.io/orange-buffalo/renalo-docs:<version>` for releases.
 

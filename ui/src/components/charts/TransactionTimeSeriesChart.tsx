@@ -1,4 +1,5 @@
 import { Maximize01, XClose } from "@untitledui/icons";
+import type { ReactNode } from "react";
 import { useId, useState } from "react";
 import type { TooltipContentProps } from "recharts";
 import {
@@ -32,8 +33,11 @@ type TransactionTimeSeriesChartProps = {
   title: string;
   tone: "expense" | "income";
   timeSeries?: TransactionTimeSeries;
+  isLoading?: boolean;
   error?: string;
   showTrendLine?: boolean;
+  viewLabel?: string;
+  settingsControl?: ReactNode;
 };
 
 type ChartPoint = {
@@ -62,8 +66,11 @@ export function TransactionTimeSeriesChart({
   title,
   tone,
   timeSeries,
+  isLoading = !timeSeries,
   error,
   showTrendLine = false,
+  viewLabel,
+  settingsControl,
 }: TransactionTimeSeriesChartProps) {
   const titleId = useId();
   const modalTitleId = useId();
@@ -74,10 +81,11 @@ export function TransactionTimeSeriesChart({
   const granularityLabel = timeSeries
     ? granularityLabels[timeSeries.granularity]
     : undefined;
-  const subtitle =
+  const dataSubtitle =
     granularityLabel && currencySeries[0]
       ? `${granularityLabel} (${currencySeries[0].currency})`
       : granularityLabel;
+  const subtitle = [viewLabel, dataSubtitle].filter(Boolean).join(" · ");
 
   function renderChartPanel(maximized: boolean) {
     const panelTitleId = maximized ? modalTitleId : titleId;
@@ -90,6 +98,7 @@ export function TransactionTimeSeriesChart({
           maximized && "transaction-chart-panel-maximized",
         )}
         aria-labelledby={panelTitleId}
+        aria-busy={isLoading}
         data-testid="transaction-time-series-chart"
       >
         <header className="transaction-chart-header">
@@ -97,13 +106,25 @@ export function TransactionTimeSeriesChart({
             <h2 id={panelTitleId}>{title}</h2>
             {subtitle && <p>{subtitle}</p>}
           </div>
-          <Button
-            aria-label={`${maximized ? "Close" : "Maximize"} ${title} chart`}
-            color="tertiary"
-            size="sm"
-            iconLeading={maximized ? XClose : Maximize01}
-            onPress={() => setIsMaximized(!maximized)}
-          />
+          <div className="transaction-chart-header-actions">
+            {isLoading && timeSeries && (
+              <span
+                className="transaction-chart-refresh-indicator"
+                role="status"
+                aria-label={`Refreshing ${title.toLowerCase()}`}
+              >
+                <LoadingIndicator size="sm" />
+              </span>
+            )}
+            {!maximized && settingsControl}
+            <Button
+              aria-label={`${maximized ? "Close" : "Maximize"} ${title} chart`}
+              color="tertiary"
+              size="sm"
+              iconLeading={maximized ? XClose : Maximize01}
+              onPress={() => setIsMaximized(!maximized)}
+            />
+          </div>
         </header>
 
         {error ? (

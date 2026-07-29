@@ -403,6 +403,77 @@ input {
   font-size: 0.8125rem;
 }
 
+.transaction-chart-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.transaction-chart-refresh-indicator {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+}
+
+.dashboard-preset-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e3e7ec;
+  padding: 24px;
+}
+
+.dashboard-preset-modal-header h2,
+.dashboard-preset-modal-header p {
+  margin: 0;
+}
+
+.dashboard-preset-modal-header h2 {
+  color: #343841;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.dashboard-preset-modal-header p {
+  margin-top: 4px;
+  color: #626872;
+  font-size: 0.875rem;
+}
+
+.dashboard-preset-form {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+
+.dashboard-preset-form > [data-slot="input-root"] {
+  max-width: 300px;
+}
+
+.dashboard-preset-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px 28px;
+}
+
+.dashboard-preset-loading {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+}
+
+.dashboard-preset-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #e3e7ec;
+  padding: 16px 24px;
+}
+
 .transaction-chart-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
@@ -611,6 +682,14 @@ input {
   color: #4b5058;
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+.dashboard-preset-filter-grid .transaction-filter-field {
+  gap: 6px;
+}
+
+.dashboard-preset-filter-grid .transaction-filter-field-label {
+  line-height: 20px;
 }
 
 .searchable-dropdown-field {
@@ -944,6 +1023,49 @@ input {
 }
 
 @media (max-width: 767px) {
+  .dashboard-preset-modal-overlay {
+    align-items: stretch;
+    width: 100%;
+    height: 100dvh;
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .dashboard-preset-modal {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .dashboard-preset-dialog {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dashboard-preset-modal-header {
+    flex-shrink: 0;
+    padding-top: max(20px, env(safe-area-inset-top));
+  }
+
+  .dashboard-preset-form {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .dashboard-preset-modal-actions {
+    flex-shrink: 0;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
   .transaction-filter-row {
     display: flex;
     align-items: center;
@@ -2638,6 +2760,10 @@ input {
 
   .dashboard-account-card {
     padding: 20px;
+  }
+
+  .dashboard-preset-filter-grid {
+    grid-template-columns: 1fr;
   }
 
   .standard-page-header {
