@@ -303,6 +303,36 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         val merch = saveIncomeCategory(musician, "Merch sales")
         saveIncomeCategory(musician, "Old sponsorship", archived = true)
 
+        val historicalIncomeAmounts = listOf(
+            68_000L, 92_000L, 74_000L, 115_000L, 79_000L, 104_000L, 88_000L, 128_000L, 81_000L, 109_000L, 96_000L,
+        )
+        val historicalExpenseAmounts = listOf(
+            42_000L, 101_000L, 68_000L, 47_000L, 93_000L, 56_000L, 104_000L, 62_000L, 99_000L, 77_000L, 58_000L,
+        )
+        val historicalIncomeCategories = listOf(gigFees, teaching, royalties, merch)
+        val historicalExpenseCategories = listOf(studioHire, travel, promotion, guitarGear)
+        historicalIncomeAmounts.zip(historicalExpenseAmounts).forEachIndexed { index, (incomeAmount, expenseAmount) ->
+            val month = today.minusMonths((11 - index).toLong())
+            saveTransaction(
+                musician,
+                if (index % 3 == 0) tourFund else everyday,
+                historicalIncomeCategories[index % historicalIncomeCategories.size],
+                TransactionType.INCOME,
+                month.withDayOfMonth(8),
+                incomeAmount,
+                "Live shows, lessons, and music sales",
+            )
+            saveTransaction(
+                musician,
+                if (index % 4 == 0) tourFund else everyday,
+                historicalExpenseCategories[index % historicalExpenseCategories.size],
+                TransactionType.EXPENSE,
+                month.withDayOfMonth(20),
+                expenseAmount,
+                "Recording, touring, and promotion costs",
+            )
+        }
+
         saveTransaction(musician, everyday, gigFees, TransactionType.INCOME, today, 75_000, "Friday headline set — The Voltage Room")
         saveTransaction(musician, everyday, teaching, TransactionType.INCOME, today.minusDays(2), 32_000, "Four private guitar lessons")
         saveTransaction(musician, everyday, royalties, TransactionType.INCOME, today.minusDays(8), 18_345, "Streaming and radio royalties")
