@@ -31,13 +31,14 @@ import { formatMoney, formatMoneyInput } from "@/utils/money";
 
 type TransactionTimeSeriesChartProps = {
   title: string;
-  tone: "expense" | "income";
+  tone: "expense" | "income" | "netWorth";
   timeSeries?: TransactionTimeSeries;
   isLoading?: boolean;
   error?: string;
   showTrendLine?: boolean;
   viewLabel?: string;
   settingsControl?: ReactNode;
+  valueKind?: "total" | "balance";
 };
 
 type ChartPoint = {
@@ -54,12 +55,20 @@ type CurrencySeries = {
 const toneColors = {
   expense: "#d16a56",
   income: "#3f8067",
+  netWorth: "#626da5",
 };
 
 const granularityLabels = {
-  DAY: "Daily totals",
-  WEEK: "Weekly totals",
-  MONTH: "Monthly totals",
+  total: {
+    DAY: "Daily totals",
+    WEEK: "Weekly totals",
+    MONTH: "Monthly totals",
+  },
+  balance: {
+    DAY: "Daily balances",
+    WEEK: "Weekly balances",
+    MONTH: "Monthly balances",
+  },
 };
 
 export function TransactionTimeSeriesChart({
@@ -71,6 +80,7 @@ export function TransactionTimeSeriesChart({
   showTrendLine = false,
   viewLabel,
   settingsControl,
+  valueKind = "total",
 }: TransactionTimeSeriesChartProps) {
   const titleId = useId();
   const modalTitleId = useId();
@@ -79,7 +89,7 @@ export function TransactionTimeSeriesChart({
   const [isMaximized, setIsMaximized] = useState(false);
   const currencySeries = timeSeries ? buildCurrencySeries(timeSeries) : [];
   const granularityLabel = timeSeries
-    ? granularityLabels[timeSeries.granularity]
+    ? granularityLabels[valueKind][timeSeries.granularity]
     : undefined;
   const dataSubtitle =
     granularityLabel && currencySeries[0]
@@ -100,6 +110,7 @@ export function TransactionTimeSeriesChart({
         aria-labelledby={panelTitleId}
         aria-busy={isLoading}
         data-testid="transaction-time-series-chart"
+        data-chart-title={title}
       >
         <header className="transaction-chart-header">
           <div>
@@ -145,7 +156,9 @@ export function TransactionTimeSeriesChart({
           </div>
         ) : currencySeries.length === 0 ? (
           <p className="transaction-chart-message">
-            No matching transactions to chart.
+            {valueKind === "balance"
+              ? "No net worth data to chart."
+              : "No matching transactions to chart."}
           </p>
         ) : (
           <div className="transaction-chart-grid">

@@ -1,6 +1,6 @@
 ---
 title: Dashboard
-description: Read per-account balances, explore income and expense trends, and quickly record new activity.
+description: Read per-account balances, follow net worth and cash-flow trends, and quickly record new activity.
 ---
 
 import ScreenshotPair from "../../../components/ScreenshotPair.astro";
@@ -12,8 +12,10 @@ import chartViewsMenuDesktop from "../../../assets/screenshots/desktop/24-dashbo
 import chartViewsMenuMobile from "../../../assets/screenshots/mobile/24-dashboard-chart-views-menu.png";
 import chartViewDialogDesktop from "../../../assets/screenshots/desktop/25-dashboard-chart-view-dialog.png";
 import chartViewDialogMobile from "../../../assets/screenshots/mobile/25-dashboard-chart-view-dialog.png";
+import netWorthDesktop from "../../../assets/screenshots/desktop/26-dashboard-net-worth.png";
+import netWorthMobile from "../../../assets/screenshots/mobile/26-dashboard-net-worth.png";
 
-The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense and income charts show how your finances change over a selected period.
+The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense, income, and net worth charts show how your finances change over a selected period.
 
 <ScreenshotPair desktop={desktop} mobile={mobile} alt="Renalo dashboard with account balance cards" />
 
@@ -23,7 +25,7 @@ The dashboard gives every active account its own card, currency, current balance
 
 **Inflow** includes this month's posted income and incoming transfer amount for that account. **Outflow** includes posted expenses and outgoing transfers. The current month also follows your browser's timezone. Transfers use the amount belonging to each side's account currency.
 
-Archived accounts are absent from the dashboard but keep their records.
+Archived accounts are absent from the dashboard account cards but keep their records.
 
 ## Explore income and expenses
 
@@ -32,6 +34,14 @@ The dashboard initially shows **Last 12 months**. Use the date selector below th
 Dashboard ranges stop at today in your browser's timezone. Future dates cannot be selected here, and planned transactions are excluded even for **This year** and **All time**. Expense, income, and transfer overviews still allow future ranges for planning.
 
 The expense and income charts use the same default-currency projections as their overview pages and automatically group totals by day, week, or month. The dashed line is a linear trend that makes the overall direction easier to see. Transactions without an available default-currency conversion are omitted from these charts. Use the maximize button in a chart's top-right corner to open it across the full page.
+
+### Follow net worth
+
+The **Net Worth** chart shows the combined closing balance of every account in your current default account currency. Unlike the account cards, it retains archived accounts and their transactions because those records remain part of your financial history. Internal transfers do not increase or decrease net worth, while income, expenses, and balance adjustments do. Future activity is excluded.
+
+For an opening balance in another currency, Renalo approximates its default-currency value from the available transaction conversion rate nearest that account's earliest activity. Foreign-currency adjustments use the available transaction rate nearest the adjustment date. If no transaction conversion is available for a foreign opening balance or adjustment, that value cannot be included. Each daily, weekly, or monthly point is the balance at the end of that period, including activity before the selected range.
+
+<ScreenshotPair desktop={netWorthDesktop} mobile={netWorthMobile} alt="Dashboard net worth chart in the default account currency" />
 
 ### Save chart views
 
