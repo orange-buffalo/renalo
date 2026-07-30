@@ -18,10 +18,13 @@ import {
 } from "@/api/dashboardChartPresets";
 import {
   expenseTransactionApi,
+  fetchTransactionCategoryTotals,
   fetchTransactionTimeSeries,
   incomeTransactionApi,
+  type TransactionCategoryTotals,
   type TransactionTimeSeries,
 } from "@/api/transactions";
+import { TransactionByCategoryChart } from "@/components/charts/TransactionByCategoryChart";
 import { TransactionTimeSeriesChart } from "@/components/charts/TransactionTimeSeriesChart";
 import {
   DateRangeFilter,
@@ -61,19 +64,93 @@ export function TrackingPage() {
   const [incomeTimeSeries, setIncomeTimeSeries] = useState<
     TransactionTimeSeries | undefined
   >();
+  const [expenseCategoryTotals, setExpenseCategoryTotals] = useState<
+    TransactionCategoryTotals | undefined
+  >();
+  const [incomeCategoryTotals, setIncomeCategoryTotals] = useState<
+    TransactionCategoryTotals | undefined
+  >();
   const [netWorthTimeSeries, setNetWorthTimeSeries] = useState<
     TransactionTimeSeries | undefined
   >();
   const [expenseChartError, setExpenseChartError] = useState(false);
   const [incomeChartError, setIncomeChartError] = useState(false);
   const [netWorthChartError, setNetWorthChartError] = useState(false);
+  const [expenseCategoryChartError, setExpenseCategoryChartError] =
+    useState(false);
+  const [incomeCategoryChartError, setIncomeCategoryChartError] =
+    useState(false);
   const [isExpenseChartLoading, setIsExpenseChartLoading] = useState(true);
   const [isIncomeChartLoading, setIsIncomeChartLoading] = useState(true);
   const [isNetWorthChartLoading, setIsNetWorthChartLoading] = useState(true);
+  const [isExpenseCategoryChartLoading, setIsExpenseCategoryChartLoading] =
+    useState(true);
+  const [isIncomeCategoryChartLoading, setIsIncomeCategoryChartLoading] =
+    useState(true);
   const [chartPresets, setChartPresets] = useState<
     DashboardChartPreset[] | undefined
   >();
   const [chartPresetsError, setChartPresetsError] = useState(false);
+  useEffect(() => {
+    let isActive = true;
+    setIsExpenseCategoryChartLoading(true);
+    setExpenseCategoryChartError(false);
+
+    fetchTransactionCategoryTotals(
+      expenseTransactionApi,
+      toAnalyticsDateFilter(dateFilter, dashboardTodayIso),
+    )
+      .then((totals) => {
+        if (isActive) {
+          setExpenseCategoryTotals(totals);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setExpenseCategoryChartError(true);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsExpenseCategoryChartLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [dashboardTodayIso, dateFilter]);
+
+  useEffect(() => {
+    let isActive = true;
+    setIsIncomeCategoryChartLoading(true);
+    setIncomeCategoryChartError(false);
+
+    fetchTransactionCategoryTotals(
+      incomeTransactionApi,
+      toAnalyticsDateFilter(dateFilter, dashboardTodayIso),
+    )
+      .then((totals) => {
+        if (isActive) {
+          setIncomeCategoryTotals(totals);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setIncomeCategoryChartError(true);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsIncomeCategoryChartLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [dashboardTodayIso, dateFilter]);
+
   useEffect(() => {
     let isActive = true;
 
@@ -319,6 +396,16 @@ export function TrackingPage() {
                 ) : undefined
               }
             />
+            <TransactionByCategoryChart
+              transactionType="EXPENSE"
+              totals={expenseCategoryTotals}
+              isLoading={isExpenseCategoryChartLoading}
+              error={
+                expenseCategoryChartError
+                  ? "Expense categories could not be loaded. Try again in a moment."
+                  : undefined
+              }
+            />
             <TransactionTimeSeriesChart
               title="Income"
               tone="income"
@@ -345,6 +432,16 @@ export function TrackingPage() {
                 ) : undefined
               }
             />
+            <TransactionByCategoryChart
+              transactionType="INCOME"
+              totals={incomeCategoryTotals}
+              isLoading={isIncomeCategoryChartLoading}
+              error={
+                incomeCategoryChartError
+                  ? "Income categories could not be loaded. Try again in a moment."
+                  : undefined
+              }
+            />
             <TransactionTimeSeriesChart
               title="Net Worth"
               tone="netWorth"
@@ -355,6 +452,7 @@ export function TrackingPage() {
                   ? "Net worth chart could not be loaded. Try again in a moment."
                   : undefined
               }
+              showTrendLine
               valueKind="balance"
               viewLabel="All accounts"
             />

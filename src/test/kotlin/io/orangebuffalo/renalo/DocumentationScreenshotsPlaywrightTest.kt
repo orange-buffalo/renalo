@@ -112,16 +112,65 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         authenticate(page, testAuthTokens.issueToken(fixture.musician.username, UserType.USER))
         page.navigate(server.url.toString() + "/tracking")
         assertThat(page.locator("[data-testid='dashboard-account-card']").first()).isVisible()
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(
+            page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses").setExact(true)),
+        ).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses by category"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income by category"))).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Net Worth"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) chart")))).hasCount(2)
+        assertThat(
+            page.getByRole(
+                AriaRole.BUTTON,
+                Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) by category chart")),
+            ),
+        ).hasCount(2)
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Maximize Net Worth chart"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Configure (expenses|income) chart")))).hasCount(2)
         capture(page, layout, "03-dashboard")
 
+        page.locator("[data-testid='expense-category-chart']").scrollIntoViewIfNeeded()
+        page.waitForTimeout(1_600.0)
+        val expenseCategoryChart = page.locator("[data-testid='expense-category-chart']")
+        expenseCategoryChart.locator(".recharts-pie-sector path").first()
+            .dispatchEvent("pointerover", mapOf("pointerType" to "mouse"))
+        assertThat(expenseCategoryChart.locator("[data-testid='transaction-category-chart-row']").first())
+            .hasAttribute("data-highlighted", "true")
+        capture(page, layout, "27-dashboard-expenses-by-category")
+
+        expenseCategoryChart.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Maximize Expenses by category chart"),
+        ).click()
+        val maximizedExpenseCategoryChart = page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Expenses by category chart"),
+        )
+        assertThat(maximizedExpenseCategoryChart).isVisible()
+        capture(page, layout, "30-dashboard-expenses-by-category-fullscreen")
+        maximizedExpenseCategoryChart.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Close Expenses by category chart"),
+        ).click()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("2 more")).click()
+        assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More expense categories"))).isVisible()
+        capture(page, layout, "28-dashboard-expense-category-overflow")
+        page.keyboard().press("Escape")
+
+        val incomeCategoryChart = page.locator("[data-testid='income-category-chart']")
+        incomeCategoryChart.scrollIntoViewIfNeeded()
+        page.waitForTimeout(1_600.0)
+        incomeCategoryChart.locator(".recharts-pie-sector path").first()
+            .dispatchEvent("pointerover", mapOf("pointerType" to "mouse"))
+        assertThat(incomeCategoryChart.locator("[data-testid='transaction-category-chart-row']").first())
+            .hasAttribute("data-highlighted", "true")
+        capture(page, layout, "29-dashboard-income-by-category")
+
         page.locator("[data-chart-title='Net Worth']").scrollIntoViewIfNeeded()
         page.waitForTimeout(1_600.0)
+        assertThat(page.locator("[data-chart-title='Net Worth'] .recharts-line path")).isVisible()
         capture(page, layout, "26-dashboard-net-worth")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
@@ -295,6 +344,11 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         val travel = saveExpenseCategory(musician, "Tour travel")
         val promotion = saveExpenseCategory(musician, "Promotion")
         val software = saveExpenseCategory(musician, "Music software")
+        val insurance = saveExpenseCategory(musician, "Insurance")
+        val webHosting = saveExpenseCategory(musician, "Web hosting")
+        val equipmentHire = saveExpenseCategory(musician, "Equipment hire")
+        val meals = saveExpenseCategory(musician, "Meals")
+        val memberships = saveExpenseCategory(musician, "Memberships")
         saveExpenseCategory(musician, "Old rehearsal costs", archived = true)
 
         val gigFees = saveIncomeCategory(musician, "Gig fees")
@@ -342,6 +396,11 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         saveTransaction(musician, everyday, studioHire, TransactionType.EXPENSE, today.minusDays(1), 8_500, "Evening rehearsal with the full band")
         saveTransaction(musician, tourFund, travel, TransactionType.EXPENSE, today.minusDays(4), 12_900, "Van fuel for the coastal run")
         saveTransaction(musician, everyday, promotion, TransactionType.EXPENSE, today.minusDays(6), 4_500, "Poster printing and promoted posts")
+        saveTransaction(musician, everyday, insurance, TransactionType.EXPENSE, today.minusDays(3), 2_700, "Instrument insurance")
+        saveTransaction(musician, everyday, webHosting, TransactionType.EXPENSE, today.minusDays(5), 1_900, "Band website hosting")
+        saveTransaction(musician, tourFund, equipmentHire, TransactionType.EXPENSE, today.minusDays(7), 1_600, "Backline hire")
+        saveTransaction(musician, everyday, meals, TransactionType.EXPENSE, today.minusDays(9), 1_300, "Rehearsal dinner")
+        saveTransaction(musician, everyday, memberships, TransactionType.EXPENSE, today.minusDays(10), 900, "Industry membership")
 
         dashboardChartPresetRepository.save(
             DashboardChartPreset(

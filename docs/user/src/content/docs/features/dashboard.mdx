@@ -14,8 +14,16 @@ import chartViewDialogDesktop from "../../../assets/screenshots/desktop/25-dashb
 import chartViewDialogMobile from "../../../assets/screenshots/mobile/25-dashboard-chart-view-dialog.png";
 import netWorthDesktop from "../../../assets/screenshots/desktop/26-dashboard-net-worth.png";
 import netWorthMobile from "../../../assets/screenshots/mobile/26-dashboard-net-worth.png";
+import expenseCategoriesDesktop from "../../../assets/screenshots/desktop/27-dashboard-expenses-by-category.png";
+import expenseCategoriesMobile from "../../../assets/screenshots/mobile/27-dashboard-expenses-by-category.png";
+import expenseCategoryOverflowDesktop from "../../../assets/screenshots/desktop/28-dashboard-expense-category-overflow.png";
+import expenseCategoryOverflowMobile from "../../../assets/screenshots/mobile/28-dashboard-expense-category-overflow.png";
+import incomeCategoriesDesktop from "../../../assets/screenshots/desktop/29-dashboard-income-by-category.png";
+import incomeCategoriesMobile from "../../../assets/screenshots/mobile/29-dashboard-income-by-category.png";
+import expenseCategoriesFullscreenDesktop from "../../../assets/screenshots/desktop/30-dashboard-expenses-by-category-fullscreen.png";
+import expenseCategoriesFullscreenMobile from "../../../assets/screenshots/mobile/30-dashboard-expenses-by-category-fullscreen.png";
 
-The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense, income, and net worth charts show how your finances change over a selected period.
+The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense, income, category breakdown, and net worth charts show how your finances change over a selected period.
 
 <ScreenshotPair desktop={desktop} mobile={mobile} alt="Renalo dashboard with account balance cards" />
 
@@ -35,9 +43,27 @@ Dashboard ranges stop at today in your browser's timezone. Future dates cannot b
 
 The expense and income charts use the same default-currency projections as their overview pages and automatically group totals by day, week, or month. The dashed line is a linear trend that makes the overall direction easier to see. Transactions without an available default-currency conversion are omitted from these charts. Use the maximize button in a chart's top-right corner to open it across the full page.
 
+### Compare income and expense categories
+
+The **Expenses by category** and **Income by category** charts divide activity in the selected dashboard date range by category. Amounts use your current default account currency, and transactions without an available default-currency conversion are omitted. These category breakdowns are independent of saved expense and income chart views.
+
+Select a category beside the chart to hide or restore its slice. Hidden categories are dimmed and their percentages disappear; the remaining percentages are recalculated from the visible total. The eight largest categories stay beside the chart, while the **more** link opens the rest with the same controls.
+
+With a mouse, hover over a donut slice to smoothly emphasize that category. Touching the chart on a mobile device does not lock it into this hover state. Use the maximize button in the top-right corner to open either category chart across the full page.
+
+Renalo remembers hidden expense and income categories separately in this browser, including after you reload the dashboard. These preferences do not follow you to another browser or device, and newly created categories are shown automatically.
+
+<ScreenshotPair desktop={expenseCategoriesDesktop} mobile={expenseCategoriesMobile} alt="Dashboard expense totals grouped by category with visibility controls" />
+
+<ScreenshotPair desktop={expenseCategoryOverflowDesktop} mobile={expenseCategoryOverflowMobile} alt="Additional expense category controls opened from the dashboard chart" />
+
+<ScreenshotPair desktop={incomeCategoriesDesktop} mobile={incomeCategoriesMobile} alt="Dashboard income totals grouped by category with visibility controls" />
+
+<ScreenshotPair desktop={expenseCategoriesFullscreenDesktop} mobile={expenseCategoriesFullscreenMobile} alt="Full-screen dashboard expense category chart" />
+
 ### Follow net worth
 
-The **Net Worth** chart shows the combined closing balance of every account in your current default account currency. Unlike the account cards, it retains archived accounts and their transactions because those records remain part of your financial history. Internal transfers do not increase or decrease net worth, while income, expenses, and balance adjustments do. Future activity is excluded.
+The **Net Worth** chart shows the combined closing balance of every account in your current default account currency. Its dashed trend line highlights the overall direction of your balance. Unlike the account cards, it retains archived accounts and their transactions because those records remain part of your financial history. Internal transfers do not increase or decrease net worth, while income, expenses, and balance adjustments do. Future activity is excluded.
 
 For an opening balance in another currency, Renalo approximates its default-currency value from the available transaction conversion rate nearest that account's earliest activity. Foreign-currency adjustments use the available transaction rate nearest the adjustment date. If no transaction conversion is available for a foreign opening balance or adjustment, that value cannot be included. Each daily, weekly, or monthly point is the balance at the end of that period, including activity before the selected range.
 
