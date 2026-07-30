@@ -18,10 +18,13 @@ import {
 } from "@/api/dashboardChartPresets";
 import {
   expenseTransactionApi,
+  fetchTransactionCategoryTotals,
   fetchTransactionTimeSeries,
   incomeTransactionApi,
+  type TransactionCategoryTotals,
   type TransactionTimeSeries,
 } from "@/api/transactions";
+import { ExpenseByCategoryChart } from "@/components/charts/ExpenseByCategoryChart";
 import { TransactionTimeSeriesChart } from "@/components/charts/TransactionTimeSeriesChart";
 import {
   DateRangeFilter,
@@ -61,19 +64,56 @@ export function TrackingPage() {
   const [incomeTimeSeries, setIncomeTimeSeries] = useState<
     TransactionTimeSeries | undefined
   >();
+  const [expenseCategoryTotals, setExpenseCategoryTotals] = useState<
+    TransactionCategoryTotals | undefined
+  >();
   const [netWorthTimeSeries, setNetWorthTimeSeries] = useState<
     TransactionTimeSeries | undefined
   >();
   const [expenseChartError, setExpenseChartError] = useState(false);
   const [incomeChartError, setIncomeChartError] = useState(false);
   const [netWorthChartError, setNetWorthChartError] = useState(false);
+  const [expenseCategoryChartError, setExpenseCategoryChartError] =
+    useState(false);
   const [isExpenseChartLoading, setIsExpenseChartLoading] = useState(true);
   const [isIncomeChartLoading, setIsIncomeChartLoading] = useState(true);
   const [isNetWorthChartLoading, setIsNetWorthChartLoading] = useState(true);
+  const [isExpenseCategoryChartLoading, setIsExpenseCategoryChartLoading] =
+    useState(true);
   const [chartPresets, setChartPresets] = useState<
     DashboardChartPreset[] | undefined
   >();
   const [chartPresetsError, setChartPresetsError] = useState(false);
+  useEffect(() => {
+    let isActive = true;
+    setIsExpenseCategoryChartLoading(true);
+    setExpenseCategoryChartError(false);
+
+    fetchTransactionCategoryTotals(
+      expenseTransactionApi,
+      toAnalyticsDateFilter(dateFilter, dashboardTodayIso),
+    )
+      .then((totals) => {
+        if (isActive) {
+          setExpenseCategoryTotals(totals);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setExpenseCategoryChartError(true);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsExpenseCategoryChartLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [dashboardTodayIso, dateFilter]);
+
   useEffect(() => {
     let isActive = true;
 
@@ -317,6 +357,15 @@ export function TrackingPage() {
                     }
                   />
                 ) : undefined
+              }
+            />
+            <ExpenseByCategoryChart
+              totals={expenseCategoryTotals}
+              isLoading={isExpenseCategoryChartLoading}
+              error={
+                expenseCategoryChartError
+                  ? "Expense categories could not be loaded. Try again in a moment."
+                  : undefined
               }
             />
             <TransactionTimeSeriesChart

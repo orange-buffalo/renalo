@@ -83,6 +83,15 @@ export type TransactionTimeSeries = {
   }>;
 };
 
+export type TransactionCategoryTotals = {
+  categories: Array<{
+    categoryId: number;
+    categoryName: string;
+    currency: string;
+    amountMinor: number;
+  }>;
+};
+
 export const expenseTransactionApi: TransactionApiConfig = {
   type: "EXPENSE",
   basePath: "/api/tracking/transactions/EXPENSE",
@@ -122,6 +131,33 @@ export async function fetchTransactionTimeSeries(
   }
 
   return timeSeries;
+}
+
+export async function fetchTransactionCategoryTotals(
+  config: TransactionApiConfig,
+  dateFilter?: TransactionDateFilterParams,
+  secondaryFilters?: TransactionSecondaryFilterParams,
+) {
+  const params = transactionFilterQuery(dateFilter, secondaryFilters, true);
+  const totals = await apiRequest<TransactionCategoryTotals>(
+    `/api/tracking/analytics/transactions/${config.type}/category-totals?${params.toString()}`,
+  );
+
+  if (
+    totals.categories.some(
+      (category) => !Number.isSafeInteger(category.amountMinor),
+    ) ||
+    !Number.isSafeInteger(
+      totals.categories.reduce(
+        (total, category) => total + category.amountMinor,
+        0,
+      ),
+    )
+  ) {
+    throw new Error("Category total exceeds browser-safe integer range");
+  }
+
+  return totals;
 }
 
 function transactionFilterQuery(

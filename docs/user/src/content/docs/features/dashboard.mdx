@@ -14,8 +14,10 @@ import chartViewDialogDesktop from "../../../assets/screenshots/desktop/25-dashb
 import chartViewDialogMobile from "../../../assets/screenshots/mobile/25-dashboard-chart-view-dialog.png";
 import netWorthDesktop from "../../../assets/screenshots/desktop/26-dashboard-net-worth.png";
 import netWorthMobile from "../../../assets/screenshots/mobile/26-dashboard-net-worth.png";
+import expenseCategoriesDesktop from "../../../assets/screenshots/desktop/27-dashboard-expenses-by-category.png";
+import expenseCategoriesMobile from "../../../assets/screenshots/mobile/27-dashboard-expenses-by-category.png";
 
-The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense, income, and net worth charts show how your finances change over a selected period.
+The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense, income, category, and net worth charts show how your finances change over a selected period.
 
 <ScreenshotPair desktop={desktop} mobile={mobile} alt="Renalo dashboard with account balance cards" />
 
@@ -34,6 +36,14 @@ The dashboard initially shows **Last 12 months**. Use the date selector below th
 Dashboard ranges stop at today in your browser's timezone. Future dates cannot be selected here, and planned transactions are excluded even for **This year** and **All time**. Expense, income, and transfer overviews still allow future ranges for planning.
 
 The expense and income charts use the same default-currency projections as their overview pages and automatically group totals by day, week, or month. The dashed line is a linear trend that makes the overall direction easier to see. Transactions without an available default-currency conversion are omitted from these charts. Use the maximize button in a chart's top-right corner to open it across the full page.
+
+### Compare expense categories
+
+The **Expenses by category** chart divides spending in the selected dashboard date range by category. Amounts use your current default account currency, and expenses without an available default-currency conversion are omitted.
+
+Select a category beside the chart to hide or restore its slice. Renalo remembers hidden categories in this browser, including after you reload the dashboard. This preference does not follow you to another browser or device, and newly created categories are shown automatically.
+
+<ScreenshotPair desktop={expenseCategoriesDesktop} mobile={expenseCategoriesMobile} alt="Dashboard expense totals grouped by category with visibility controls" />
 
 ### Follow net worth
 

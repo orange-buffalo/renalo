@@ -55,6 +55,39 @@ class TransactionAnalyticsController(
             ),
         )
     }
+
+    @Get("/{type}/category-totals")
+    fun getCategoryTotals(
+        type: TransactionType,
+        authentication: Authentication,
+        @QueryValue from: LocalDate?,
+        @QueryValue to: LocalDate?,
+        @QueryValue categoryIds: String?,
+        @QueryValue excludedCategoryIds: String?,
+        @QueryValue accountIds: String?,
+        @QueryValue excludedAccountIds: String?,
+        @QueryValue notes: String?,
+    ): HttpResponse<*> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return HttpResponse.unauthorized<Any>()
+        val filter = parseTransactionFilter(
+            from,
+            to,
+            categoryIds,
+            accountIds,
+            notes,
+            allowOpenEndedDates = true,
+            excludedCategoryIds = excludedCategoryIds,
+            excludedAccountIds = excludedAccountIds,
+        ) ?: return HttpResponse.badRequest<Any>()
+        return HttpResponse.ok(
+            TransactionCategoryTotalsResponse(
+                transactionService.getCategoryTotals(user.id!!, type, filter).map {
+                    TransactionCategoryTotalResponse(it.categoryId, it.categoryName, it.currency, it.amountMinor)
+                },
+            ),
+        )
+    }
 }
 
 data class TransactionTimeSeriesResponse(
@@ -67,6 +100,18 @@ data class TransactionTimeSeriesResponse(
 
 data class TransactionTimeSeriesPointResponse(
     val bucket: LocalDate,
+    val currency: String,
+    val amountMinor: Long,
+)
+
+data class TransactionCategoryTotalsResponse(
+    @field:JsonInclude(JsonInclude.Include.ALWAYS)
+    val categories: List<TransactionCategoryTotalResponse>,
+)
+
+data class TransactionCategoryTotalResponse(
+    val categoryId: Long,
+    val categoryName: String,
     val currency: String,
     val amountMinor: Long,
 )

@@ -189,6 +189,50 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun filtersExpensesByCategoryAndPersistsCategoryVisibility(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", 0, isDefault = true)
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        val rent = saveExpenseCategory(alice, "Rent")
+        saveTransaction(alice, main, groceries, TransactionType.EXPENSE, TestTimeProvider.DEFAULT_DATE, 4_000)
+        saveTransaction(alice, main, rent, TransactionType.EXPENSE, LocalDate.of(2099, 1, 4), 2_000)
+        saveTransaction(alice, main, rent, TransactionType.EXPENSE, LocalDate.of(2098, 1, 4), 8_000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        val chart = page.locator("[data-testid='expense-category-chart']")
+        page.shouldEventuallyContainExpenseCategoryRows(
+            chart,
+            ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+            ExpenseCategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, true),
+        )
+        chart.getByRole(AriaRole.CHECKBOX, Locator.GetByRoleOptions().setName("Hide Rent")).press("Space")
+        page.shouldEventuallyContainExpenseCategoryRows(
+            chart,
+            ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+            ExpenseCategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, false),
+        )
+        page.evaluate("window.localStorage.getItem('renalo.dashboard.expenseCategoryVisibility')")
+            .shouldBe("""{"hiddenCategoryIds":[${rent.id}]}""")
+
+        page.reload()
+
+        page.shouldEventuallyContainExpenseCategoryRows(
+            chart,
+            ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+            ExpenseCategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, false),
+        )
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("This month").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Apply").setExact(true)).click()
+        page.shouldEventuallyContainExpenseCategoryRows(
+            chart,
+            ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+        )
+    }
+
+    @Test
     fun showsNetWorthAcrossActiveAndArchivedAccounts(page: Page) {
         val alice = saveUser("alice")
         val main = saveAccount(alice, "Main", 10_000, isDefault = true)
@@ -499,8 +543,45 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             }.shouldContainExactly(*expectedPoints)
         }
     }
+
+    private fun Page.shouldEventuallyContainExpenseCategoryRows(
+        chart: Locator,
+        vararg expectedRows: ExpenseCategoryChartRow,
+    ) {
+        shouldEventually {
+            @Suppress("UNCHECKED_CAST")
+            val rows = chart.locator("[data-testid='expense-category-chart-row']").evaluateAll(
+                """
+                    rows => rows.map(row => ({
+                        categoryId: Number(row.dataset.categoryId),
+                        categoryName: row.dataset.categoryName,
+                        currency: row.dataset.currency,
+                        amountMinor: Number(row.dataset.amountMinor),
+                        visible: row.dataset.visible === 'true',
+                    }))
+                """.trimIndent(),
+            ) as List<Map<String, Any>>
+            rows.map {
+                ExpenseCategoryChartRow(
+                    categoryId = (it.getValue("categoryId") as Number).toLong(),
+                    categoryName = it.getValue("categoryName") as String,
+                    currency = it.getValue("currency") as String,
+                    amountMinor = (it.getValue("amountMinor") as Number).toLong(),
+                    visible = it.getValue("visible") as Boolean,
+                )
+            }.shouldContainExactly(*expectedRows)
+        }
+    }
 }
 
 private data class DashboardCardText(val text: String)
 
 private data class ChartPoint(val bucket: String, val currency: String, val amountMinor: Long)
+
+private data class ExpenseCategoryChartRow(
+    val categoryId: Long,
+    val categoryName: String,
+    val currency: String,
+    val amountMinor: Long,
+    val visible: Boolean,
+)

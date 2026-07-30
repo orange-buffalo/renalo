@@ -51,6 +51,48 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
 
         api().get("/api/tracking/analytics/transactions/EXPENSE/time-series", null).statusCode().shouldBe(401)
         api().get("/api/tracking/analytics/transactions/EXPENSE/time-series", adminToken).statusCode().shouldBe(403)
+        api().get("/api/tracking/analytics/transactions/EXPENSE/category-totals", null).statusCode().shouldBe(401)
+        api().get("/api/tracking/analytics/transactions/EXPENSE/category-totals", adminToken).statusCode().shouldBe(403)
+    }
+
+    @Test
+    fun groupsFilteredExpensesByCategoryInDefaultCurrency() {
+        val alice = saveUser("alice", UserType.USER)
+        val bob = saveUser("bob", UserType.USER)
+        val main = saveAccount(alice, "Main", "AUD", true)
+        val usd = saveAccount(alice, "US account", "USD")
+        val groceries = saveExpenseCategory(alice, "Groceries")
+        val rent = expenseCategoryRepository.save(ExpenseCategory(userId = alice.id!!, name = "Rent", archived = true))
+        val salary = saveIncomeCategory(alice, "Salary")
+        saveTransaction(alice, TransactionType.EXPENSE, main, groceries.id!!, "2026-06-01", 1200, "Included")
+        saveTransaction(alice, TransactionType.EXPENSE, main, groceries.id!!, "2026-06-10", 800, "Included")
+        saveTransaction(alice, TransactionType.EXPENSE, usd, groceries.id!!, "2026-06-10", 300, "Included", 450)
+        saveTransaction(alice, TransactionType.EXPENSE, usd, groceries.id!!, "2026-06-10", 700, "Unavailable", null)
+        saveTransaction(alice, TransactionType.EXPENSE, usd, groceries.id!!, "2026-06-10", 600, "Stale", 600, "USD")
+        saveTransaction(alice, TransactionType.EXPENSE, main, rent.id!!, "2026-06-02", 500, "Included")
+        saveTransaction(alice, TransactionType.EXPENSE, main, rent.id!!, "2026-07-01", 900, "Outside")
+        saveTransaction(alice, TransactionType.INCOME, main, salary.id!!, "2026-06-01", 9999, "Included")
+        val bobAccount = saveAccount(bob, "Bob account", "AUD", true)
+        val bobCategory = saveExpenseCategory(bob, "Groceries")
+        saveTransaction(bob, TransactionType.EXPENSE, bobAccount, bobCategory.id!!, "2026-06-01", 9999, "Included")
+        val token = api().login("alice", "password")
+
+        val response = api().get(
+            "/api/tracking/analytics/transactions/EXPENSE/category-totals?from=2026-06-01&to=2026-06-30",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        response.body().shouldEqualJson(
+            """
+                {
+                  "categories": [
+                    { "categoryId": ${groceries.id}, "categoryName": "Groceries", "currency": "AUD", "amountMinor": 2450 },
+                    { "categoryId": ${rent.id}, "categoryName": "Rent", "currency": "AUD", "amountMinor": 500 }
+                  ]
+                }
+            """.trimIndent(),
+        )
     }
 
     @Test
@@ -331,6 +373,17 @@ class TransactionAnalyticsApiTest : IntegrationTestSupport() {
         ).statusCode().shouldBe(400)
         api().get(
             "/api/tracking/analytics/transactions/EXPENSE/time-series?granularity=YEAR",
+            token,
+        ).statusCode().shouldBe(400)
+
+        val categoryResponse = api().get(
+            "/api/tracking/analytics/transactions/EXPENSE/category-totals?from=2026-06-01&to=2026-06-30",
+            token,
+        )
+        categoryResponse.statusCode().shouldBe(200)
+        categoryResponse.body().shouldEqualJson("""{ "categories": [] }""")
+        api().get(
+            "/api/tracking/analytics/transactions/EXPENSE/category-totals?from=2026-07-01&to=2026-06-01",
             token,
         ).statusCode().shouldBe(400)
     }

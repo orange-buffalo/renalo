@@ -53,6 +53,45 @@ open class TransactionService(
         return TransactionTimeSeries(resolvedGranularity, from, to, points)
     }
 
+    @Transactional(readOnly = true)
+    open fun getCategoryTotals(
+        userId: Long,
+        type: TransactionType,
+        filter: TransactionDateFilter,
+    ): List<TransactionCategoryTotal> {
+        val queryFilter = transactionQueryFilter(userId, type, filter)
+        val sql = """
+            SELECT c.id AS category_id,
+                   c.name AS category_name,
+                   default_account.currency,
+                   SUM(t.default_currency_amount_minor) AS amount_minor
+            FROM transactions t
+            ${timeSeriesJoins(type)}
+            WHERE ${queryFilter.whereClause}
+              AND t.default_currency_amount_minor IS NOT NULL
+              AND t.default_currency = default_account.currency
+            GROUP BY c.id, c.name, default_account.currency
+            ORDER BY amount_minor DESC, c.name, c.id
+        """.trimIndent()
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                queryFilter.parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                statement.executeQuery().use { resultSet ->
+                    val totals = mutableListOf<TransactionCategoryTotal>()
+                    while (resultSet.next()) {
+                        totals += TransactionCategoryTotal(
+                            categoryId = resultSet.getLong("category_id"),
+                            categoryName = resultSet.getString("category_name"),
+                            currency = resultSet.getString("currency"),
+                            amountMinor = resultSet.getBigDecimal("amount_minor").longValueExact(),
+                        )
+                    }
+                    return totals
+                }
+            }
+        }
+    }
+
     private fun findTransactions(userId: Long, type: TransactionType, filter: TransactionDateFilter): List<Transaction> {
         val queryFilter = transactionQueryFilter(userId, type, filter)
 
@@ -597,6 +636,13 @@ data class TransactionTimeSeries(
 
 data class TransactionTimeSeriesPoint(
     val bucket: LocalDate,
+    val currency: String,
+    val amountMinor: Long,
+)
+
+data class TransactionCategoryTotal(
+    val categoryId: Long,
+    val categoryName: String,
     val currency: String,
     val amountMinor: Long,
 )
