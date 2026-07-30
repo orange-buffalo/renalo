@@ -1,3 +1,4 @@
+import { Maximize01, XClose } from "@untitledui/icons";
 import { useId, useState } from "react";
 import {
   Button as AriaButton,
@@ -12,6 +13,13 @@ import type {
   TransactionCategoryTotals,
 } from "@/api/transactions";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
+import {
+  Dialog,
+  Modal,
+  ModalOverlay,
+} from "@/components/untitled/application/modals/modal";
+import { Button } from "@/components/untitled/base/buttons/button";
+import { cx } from "@/utils/cx";
 import { formatMoney } from "@/utils/money";
 
 type TransactionByCategoryChartProps = {
@@ -66,6 +74,8 @@ export function TransactionByCategoryChart({
 }: TransactionByCategoryChartProps) {
   const config = chartConfigs[transactionType];
   const titleId = useId();
+  const modalTitleId = useId();
+  const [isMaximized, setIsMaximized] = useState(false);
   const [hoveredCategoryId, setHoveredCategoryId] = useState<number>();
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState(() =>
     loadHiddenCategoryIds(config),
@@ -95,209 +105,249 @@ export function TransactionByCategoryChart({
     });
   }
 
-  return (
-    <section
-      className="transaction-chart-panel transaction-category-chart-panel"
-      aria-labelledby={titleId}
-      aria-busy={isLoading}
-      data-testid={`${config.testPrefix}-category-chart`}
-    >
-      <header className="transaction-chart-header">
-        <div>
-          <h2 id={titleId}>{config.title}</h2>
-          {currency && <p>Totals in {currency}</p>}
-        </div>
-        {isLoading && totals && (
-          <span
-            className="transaction-chart-refresh-indicator"
+  function renderChartPanel(maximized: boolean) {
+    const panelTitleId = maximized ? modalTitleId : titleId;
+
+    return (
+      <section
+        className={cx(
+          "transaction-chart-panel transaction-category-chart-panel",
+          maximized && "transaction-chart-panel-maximized",
+        )}
+        aria-labelledby={panelTitleId}
+        aria-busy={isLoading}
+        data-testid={`${config.testPrefix}-category-chart`}
+      >
+        <header className="transaction-chart-header">
+          <div>
+            <h2 id={panelTitleId}>{config.title}</h2>
+            {currency && <p>Totals in {currency}</p>}
+          </div>
+          <div className="transaction-chart-header-actions">
+            {isLoading && totals && (
+              <span
+                className="transaction-chart-refresh-indicator"
+                role="status"
+                aria-label={`Refreshing ${config.subjectPlural} by category`}
+              >
+                <LoadingIndicator size="sm" />
+              </span>
+            )}
+            <Button
+              aria-label={`${maximized ? "Close" : "Maximize"} ${config.title} chart`}
+              color="tertiary"
+              size="sm"
+              iconLeading={maximized ? XClose : Maximize01}
+              onPress={() => setIsMaximized(!maximized)}
+            />
+          </div>
+        </header>
+
+        {error ? (
+          <p
+            className="transaction-chart-message transaction-chart-error"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : !totals ? (
+          <div
+            className="transaction-chart-message"
             role="status"
-            aria-label={`Refreshing ${config.subjectPlural} by category`}
+            aria-busy="true"
+            aria-label={`Loading ${config.subjectPlural} by category`}
           >
             <LoadingIndicator size="sm" />
-          </span>
-        )}
-      </header>
-
-      {error ? (
-        <p
-          className="transaction-chart-message transaction-chart-error"
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : !totals ? (
-        <div
-          className="transaction-chart-message"
-          role="status"
-          aria-busy="true"
-          aria-label={`Loading ${config.subjectPlural} by category`}
-        >
-          <LoadingIndicator size="sm" />
-        </div>
-      ) : categories.length === 0 ? (
-        <p className="transaction-chart-message">
-          No matching {config.subjectPlural} to chart.
-        </p>
-      ) : (
-        <div className="transaction-category-chart-content">
-          <div className="transaction-category-legend">
-            <fieldset>
-              <legend className="sr-only">
-                {config.categoryLabel} categories
-              </legend>
-              {mainLegendCategories.map((category, index) => (
-                <CategoryLegendItem
-                  key={category.categoryId}
-                  category={category}
-                  color={colors[index % colors.length]}
-                  isVisible={!hiddenCategoryIds.has(category.categoryId)}
-                  visibleTotal={visibleTotal}
-                  isDimmed={
-                    hoveredCategoryId !== undefined &&
-                    hoveredCategoryId !== category.categoryId
-                  }
-                  onToggle={setCategoryVisible}
-                />
-              ))}
-            </fieldset>
-            {overflowLegendCategories.length > 0 && (
-              <AriaDialogTrigger>
-                <AriaButton className="transaction-category-more-button">
-                  {overflowLegendCategories.length} more
-                </AriaButton>
-                <AriaPopover
-                  placement="bottom left"
-                  offset={6}
-                  className="transaction-category-more-popover"
-                >
-                  <AriaDialog
-                    aria-label={`More ${config.categoryLabel.toLowerCase()} categories`}
-                    className="transaction-category-more-dialog"
+          </div>
+        ) : categories.length === 0 ? (
+          <p className="transaction-chart-message">
+            No matching {config.subjectPlural} to chart.
+          </p>
+        ) : (
+          <div className="transaction-category-chart-content">
+            <div className="transaction-category-legend">
+              <fieldset>
+                <legend className="sr-only">
+                  {config.categoryLabel} categories
+                </legend>
+                {mainLegendCategories.map((category, index) => (
+                  <CategoryLegendItem
+                    key={category.categoryId}
+                    category={category}
+                    color={colors[index % colors.length]}
+                    isVisible={!hiddenCategoryIds.has(category.categoryId)}
+                    visibleTotal={visibleTotal}
+                    isDimmed={
+                      hoveredCategoryId !== undefined &&
+                      hoveredCategoryId !== category.categoryId
+                    }
+                    onToggle={setCategoryVisible}
+                  />
+                ))}
+              </fieldset>
+              {overflowLegendCategories.length > 0 && (
+                <AriaDialogTrigger>
+                  <AriaButton className="transaction-category-more-button">
+                    {overflowLegendCategories.length} more
+                  </AriaButton>
+                  <AriaPopover
+                    placement="bottom left"
+                    offset={6}
+                    className="transaction-category-more-popover"
                   >
-                    {overflowLegendCategories.map((category, index) => (
-                      <CategoryLegendItem
-                        key={category.categoryId}
-                        category={category}
-                        color={
-                          colors[
-                            (index + visibleLegendCategoryCount) % colors.length
-                          ]
-                        }
-                        isVisible={!hiddenCategoryIds.has(category.categoryId)}
-                        visibleTotal={visibleTotal}
-                        isDimmed={
-                          hoveredCategoryId !== undefined &&
-                          hoveredCategoryId !== category.categoryId
-                        }
-                        onToggle={setCategoryVisible}
-                      />
-                    ))}
-                  </AriaDialog>
-                </AriaPopover>
-              </AriaDialogTrigger>
+                    <AriaDialog
+                      aria-label={`More ${config.categoryLabel.toLowerCase()} categories`}
+                      className="transaction-category-more-dialog"
+                    >
+                      {overflowLegendCategories.map((category, index) => (
+                        <CategoryLegendItem
+                          key={category.categoryId}
+                          category={category}
+                          color={
+                            colors[
+                              (index + visibleLegendCategoryCount) %
+                                colors.length
+                            ]
+                          }
+                          isVisible={
+                            !hiddenCategoryIds.has(category.categoryId)
+                          }
+                          visibleTotal={visibleTotal}
+                          isDimmed={
+                            hoveredCategoryId !== undefined &&
+                            hoveredCategoryId !== category.categoryId
+                          }
+                          onToggle={setCategoryVisible}
+                        />
+                      ))}
+                    </AriaDialog>
+                  </AriaPopover>
+                </AriaDialogTrigger>
+              )}
+            </div>
+            {visibleCategories.length === 0 ? (
+              <p className="transaction-category-all-hidden">
+                Select a category to show it in the chart.
+              </p>
+            ) : (
+              <div className="transaction-category-donut">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart accessibilityLayer>
+                    <Pie
+                      data={visibleCategories}
+                      dataKey="amountMinor"
+                      nameKey="categoryName"
+                      innerRadius="61%"
+                      outerRadius="94%"
+                      paddingAngle={1.5}
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                      isAnimationActive={false}
+                    >
+                      {visibleCategories.map((category) => {
+                        const originalIndex = categories.findIndex(
+                          (item) => item.categoryId === category.categoryId,
+                        );
+                        return (
+                          <Cell
+                            key={category.categoryId}
+                            fill={colors[originalIndex % colors.length]}
+                            opacity={
+                              hoveredCategoryId === undefined ||
+                              hoveredCategoryId === category.categoryId
+                                ? 1
+                                : dimmedOpacity
+                            }
+                            className="transaction-category-slice"
+                            onPointerEnter={(event) => {
+                              if (event.pointerType === "mouse") {
+                                setHoveredCategoryId(category.categoryId);
+                              }
+                            }}
+                            onPointerLeave={(event) => {
+                              if (event.pointerType === "mouse") {
+                                setHoveredCategoryId(undefined);
+                              }
+                            }}
+                          />
+                        );
+                      })}
+                    </Pie>
+                    <Tooltip
+                      wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
+                      content={(props) => (
+                        <CategoryChartTooltip {...props} currency={currency} />
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="transaction-category-total" aria-hidden="true">
+                  <strong>{formatMoney(visibleTotal, currency)}</strong>
+                  <span>Total</span>
+                </div>
+              </div>
             )}
           </div>
-          {visibleCategories.length === 0 ? (
-            <p className="transaction-category-all-hidden">
-              Select a category to show it in the chart.
-            </p>
-          ) : (
-            <div className="transaction-category-donut">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart accessibilityLayer>
-                  <Pie
-                    data={visibleCategories}
-                    dataKey="amountMinor"
-                    nameKey="categoryName"
-                    innerRadius="61%"
-                    outerRadius="94%"
-                    paddingAngle={1.5}
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                    isAnimationActive={false}
-                  >
-                    {visibleCategories.map((category) => {
-                      const originalIndex = categories.findIndex(
-                        (item) => item.categoryId === category.categoryId,
-                      );
-                      return (
-                        <Cell
-                          key={category.categoryId}
-                          fill={colors[originalIndex % colors.length]}
-                          opacity={
-                            hoveredCategoryId === undefined ||
-                            hoveredCategoryId === category.categoryId
-                              ? 1
-                              : dimmedOpacity
-                          }
-                          className="transaction-category-slice"
-                          onPointerEnter={(event) => {
-                            if (event.pointerType === "mouse") {
-                              setHoveredCategoryId(category.categoryId);
-                            }
-                          }}
-                          onPointerLeave={(event) => {
-                            if (event.pointerType === "mouse") {
-                              setHoveredCategoryId(undefined);
-                            }
-                          }}
-                        />
-                      );
-                    })}
-                  </Pie>
-                  <Tooltip
-                    wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
-                    content={(props) => (
-                      <CategoryChartTooltip {...props} currency={currency} />
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="transaction-category-total" aria-hidden="true">
-                <strong>{formatMoney(visibleTotal, currency)}</strong>
-                <span>Total</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        )}
 
-      {totals && (
-        <table
-          className="sr-only"
-          aria-label={`${config.title} data`}
-          data-testid={`${config.testPrefix}-category-chart-data`}
-        >
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Currency</th>
-              <th>Amount in minor units</th>
-              <th>Visible</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((category) => (
-              <tr
-                key={category.categoryId}
-                data-testid="transaction-category-chart-row"
-                data-category-id={category.categoryId}
-                data-category-name={category.categoryName}
-                data-currency={category.currency}
-                data-amount-minor={category.amountMinor}
-                data-visible={!hiddenCategoryIds.has(category.categoryId)}
-                data-highlighted={hoveredCategoryId === category.categoryId}
-              >
-                <td>{category.categoryName}</td>
-                <td>{category.currency}</td>
-                <td>{category.amountMinor}</td>
-                <td>{String(!hiddenCategoryIds.has(category.categoryId))}</td>
+        {totals && (
+          <table
+            className="sr-only"
+            aria-label={`${config.title} data`}
+            data-testid={`${config.testPrefix}-category-chart-data`}
+          >
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Currency</th>
+                <th>Amount in minor units</th>
+                <th>Visible</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
+            </thead>
+            <tbody>
+              {categories.map((category) => (
+                <tr
+                  key={category.categoryId}
+                  data-testid="transaction-category-chart-row"
+                  data-category-id={category.categoryId}
+                  data-category-name={category.categoryName}
+                  data-currency={category.currency}
+                  data-amount-minor={category.amountMinor}
+                  data-visible={!hiddenCategoryIds.has(category.categoryId)}
+                  data-highlighted={hoveredCategoryId === category.categoryId}
+                >
+                  <td>{category.categoryName}</td>
+                  <td>{category.currency}</td>
+                  <td>{category.amountMinor}</td>
+                  <td>{String(!hiddenCategoryIds.has(category.categoryId))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <>
+      {renderChartPanel(false)}
+      <ModalOverlay
+        isOpen={isMaximized}
+        onOpenChange={setIsMaximized}
+        isDismissable
+        className="transaction-chart-modal-overlay"
+      >
+        <Modal className="transaction-chart-modal">
+          <Dialog
+            aria-label={`${config.title} chart`}
+            className="transaction-chart-modal-dialog"
+          >
+            {renderChartPanel(true)}
+          </Dialog>
+        </Modal>
+      </ModalOverlay>
+    </>
   );
 }
 

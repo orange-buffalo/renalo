@@ -207,6 +207,23 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             CategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
             CategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, true),
         )
+        chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Maximize Expenses by category chart"))
+            .click()
+        val maximizedChart = page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Expenses by category chart"),
+        )
+        assertThat(maximizedChart).isVisible()
+        page.shouldEventuallyContainCategoryRows(
+            maximizedChart.locator("[data-testid='expense-category-chart']"),
+            CategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+            CategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, true),
+        )
+        maximizedChart.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Close Expenses by category chart"),
+        ).click()
+        assertThat(maximizedChart).not().isVisible()
         assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Groceries"))).containsText("67%")
         val rentToggle = chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Rent"))
         assertThat(rentToggle).containsText("33%")
@@ -268,6 +285,12 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             CategoryChartRow(salary.id!!, "Salary", "AUD", 6_000, true),
             CategoryChartRow(freelancing.id!!, "Freelancing", "AUD", 2_000, true),
         )
+        assertThat(
+            chart.getByRole(
+                AriaRole.BUTTON,
+                Locator.GetByRoleOptions().setName("Maximize Income by category chart"),
+            ),
+        ).isVisible()
         assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Salary"))).containsText("75%")
         val freelancingToggle = chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Freelancing"))
         assertThat(freelancingToggle).containsText("25%")

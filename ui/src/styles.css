@@ -610,7 +610,7 @@ input {
   text-align: left;
   cursor: pointer;
   transition:
-    opacity 120ms ease,
+    opacity 280ms ease-in-out,
     background-color 120ms ease;
 }
 
@@ -674,7 +674,7 @@ input {
 }
 
 .transaction-category-slice {
-  transition: opacity 120ms ease;
+  transition: opacity 280ms ease-in-out;
 }
 
 .transaction-category-donut {
@@ -3118,4 +3118,16 @@ input {
   .dashboard-page-surface .dashboard-quick-add-trigger {
     width: 100%;
   }
+}
+
+.transaction-chart-panel-maximized .transaction-category-chart-content {
+  min-height: 0;
+  flex: 1;
+}
+
+.transaction-chart-panel-maximized .transaction-category-donut,
+.transaction-chart-panel-maximized .transaction-category-all-hidden {
+  height: auto;
+  min-height: 0;
+  align-self: stretch;
 }

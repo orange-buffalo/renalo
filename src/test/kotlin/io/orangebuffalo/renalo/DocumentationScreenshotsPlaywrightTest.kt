@@ -120,6 +120,12 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income by category"))).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Net Worth"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) chart")))).hasCount(2)
+        assertThat(
+            page.getByRole(
+                AriaRole.BUTTON,
+                Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) by category chart")),
+            ),
+        ).hasCount(2)
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Maximize Net Worth chart"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Configure (expenses|income) chart")))).hasCount(2)
         capture(page, layout, "03-dashboard")
@@ -132,6 +138,21 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(expenseCategoryChart.locator("[data-testid='transaction-category-chart-row']").first())
             .hasAttribute("data-highlighted", "true")
         capture(page, layout, "27-dashboard-expenses-by-category")
+
+        expenseCategoryChart.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Maximize Expenses by category chart"),
+        ).click()
+        val maximizedExpenseCategoryChart = page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Expenses by category chart"),
+        )
+        assertThat(maximizedExpenseCategoryChart).isVisible()
+        capture(page, layout, "30-dashboard-expenses-by-category-fullscreen")
+        maximizedExpenseCategoryChart.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Close Expenses by category chart"),
+        ).click()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("2 more")).click()
         assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More expense categories"))).isVisible()
