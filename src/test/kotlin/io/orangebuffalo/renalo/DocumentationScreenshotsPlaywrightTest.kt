@@ -116,7 +116,8 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
             page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses").setExact(true)),
         ).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses by category"))).isVisible()
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Income by category"))).isVisible()
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Net Worth"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Maximize (Expenses|Income) chart")))).hasCount(2)
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Maximize Net Worth chart"))).isVisible()
@@ -128,7 +129,7 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         val expenseCategoryChart = page.locator("[data-testid='expense-category-chart']")
         expenseCategoryChart.locator(".recharts-pie-sector path").first()
             .dispatchEvent("pointerover", mapOf("pointerType" to "mouse"))
-        assertThat(expenseCategoryChart.locator("[data-testid='expense-category-chart-row']").first())
+        assertThat(expenseCategoryChart.locator("[data-testid='transaction-category-chart-row']").first())
             .hasAttribute("data-highlighted", "true")
         capture(page, layout, "27-dashboard-expenses-by-category")
 
@@ -136,6 +137,15 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More expense categories"))).isVisible()
         capture(page, layout, "28-dashboard-expense-category-overflow")
         page.keyboard().press("Escape")
+
+        val incomeCategoryChart = page.locator("[data-testid='income-category-chart']")
+        incomeCategoryChart.scrollIntoViewIfNeeded()
+        page.waitForTimeout(1_600.0)
+        incomeCategoryChart.locator(".recharts-pie-sector path").first()
+            .dispatchEvent("pointerover", mapOf("pointerType" to "mouse"))
+        assertThat(incomeCategoryChart.locator("[data-testid='transaction-category-chart-row']").first())
+            .hasAttribute("data-highlighted", "true")
+        capture(page, layout, "29-dashboard-income-by-category")
 
         page.locator("[data-chart-title='Net Worth']").scrollIntoViewIfNeeded()
         page.waitForTimeout(1_600.0)

@@ -7,19 +7,38 @@ import {
 } from "react-aria-components";
 import type { TooltipContentProps } from "recharts";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import type { TransactionCategoryTotals } from "@/api/transactions";
+import type {
+  TransactionApiConfig,
+  TransactionCategoryTotals,
+} from "@/api/transactions";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
 import { formatMoney } from "@/utils/money";
 
-type ExpenseByCategoryChartProps = {
+type TransactionByCategoryChartProps = {
+  transactionType: TransactionApiConfig["type"];
   totals?: TransactionCategoryTotals;
   isLoading?: boolean;
   error?: string;
 };
 
-const storageKey = "renalo.dashboard.expenseCategoryVisibility";
 const visibleLegendCategoryCount = 8;
 const dimmedOpacity = 0.15;
+const chartConfigs = {
+  EXPENSE: {
+    title: "Expenses by category",
+    subjectPlural: "expenses",
+    categoryLabel: "Expense",
+    testPrefix: "expense",
+    storageKey: "renalo.dashboard.expenseCategoryVisibility",
+  },
+  INCOME: {
+    title: "Income by category",
+    subjectPlural: "income",
+    categoryLabel: "Income",
+    testPrefix: "income",
+    storageKey: "renalo.dashboard.incomeCategoryVisibility",
+  },
+} satisfies Record<TransactionApiConfig["type"], ChartConfig>;
 const colors = [
   "#3976c5",
   "#65a3df",
@@ -39,15 +58,17 @@ const colors = [
   "#d47f38",
 ];
 
-export function ExpenseByCategoryChart({
+export function TransactionByCategoryChart({
+  transactionType,
   totals,
   isLoading = !totals,
   error,
-}: ExpenseByCategoryChartProps) {
+}: TransactionByCategoryChartProps) {
+  const config = chartConfigs[transactionType];
   const titleId = useId();
   const [hoveredCategoryId, setHoveredCategoryId] = useState<number>();
-  const [hiddenCategoryIds, setHiddenCategoryIds] = useState(
-    loadHiddenCategoryIds,
+  const [hiddenCategoryIds, setHiddenCategoryIds] = useState(() =>
+    loadHiddenCategoryIds(config),
   );
   const categories = totals?.categories ?? [];
   const visibleCategories = categories.filter(
@@ -69,28 +90,28 @@ export function ExpenseByCategoryChart({
       } else {
         next.add(categoryId);
       }
-      storeHiddenCategoryIds(next);
+      storeHiddenCategoryIds(config, next);
       return next;
     });
   }
 
   return (
     <section
-      className="transaction-chart-panel expense-category-chart-panel"
+      className="transaction-chart-panel transaction-category-chart-panel"
       aria-labelledby={titleId}
       aria-busy={isLoading}
-      data-testid="expense-category-chart"
+      data-testid={`${config.testPrefix}-category-chart`}
     >
       <header className="transaction-chart-header">
         <div>
-          <h2 id={titleId}>Expenses by category</h2>
+          <h2 id={titleId}>{config.title}</h2>
           {currency && <p>Totals in {currency}</p>}
         </div>
         {isLoading && totals && (
           <span
             className="transaction-chart-refresh-indicator"
             role="status"
-            aria-label="Refreshing expenses by category"
+            aria-label={`Refreshing ${config.subjectPlural} by category`}
           >
             <LoadingIndicator size="sm" />
           </span>
@@ -109,19 +130,21 @@ export function ExpenseByCategoryChart({
           className="transaction-chart-message"
           role="status"
           aria-busy="true"
-          aria-label="Loading expenses by category"
+          aria-label={`Loading ${config.subjectPlural} by category`}
         >
           <LoadingIndicator size="sm" />
         </div>
       ) : categories.length === 0 ? (
         <p className="transaction-chart-message">
-          No matching expenses to chart.
+          No matching {config.subjectPlural} to chart.
         </p>
       ) : (
-        <div className="expense-category-chart-content">
-          <div className="expense-category-legend">
+        <div className="transaction-category-chart-content">
+          <div className="transaction-category-legend">
             <fieldset>
-              <legend className="sr-only">Expense categories</legend>
+              <legend className="sr-only">
+                {config.categoryLabel} categories
+              </legend>
               {mainLegendCategories.map((category, index) => (
                 <CategoryLegendItem
                   key={category.categoryId}
@@ -139,17 +162,17 @@ export function ExpenseByCategoryChart({
             </fieldset>
             {overflowLegendCategories.length > 0 && (
               <AriaDialogTrigger>
-                <AriaButton className="expense-category-more-button">
+                <AriaButton className="transaction-category-more-button">
                   {overflowLegendCategories.length} more
                 </AriaButton>
                 <AriaPopover
                   placement="bottom left"
                   offset={6}
-                  className="expense-category-more-popover"
+                  className="transaction-category-more-popover"
                 >
                   <AriaDialog
-                    aria-label="More expense categories"
-                    className="expense-category-more-dialog"
+                    aria-label={`More ${config.categoryLabel.toLowerCase()} categories`}
+                    className="transaction-category-more-dialog"
                   >
                     {overflowLegendCategories.map((category, index) => (
                       <CategoryLegendItem
@@ -175,11 +198,11 @@ export function ExpenseByCategoryChart({
             )}
           </div>
           {visibleCategories.length === 0 ? (
-            <p className="expense-category-all-hidden">
+            <p className="transaction-category-all-hidden">
               Select a category to show it in the chart.
             </p>
           ) : (
-            <div className="expense-category-donut">
+            <div className="transaction-category-donut">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart accessibilityLayer>
                   <Pie
@@ -207,7 +230,7 @@ export function ExpenseByCategoryChart({
                               ? 1
                               : dimmedOpacity
                           }
-                          className="expense-category-slice"
+                          className="transaction-category-slice"
                           onPointerEnter={(event) => {
                             if (event.pointerType === "mouse") {
                               setHoveredCategoryId(category.categoryId);
@@ -230,7 +253,7 @@ export function ExpenseByCategoryChart({
                   />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="expense-category-total" aria-hidden="true">
+              <div className="transaction-category-total" aria-hidden="true">
                 <strong>{formatMoney(visibleTotal, currency)}</strong>
                 <span>Total</span>
               </div>
@@ -242,8 +265,8 @@ export function ExpenseByCategoryChart({
       {totals && (
         <table
           className="sr-only"
-          aria-label="Expenses by category data"
-          data-testid="expense-category-chart-data"
+          aria-label={`${config.title} data`}
+          data-testid={`${config.testPrefix}-category-chart-data`}
         >
           <thead>
             <tr>
@@ -257,7 +280,7 @@ export function ExpenseByCategoryChart({
             {categories.map((category) => (
               <tr
                 key={category.categoryId}
-                data-testid="expense-category-chart-row"
+                data-testid="transaction-category-chart-row"
                 data-category-id={category.categoryId}
                 data-category-name={category.categoryName}
                 data-currency={category.currency}
@@ -303,18 +326,18 @@ function CategoryLegendItem({
     <AriaButton
       aria-label={`${isVisible ? "Hide" : "Show"} ${category.categoryName}`}
       aria-pressed={isVisible}
-      className="expense-category-toggle"
+      className="transaction-category-toggle"
       data-visible={isVisible}
       style={{ opacity: !isVisible || isDimmed ? dimmedOpacity : 1 }}
       onPress={() => onToggle(category.categoryId, !isVisible)}
     >
       <span
-        className="expense-category-color"
+        className="transaction-category-color"
         style={{ backgroundColor: color }}
       />
-      <span className="expense-category-name">{category.categoryName}</span>
+      <span className="transaction-category-name">{category.categoryName}</span>
       {isVisible && (
-        <span className="expense-category-percentage">{percentage}%</span>
+        <span className="transaction-category-percentage">{percentage}%</span>
       )}
     </AriaButton>
   );
@@ -336,9 +359,17 @@ function CategoryChartTooltip({
   );
 }
 
-function loadHiddenCategoryIds() {
+type ChartConfig = {
+  title: string;
+  subjectPlural: string;
+  categoryLabel: string;
+  testPrefix: string;
+  storageKey: string;
+};
+
+function loadHiddenCategoryIds(config: ChartConfig) {
   try {
-    const stored = window.localStorage.getItem(storageKey);
+    const stored = window.localStorage.getItem(config.storageKey);
     if (!stored) {
       return new Set<number>();
     }
@@ -354,18 +385,24 @@ function loadHiddenCategoryIds() {
     }
     return new Set<number>(value.hiddenCategoryIds);
   } catch (error) {
-    console.warn("Could not restore expense category chart visibility", error);
+    console.warn(
+      `Could not restore ${config.subjectPlural} category chart visibility`,
+      error,
+    );
     return new Set<number>();
   }
 }
 
-function storeHiddenCategoryIds(categoryIds: Set<number>) {
+function storeHiddenCategoryIds(config: ChartConfig, categoryIds: Set<number>) {
   try {
     window.localStorage.setItem(
-      storageKey,
+      config.storageKey,
       JSON.stringify({ hiddenCategoryIds: Array.from(categoryIds).sort() }),
     );
   } catch (error) {
-    console.warn("Could not store expense category chart visibility", error);
+    console.warn(
+      `Could not store ${config.subjectPlural} category chart visibility`,
+      error,
+    );
   }
 }

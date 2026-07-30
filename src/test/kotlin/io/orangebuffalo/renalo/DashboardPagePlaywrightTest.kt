@@ -202,31 +202,31 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         val chart = page.locator("[data-testid='expense-category-chart']")
-        page.shouldEventuallyContainExpenseCategoryRows(
+        page.shouldEventuallyContainCategoryRows(
             chart,
-            ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
-            ExpenseCategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, true),
+            CategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+            CategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, true),
         )
         assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Groceries"))).containsText("67%")
         val rentToggle = chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Rent"))
         assertThat(rentToggle).containsText("33%")
         val groceriesSlice = chart.locator(".recharts-pie-sector path").first()
         groceriesSlice.dispatchEvent("pointerover", mapOf("pointerType" to "touch"))
-        assertThat(chart.locator("[data-testid='expense-category-chart-row'][data-category-id='${groceries.id}']"))
+        assertThat(chart.locator("[data-testid='transaction-category-chart-row'][data-category-id='${groceries.id}']"))
             .hasAttribute("data-highlighted", "false")
         groceriesSlice.dispatchEvent("pointerover", mapOf("pointerType" to "mouse"))
-        assertThat(chart.locator("[data-testid='expense-category-chart-row'][data-category-id='${groceries.id}']"))
+        assertThat(chart.locator("[data-testid='transaction-category-chart-row'][data-category-id='${groceries.id}']"))
             .hasAttribute("data-highlighted", "true")
-        assertThat(chart.locator("[data-testid='expense-category-chart-row'][data-category-id='${rent.id}']"))
+        assertThat(chart.locator("[data-testid='transaction-category-chart-row'][data-category-id='${rent.id}']"))
             .hasAttribute("data-highlighted", "false")
         groceriesSlice.dispatchEvent("pointerout", mapOf("pointerType" to "mouse"))
-        assertThat(chart.locator("[data-testid='expense-category-chart-row'][data-category-id='${groceries.id}']"))
+        assertThat(chart.locator("[data-testid='transaction-category-chart-row'][data-category-id='${groceries.id}']"))
             .hasAttribute("data-highlighted", "false")
         rentToggle.click()
-        page.shouldEventuallyContainExpenseCategoryRows(
+        page.shouldEventuallyContainCategoryRows(
             chart,
-            ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
-            ExpenseCategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, false),
+            CategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+            CategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, false),
         )
         assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Groceries"))).containsText("100%")
         assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Show Rent"))).hasText("Rent")
@@ -235,17 +235,68 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
 
         page.reload()
 
-        page.shouldEventuallyContainExpenseCategoryRows(
+        page.shouldEventuallyContainCategoryRows(
             chart,
-            ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
-            ExpenseCategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, false),
+            CategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+            CategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, false),
         )
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("This month").setExact(true)).click()
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Apply").setExact(true)).click()
-        page.shouldEventuallyContainExpenseCategoryRows(
+        page.shouldEventuallyContainCategoryRows(
             chart,
-            ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+            CategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
+        )
+    }
+
+    @Test
+    fun filtersIncomeByCategoryAndPersistsCategoryVisibility(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", 0, isDefault = true)
+        val salary = saveIncomeCategory(alice, "Salary")
+        val freelancing = saveIncomeCategory(alice, "Freelancing")
+        saveTransaction(alice, main, salary, TransactionType.INCOME, TestTimeProvider.DEFAULT_DATE, 6_000)
+        saveTransaction(alice, main, freelancing, TransactionType.INCOME, LocalDate.of(2099, 1, 4), 2_000)
+        saveTransaction(alice, main, freelancing, TransactionType.INCOME, LocalDate.of(2098, 1, 4), 8_000)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        val chart = page.locator("[data-testid='income-category-chart']")
+        page.shouldEventuallyContainCategoryRows(
+            chart,
+            CategoryChartRow(salary.id!!, "Salary", "AUD", 6_000, true),
+            CategoryChartRow(freelancing.id!!, "Freelancing", "AUD", 2_000, true),
+        )
+        assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Salary"))).containsText("75%")
+        val freelancingToggle = chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Freelancing"))
+        assertThat(freelancingToggle).containsText("25%")
+        freelancingToggle.click()
+        page.shouldEventuallyContainCategoryRows(
+            chart,
+            CategoryChartRow(salary.id!!, "Salary", "AUD", 6_000, true),
+            CategoryChartRow(freelancing.id!!, "Freelancing", "AUD", 2_000, false),
+        )
+        assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Salary"))).containsText("100%")
+        assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Show Freelancing")))
+            .hasText("Freelancing")
+        page.evaluate("window.localStorage.getItem('renalo.dashboard.incomeCategoryVisibility')")
+            .shouldBe("""{"hiddenCategoryIds":[${freelancing.id}]}""")
+        page.evaluate("window.localStorage.getItem('renalo.dashboard.expenseCategoryVisibility')").shouldBe(null)
+
+        page.reload()
+
+        page.shouldEventuallyContainCategoryRows(
+            chart,
+            CategoryChartRow(salary.id!!, "Salary", "AUD", 6_000, true),
+            CategoryChartRow(freelancing.id!!, "Freelancing", "AUD", 2_000, false),
+        )
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("This month").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Apply").setExact(true)).click()
+        page.shouldEventuallyContainCategoryRows(
+            chart,
+            CategoryChartRow(salary.id!!, "Salary", "AUD", 6_000, true),
         )
     }
 
@@ -270,10 +321,10 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         val chart = page.locator("[data-testid='expense-category-chart']")
-        page.shouldEventuallyContainExpenseCategoryRows(
+        page.shouldEventuallyContainCategoryRows(
             chart,
             *categories.mapIndexed { index, category ->
-                ExpenseCategoryChartRow(
+                CategoryChartRow(
                     category.id!!,
                     category.name,
                     "AUD",
@@ -613,13 +664,13 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         }
     }
 
-    private fun Page.shouldEventuallyContainExpenseCategoryRows(
+    private fun Page.shouldEventuallyContainCategoryRows(
         chart: Locator,
-        vararg expectedRows: ExpenseCategoryChartRow,
+        vararg expectedRows: CategoryChartRow,
     ) {
         shouldEventually {
             @Suppress("UNCHECKED_CAST")
-            val rows = chart.locator("[data-testid='expense-category-chart-row']").evaluateAll(
+            val rows = chart.locator("[data-testid='transaction-category-chart-row']").evaluateAll(
                 """
                     rows => rows.map(row => ({
                         categoryId: Number(row.dataset.categoryId),
@@ -631,7 +682,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
                 """.trimIndent(),
             ) as List<Map<String, Any>>
             rows.map {
-                ExpenseCategoryChartRow(
+                CategoryChartRow(
                     categoryId = (it.getValue("categoryId") as Number).toLong(),
                     categoryName = it.getValue("categoryName") as String,
                     currency = it.getValue("currency") as String,
@@ -647,7 +698,7 @@ private data class DashboardCardText(val text: String)
 
 private data class ChartPoint(val bucket: String, val currency: String, val amountMinor: Long)
 
-private data class ExpenseCategoryChartRow(
+private data class CategoryChartRow(
     val categoryId: Long,
     val categoryName: String,
     val currency: String,
