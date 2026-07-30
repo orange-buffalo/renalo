@@ -574,7 +574,19 @@ input {
 .expense-category-legend {
   display: grid;
   align-content: center;
-  gap: 9px;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.expense-category-legend > fieldset,
+.expense-category-more-dialog {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+}
+
+.expense-category-legend > fieldset {
   min-width: 0;
   margin: 0;
   border: 0;
@@ -582,21 +594,34 @@ input {
 }
 
 .expense-category-toggle {
-  min-width: 0;
-}
-
-.expense-category-toggle > div:last-child,
-.expense-category-toggle > div:last-child > p {
-  width: 100%;
-  min-width: 0;
-}
-
-.expense-category-toggle-label {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 2px 3px;
+  color: #4b5058;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease;
+}
+
+.expense-category-toggle:hover {
+  background: #f2f4f7;
+}
+
+.expense-category-toggle:focus-visible,
+.expense-category-more-button:focus-visible {
+  outline: 2px solid #6676b9;
+  outline-offset: 2px;
 }
 
 .expense-category-color {
@@ -617,6 +642,41 @@ input {
   font-weight: 400;
 }
 
+.expense-category-more-button {
+  border: 0;
+  background: transparent;
+  padding: 2px 3px;
+  color: #5969aa;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.expense-category-more-button:hover {
+  color: #43518d;
+  text-decoration: underline;
+}
+
+.expense-category-more-popover {
+  width: min(240px, calc(100vw - 32px));
+  max-height: min(320px, calc(100vh - 32px));
+  overflow-y: auto;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgb(16 24 40 / 18%);
+  outline: 1px solid #e3e7ec;
+}
+
+.expense-category-more-dialog {
+  outline: none;
+}
+
+.expense-category-slice {
+  transition: opacity 120ms ease;
+}
+
 .expense-category-donut {
   position: relative;
   width: 100%;
@@ -630,6 +690,7 @@ input {
   width: 46%;
   transform: translate(-50%, -50%);
   color: #626872;
+  pointer-events: none;
   text-align: center;
 }
 

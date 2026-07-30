@@ -16,6 +16,8 @@ import netWorthDesktop from "../../../assets/screenshots/desktop/26-dashboard-ne
 import netWorthMobile from "../../../assets/screenshots/mobile/26-dashboard-net-worth.png";
 import expenseCategoriesDesktop from "../../../assets/screenshots/desktop/27-dashboard-expenses-by-category.png";
 import expenseCategoriesMobile from "../../../assets/screenshots/mobile/27-dashboard-expenses-by-category.png";
+import expenseCategoryOverflowDesktop from "../../../assets/screenshots/desktop/28-dashboard-expense-category-overflow.png";
+import expenseCategoryOverflowMobile from "../../../assets/screenshots/mobile/28-dashboard-expense-category-overflow.png";
 
 The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense, income, category, and net worth charts show how your finances change over a selected period.
 
@@ -41,9 +43,13 @@ The expense and income charts use the same default-currency projections as their
 
 The **Expenses by category** chart divides spending in the selected dashboard date range by category. Amounts use your current default account currency, and expenses without an available default-currency conversion are omitted.
 
-Select a category beside the chart to hide or restore its slice. Renalo remembers hidden categories in this browser, including after you reload the dashboard. This preference does not follow you to another browser or device, and newly created categories are shown automatically.
+Select a category beside the chart to hide or restore its slice. Hidden categories are dimmed and their percentages disappear; the remaining percentages are recalculated from the visible total. The eight largest categories stay beside the chart, while the **more** link opens the rest with the same controls.
+
+Renalo remembers hidden categories in this browser, including after you reload the dashboard. This preference does not follow you to another browser or device, and newly created categories are shown automatically.
 
 <ScreenshotPair desktop={expenseCategoriesDesktop} mobile={expenseCategoriesMobile} alt="Dashboard expense totals grouped by category with visibility controls" />
+
+<ScreenshotPair desktop={expenseCategoryOverflowDesktop} mobile={expenseCategoryOverflowMobile} alt="Additional expense category controls opened from the dashboard chart" />
 
 ### Follow net worth
 

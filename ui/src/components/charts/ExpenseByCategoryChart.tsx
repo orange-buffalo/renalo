@@ -1,9 +1,14 @@
 import { useId, useState } from "react";
+import {
+  Button as AriaButton,
+  Dialog as AriaDialog,
+  DialogTrigger as AriaDialogTrigger,
+  Popover as AriaPopover,
+} from "react-aria-components";
 import type { TooltipContentProps } from "recharts";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { TransactionCategoryTotals } from "@/api/transactions";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
-import { Checkbox } from "@/components/untitled/base/checkbox/checkbox";
 import { formatMoney } from "@/utils/money";
 
 type ExpenseByCategoryChartProps = {
@@ -13,6 +18,8 @@ type ExpenseByCategoryChartProps = {
 };
 
 const storageKey = "renalo.dashboard.expenseCategoryVisibility";
+const visibleLegendCategoryCount = 8;
+const dimmedOpacity = 0.15;
 const colors = [
   "#3976c5",
   "#65a3df",
@@ -38,6 +45,7 @@ export function ExpenseByCategoryChart({
   error,
 }: ExpenseByCategoryChartProps) {
   const titleId = useId();
+  const [hoveredCategoryId, setHoveredCategoryId] = useState<number>();
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState(
     loadHiddenCategoryIds,
   );
@@ -49,11 +57,9 @@ export function ExpenseByCategoryChart({
     (sum, category) => sum + category.amountMinor,
     0,
   );
-  const allCategoriesTotal = categories.reduce(
-    (sum, category) => sum + category.amountMinor,
-    0,
-  );
   const currency = categories[0]?.currency;
+  const mainLegendCategories = categories.slice(0, visibleLegendCategoryCount);
+  const overflowLegendCategories = categories.slice(visibleLegendCategoryCount);
 
   function setCategoryVisible(categoryId: number, isVisible: boolean) {
     setHiddenCategoryIds((current) => {
@@ -113,45 +119,61 @@ export function ExpenseByCategoryChart({
         </p>
       ) : (
         <div className="expense-category-chart-content">
-          <fieldset className="expense-category-legend">
-            <legend className="sr-only">Expense categories</legend>
-            {categories.map((category, index) => {
-              const isVisible = !hiddenCategoryIds.has(category.categoryId);
-              const percentage =
-                allCategoriesTotal === 0
-                  ? 0
-                  : Math.round(
-                      (category.amountMinor / allCategoriesTotal) * 100,
-                    );
-              return (
-                <Checkbox
+          <div className="expense-category-legend">
+            <fieldset>
+              <legend className="sr-only">Expense categories</legend>
+              {mainLegendCategories.map((category, index) => (
+                <CategoryLegendItem
                   key={category.categoryId}
-                  aria-label={`${isVisible ? "Hide" : "Show"} ${category.categoryName}`}
-                  isSelected={isVisible}
-                  onChange={(selected) =>
-                    setCategoryVisible(category.categoryId, selected)
+                  category={category}
+                  color={colors[index % colors.length]}
+                  isVisible={!hiddenCategoryIds.has(category.categoryId)}
+                  visibleTotal={visibleTotal}
+                  isDimmed={
+                    hoveredCategoryId !== undefined &&
+                    hoveredCategoryId !== category.categoryId
                   }
-                  className="expense-category-toggle"
-                  label={
-                    <span className="expense-category-toggle-label">
-                      <span
-                        className="expense-category-color"
-                        style={{
-                          backgroundColor: colors[index % colors.length],
-                        }}
-                      />
-                      <span className="expense-category-name">
-                        {category.categoryName}
-                      </span>
-                      <span className="expense-category-percentage">
-                        {percentage}%
-                      </span>
-                    </span>
-                  }
+                  onToggle={setCategoryVisible}
                 />
-              );
-            })}
-          </fieldset>
+              ))}
+            </fieldset>
+            {overflowLegendCategories.length > 0 && (
+              <AriaDialogTrigger>
+                <AriaButton className="expense-category-more-button">
+                  {overflowLegendCategories.length} more
+                </AriaButton>
+                <AriaPopover
+                  placement="bottom left"
+                  offset={6}
+                  className="expense-category-more-popover"
+                >
+                  <AriaDialog
+                    aria-label="More expense categories"
+                    className="expense-category-more-dialog"
+                  >
+                    {overflowLegendCategories.map((category, index) => (
+                      <CategoryLegendItem
+                        key={category.categoryId}
+                        category={category}
+                        color={
+                          colors[
+                            (index + visibleLegendCategoryCount) % colors.length
+                          ]
+                        }
+                        isVisible={!hiddenCategoryIds.has(category.categoryId)}
+                        visibleTotal={visibleTotal}
+                        isDimmed={
+                          hoveredCategoryId !== undefined &&
+                          hoveredCategoryId !== category.categoryId
+                        }
+                        onToggle={setCategoryVisible}
+                      />
+                    ))}
+                  </AriaDialog>
+                </AriaPopover>
+              </AriaDialogTrigger>
+            )}
+          </div>
           {visibleCategories.length === 0 ? (
             <p className="expense-category-all-hidden">
               Select a category to show it in the chart.
@@ -170,6 +192,10 @@ export function ExpenseByCategoryChart({
                     stroke="#ffffff"
                     strokeWidth={2}
                     isAnimationActive={false}
+                    onMouseEnter={(_, index) =>
+                      setHoveredCategoryId(visibleCategories[index]?.categoryId)
+                    }
+                    onMouseLeave={() => setHoveredCategoryId(undefined)}
                   >
                     {visibleCategories.map((category) => {
                       const originalIndex = categories.findIndex(
@@ -179,6 +205,13 @@ export function ExpenseByCategoryChart({
                         <Cell
                           key={category.categoryId}
                           fill={colors[originalIndex % colors.length]}
+                          opacity={
+                            hoveredCategoryId === undefined ||
+                            hoveredCategoryId === category.categoryId
+                              ? 1
+                              : dimmedOpacity
+                          }
+                          className="expense-category-slice"
                         />
                       );
                     })}
@@ -224,6 +257,7 @@ export function ExpenseByCategoryChart({
                 data-currency={category.currency}
                 data-amount-minor={category.amountMinor}
                 data-visible={!hiddenCategoryIds.has(category.categoryId)}
+                data-highlighted={hoveredCategoryId === category.categoryId}
               >
                 <td>{category.categoryName}</td>
                 <td>{category.currency}</td>
@@ -235,6 +269,48 @@ export function ExpenseByCategoryChart({
         </table>
       )}
     </section>
+  );
+}
+
+type Category = TransactionCategoryTotals["categories"][number];
+
+function CategoryLegendItem({
+  category,
+  color,
+  isVisible,
+  visibleTotal,
+  isDimmed,
+  onToggle,
+}: {
+  category: Category;
+  color: string;
+  isVisible: boolean;
+  visibleTotal: number;
+  isDimmed: boolean;
+  onToggle: (categoryId: number, isVisible: boolean) => void;
+}) {
+  const percentage =
+    visibleTotal === 0
+      ? 0
+      : Math.round((category.amountMinor / visibleTotal) * 100);
+  return (
+    <AriaButton
+      aria-label={`${isVisible ? "Hide" : "Show"} ${category.categoryName}`}
+      aria-pressed={isVisible}
+      className="expense-category-toggle"
+      data-visible={isVisible}
+      style={{ opacity: !isVisible || isDimmed ? dimmedOpacity : 1 }}
+      onPress={() => onToggle(category.categoryId, !isVisible)}
+    >
+      <span
+        className="expense-category-color"
+        style={{ backgroundColor: color }}
+      />
+      <span className="expense-category-name">{category.categoryName}</span>
+      {isVisible && (
+        <span className="expense-category-percentage">{percentage}%</span>
+      )}
+    </AriaButton>
   );
 }
 

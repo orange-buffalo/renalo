@@ -207,12 +207,22 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
             ExpenseCategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, true),
         )
-        chart.getByRole(AriaRole.CHECKBOX, Locator.GetByRoleOptions().setName("Hide Rent")).press("Space")
+        assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Groceries"))).containsText("67%")
+        val rentToggle = chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Rent"))
+        assertThat(rentToggle).containsText("33%")
+        chart.locator(".recharts-pie-sector path").first().dispatchEvent("mouseover")
+        assertThat(chart.locator("[data-testid='expense-category-chart-row'][data-category-id='${groceries.id}']"))
+            .hasAttribute("data-highlighted", "true")
+        assertThat(chart.locator("[data-testid='expense-category-chart-row'][data-category-id='${rent.id}']"))
+            .hasAttribute("data-highlighted", "false")
+        rentToggle.click()
         page.shouldEventuallyContainExpenseCategoryRows(
             chart,
             ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
             ExpenseCategoryChartRow(rent.id!!, "Rent", "AUD", 2_000, false),
         )
+        assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Groceries"))).containsText("100%")
+        assertThat(chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Show Rent"))).hasText("Rent")
         page.evaluate("window.localStorage.getItem('renalo.dashboard.expenseCategoryVisibility')")
             .shouldBe("""{"hiddenCategoryIds":[${rent.id}]}""")
 
@@ -230,6 +240,58 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             chart,
             ExpenseCategoryChartRow(groceries.id!!, "Groceries", "AUD", 4_000, true),
         )
+    }
+
+    @Test
+    fun showsTopExpenseCategoriesAndTogglesCategoriesFromOverflow(page: Page) {
+        val alice = saveUser("alice")
+        val main = saveAccount(alice, "Main", 0, isDefault = true)
+        val categories = (1..10).map { index ->
+            saveExpenseCategory(alice, "Category $index").also { category ->
+                saveTransaction(
+                    alice,
+                    main,
+                    category,
+                    TransactionType.EXPENSE,
+                    TestTimeProvider.DEFAULT_DATE,
+                    11_000L - index * 1_000L,
+                )
+            }
+        }
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        val chart = page.locator("[data-testid='expense-category-chart']")
+        page.shouldEventuallyContainExpenseCategoryRows(
+            chart,
+            *categories.mapIndexed { index, category ->
+                ExpenseCategoryChartRow(
+                    category.id!!,
+                    category.name,
+                    "AUD",
+                    10_000L - index * 1_000L,
+                    true,
+                )
+            }.toTypedArray(),
+        )
+        val mainLegend = chart.getByRole(AriaRole.GROUP, Locator.GetByRoleOptions().setName("Expense categories"))
+        page.shouldEventually {
+            mainLegend.getByRole(AriaRole.BUTTON).all().map { it.getAttribute("aria-label") }
+                .shouldContainExactly((1..8).map { "Hide Category $it" })
+        }
+
+        chart.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("2 more")).click()
+        val overflow = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More expense categories"))
+        assertThat(overflow).isVisible()
+        overflow.getByRole(AriaRole.BUTTON).all().map { it.getAttribute("aria-label") }
+            .shouldContainExactly("Hide Category 9", "Hide Category 10")
+
+        overflow.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Hide Category 10")).click()
+        assertThat(overflow.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Show Category 10")))
+            .hasText("Category 10")
+        page.evaluate("window.localStorage.getItem('renalo.dashboard.expenseCategoryVisibility')")
+            .shouldBe("""{"hiddenCategoryIds":[${categories.last().id}]}""")
     }
 
     @Test
