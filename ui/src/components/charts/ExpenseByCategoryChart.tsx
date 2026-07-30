@@ -192,10 +192,6 @@ export function ExpenseByCategoryChart({
                     stroke="#ffffff"
                     strokeWidth={2}
                     isAnimationActive={false}
-                    onMouseEnter={(_, index) =>
-                      setHoveredCategoryId(visibleCategories[index]?.categoryId)
-                    }
-                    onMouseLeave={() => setHoveredCategoryId(undefined)}
                   >
                     {visibleCategories.map((category) => {
                       const originalIndex = categories.findIndex(
@@ -212,6 +208,16 @@ export function ExpenseByCategoryChart({
                               : dimmedOpacity
                           }
                           className="expense-category-slice"
+                          onPointerEnter={(event) => {
+                            if (event.pointerType === "mouse") {
+                              setHoveredCategoryId(category.categoryId);
+                            }
+                          }}
+                          onPointerLeave={(event) => {
+                            if (event.pointerType === "mouse") {
+                              setHoveredCategoryId(undefined);
+                            }
+                          }}
                         />
                       );
                     })}
