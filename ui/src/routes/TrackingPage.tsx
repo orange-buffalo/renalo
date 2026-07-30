@@ -452,6 +452,7 @@ export function TrackingPage() {
                   ? "Net worth chart could not be loaded. Try again in a moment."
                   : undefined
               }
+              showTrendLine
               valueKind="balance"
               viewLabel="All accounts"
             />

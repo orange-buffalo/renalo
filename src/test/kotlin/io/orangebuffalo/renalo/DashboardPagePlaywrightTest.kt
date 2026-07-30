@@ -401,6 +401,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
             ChartPoint("2099-01-02", "AUD", 15_800),
             ChartPoint("2099-01-03", "AUD", 15_800),
         )
+        assertThat(netWorthChart.locator(".recharts-line path")).isVisible()
         netWorthChart.scrollIntoViewIfNeeded()
         page.waitForTimeout(1_600.0)
     }

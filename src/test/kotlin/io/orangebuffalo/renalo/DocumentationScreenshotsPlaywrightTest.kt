@@ -170,6 +170,7 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
 
         page.locator("[data-chart-title='Net Worth']").scrollIntoViewIfNeeded()
         page.waitForTimeout(1_600.0)
+        assertThat(page.locator("[data-chart-title='Net Worth'] .recharts-line path")).isVisible()
         capture(page, layout, "26-dashboard-net-worth")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Configure expenses chart")).click()
