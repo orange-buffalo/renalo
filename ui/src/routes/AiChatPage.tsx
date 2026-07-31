@@ -1,7 +1,7 @@
-import { ChevronDown, Plus, Send01 } from "@untitledui/icons";
+import { ChevronDown, Plus, Send01, Stop } from "@untitledui/icons";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import type { AiChatToolActivity } from "@/api/aiChat";
-import { sendAiChatMessage } from "@/api/aiChat";
+import type { AiChatStreamEvent, AiChatToolActivity } from "@/api/aiChat";
+import { streamAiChatMessage } from "@/api/aiChat";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
@@ -12,6 +12,7 @@ type ChatMessage = {
   author: "You" | "Renalo";
   content: string;
   toolActivities?: AiChatToolActivity[];
+  isStreaming?: boolean;
 };
 
 type Conversation = {
@@ -32,6 +33,7 @@ const initialConversation: Conversation = {
 
 export function AiChatPage() {
   const feedRef = useRef<HTMLDivElement>(null);
+  const activeRequestRef = useRef<AbortController>(null);
   const [conversations, setConversations] = useState<Conversation[]>([
     initialConversation,
   ]);
@@ -56,6 +58,8 @@ export function AiChatPage() {
     }
   }, [activeConversation]);
 
+  useEffect(() => () => activeRequestRef.current?.abort(), []);
+
   function createConversation() {
     const conversation: Conversation = {
       id: nextConversationId,
@@ -76,38 +80,77 @@ export function AiChatPage() {
     }
 
     const conversationId = activeConversation.id;
+    const userMessageId = nextMessageId;
+    const assistantMessageId = nextMessageId + 1;
     const userMessage: ChatMessage = {
-      id: nextMessageId,
+      id: userMessageId,
       author: "You",
       content,
     };
-    setNextMessageId((current) => current + 1);
+    const assistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      author: "Renalo",
+      content: "",
+      toolActivities: [],
+      isStreaming: true,
+    };
+    setNextMessageId((current) => current + 2);
     setConversations((current) =>
-      appendMessage(current, conversationId, userMessage),
+      appendMessages(current, conversationId, [userMessage, assistantMessage]),
     );
     setDraft("");
     setError(undefined);
     setIsSending(true);
+    const abortController = new AbortController();
+    activeRequestRef.current = abortController;
 
     try {
-      const response = await sendAiChatMessage(content);
-      const assistantMessage: ChatMessage = {
-        id: nextMessageId + 1,
-        author: "Renalo",
-        content: response.content,
-        toolActivities: response.toolActivities,
-      };
-      setNextMessageId((current) => current + 1);
-      setConversations((current) =>
-        appendMessage(current, conversationId, assistantMessage),
+      await streamAiChatMessage(
+        content,
+        (event) => {
+          applyStreamEvent(conversationId, assistantMessageId, event);
+        },
+        abortController.signal,
       );
-    } catch {
-      setError(
-        "The message could not be sent. Your message remains in this conversation.",
+    } catch (requestError) {
+      if (!isAbortError(requestError)) {
+        setError(
+          "The response was interrupted. Partial content remains in this conversation.",
+        );
+      }
+      setConversations((current) =>
+        finishStreamingMessage(
+          current,
+          conversationId,
+          assistantMessageId,
+          isAbortError(requestError),
+        ),
       );
     } finally {
+      if (activeRequestRef.current === abortController) {
+        activeRequestRef.current = null;
+      }
       setIsSending(false);
     }
+  }
+
+  function applyStreamEvent(
+    conversationId: number,
+    messageId: number,
+    event: AiChatStreamEvent,
+  ) {
+    if (event.type === "turn.error") {
+      setError(event.message);
+    }
+    setConversations((current) =>
+      updateMessage(current, conversationId, messageId, (message) =>
+        applyEventToMessage(message, event),
+      ),
+    );
+  }
+
+  function cancelResponse() {
+    activeRequestRef.current?.abort();
   }
 
   return (
@@ -166,6 +209,7 @@ export function AiChatPage() {
           ref={feedRef}
           role="log"
           aria-label="Message feed"
+          aria-busy={isSending}
           aria-live="polite"
         >
           {activeConversation?.messages.length ? (
@@ -181,10 +225,18 @@ export function AiChatPage() {
                       <div
                         className="ai-chat-tool-activity"
                         data-tool-status={activity.status}
-                        key={activity.label}
+                        key={activity.id}
                       >
-                        <span aria-hidden="true" />
+                        <span
+                          className="ai-chat-tool-activity-dot"
+                          aria-hidden="true"
+                        />
                         {activity.label}
+                        {activity.status === "CANCELLED" && (
+                          <span className="ai-chat-tool-activity-status">
+                            · Stopped
+                          </span>
+                        )}
                       </div>
                     ))}
                   <div className="ai-chat-message-content">
@@ -196,7 +248,9 @@ export function AiChatPage() {
                           </div>
                         }
                       >
-                        <AiMarkdown>{message.content}</AiMarkdown>
+                        <AiMarkdown isStreaming={message.isStreaming}>
+                          {message.content}
+                        </AiMarkdown>
                       </Suspense>
                     ) : (
                       message.content
@@ -209,11 +263,6 @@ export function AiChatPage() {
             <div className="ai-chat-empty-state">
               <h2>What would you like to explore?</h2>
               <p>Send a message to begin this conversation.</p>
-            </div>
-          )}
-          {isSending && (
-            <div className="ai-chat-writing" role="status">
-              Renalo is composing a response...
             </div>
           )}
         </div>
@@ -237,14 +286,15 @@ export function AiChatPage() {
               }}
             />
             <Button
-              aria-label="Send message"
+              aria-label={isSending ? "Stop response" : "Send message"}
               className="ai-chat-send-button"
               color="tertiary"
               size="sm"
-              iconLeading={Send01}
-              isDisabled={!draft.trim() || isSending}
-              isLoading={isSending}
-              onPress={() => void sendMessage()}
+              iconLeading={isSending ? Stop : Send01}
+              isDisabled={!isSending && !draft.trim()}
+              onPress={() =>
+                isSending ? cancelResponse() : void sendMessage()
+              }
             />
           </div>
         </div>
@@ -253,14 +303,113 @@ export function AiChatPage() {
   );
 }
 
-function appendMessage(
+function appendMessages(
   conversations: Conversation[],
   conversationId: number,
-  message: ChatMessage,
+  messages: ChatMessage[],
 ) {
   return conversations.map((conversation) =>
     conversation.id === conversationId
-      ? { ...conversation, messages: [...conversation.messages, message] }
+      ? { ...conversation, messages: [...conversation.messages, ...messages] }
       : conversation,
   );
+}
+
+function updateMessage(
+  conversations: Conversation[],
+  conversationId: number,
+  messageId: number,
+  update: (message: ChatMessage) => ChatMessage,
+) {
+  return conversations.map((conversation) =>
+    conversation.id === conversationId
+      ? {
+          ...conversation,
+          messages: conversation.messages.map((message) =>
+            message.id === messageId ? update(message) : message,
+          ),
+        }
+      : conversation,
+  );
+}
+
+function applyEventToMessage(
+  message: ChatMessage,
+  event: AiChatStreamEvent,
+): ChatMessage {
+  switch (event.type) {
+    case "assistant.delta":
+      return { ...message, content: message.content + event.text };
+    case "tool.started":
+      return {
+        ...message,
+        toolActivities: [
+          ...(message.toolActivities ?? []),
+          {
+            id: event.activityId,
+            label: event.label,
+            status: "IN_PROGRESS",
+          },
+        ],
+      };
+    case "tool.completed":
+      return {
+        ...message,
+        toolActivities: (message.toolActivities ?? []).map((activity) =>
+          activity.id === event.activityId
+            ? { ...activity, label: event.label, status: event.status }
+            : activity,
+        ),
+      };
+    case "turn.completed":
+    case "turn.error":
+      return { ...message, isStreaming: false };
+    case "turn.started":
+      return message;
+  }
+}
+
+function finishStreamingMessage(
+  conversations: Conversation[],
+  conversationId: number,
+  messageId: number,
+  removeIfEmpty: boolean,
+) {
+  return conversations.map((conversation) => {
+    if (conversation.id !== conversationId) {
+      return conversation;
+    }
+    const message = conversation.messages.find((item) => item.id === messageId);
+    if (
+      removeIfEmpty &&
+      message &&
+      !message.content &&
+      !message.toolActivities?.length
+    ) {
+      return {
+        ...conversation,
+        messages: conversation.messages.filter((item) => item.id !== messageId),
+      };
+    }
+    return {
+      ...conversation,
+      messages: conversation.messages.map((item) =>
+        item.id === messageId
+          ? {
+              ...item,
+              isStreaming: false,
+              toolActivities: item.toolActivities?.map((activity) =>
+                activity.status === "IN_PROGRESS"
+                  ? { ...activity, status: "CANCELLED" as const }
+                  : activity,
+              ),
+            }
+          : item,
+      ),
+    };
+  });
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }

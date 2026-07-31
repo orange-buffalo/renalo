@@ -7,9 +7,10 @@ const plugins = { code, math, mermaid };
 
 type AiMarkdownProps = {
   children: string;
+  isStreaming?: boolean;
 };
 
-export function AiMarkdown({ children }: AiMarkdownProps) {
+export function AiMarkdown({ children, isStreaming = false }: AiMarkdownProps) {
   return (
     <Streamdown
       className="ai-chat-markdown"
@@ -27,7 +28,8 @@ export function AiMarkdown({ children }: AiMarkdownProps) {
       lineNumbers={false}
       linkSafety={{ enabled: true }}
       mermaid={{ config: { securityLevel: "strict" } }}
-      mode="static"
+      mode={isStreaming ? "streaming" : "static"}
+      isAnimating={isStreaming}
       plugins={plugins}
       remend={{ linkMode: "text-only" }}
       skipHtml

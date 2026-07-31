@@ -119,15 +119,84 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun cancelsAStreamingResponse(page: Page) {
+        saveUser("alice", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.navigate(server.url.toString() + "/chat")
+
+        page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        ).fill("Stop this response")
+        page.getByLabel("Send message").click()
+
+        assertThat(page.getByLabel("Stop response")).isVisible()
+        assertThat(page.getByText("Reviewing expense totals")).isVisible()
+        page.getByLabel("Stop response").click()
+
+        page.shouldEventually {
+            extractMessages().shouldContainExactly(
+                ChatMessage("You", "Stop this response", emptyList()),
+                ChatMessage(
+                    "Renalo",
+                    "",
+                    listOf(ToolActivity("Reviewing expense totals · Stopped", "CANCELLED")),
+                ),
+            )
+        }
+        assertThat(page.getByLabel("Stop response")).not().isVisible()
+        assertThat(page.getByLabel("Send message")).isDisabled()
+    }
+
+    @Test
+    fun preservesPartialContentWhenTheStreamIsInterrupted(page: Page) {
+        saveUser("alice", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.route("**/api/ai-chat/messages") { route ->
+            route.fulfill(
+                Route.FulfillOptions()
+                    .setContentType("application/x-ndjson")
+                    .setBody(
+                        """
+                            {"v":1,"seq":1,"type":"turn.started"}
+                            {"v":1,"seq":2,"type":"assistant.delta","text":"## Partial response"}
+                        """.trimIndent() + "\n",
+                    ),
+            )
+        }
+        page.navigate(server.url.toString() + "/chat")
+
+        page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        ).fill("Interrupt this response")
+        page.getByLabel("Send message").click()
+
+        assertThat(page.getByText("The response was interrupted. Partial content remains in this conversation."))
+            .isVisible()
+        page.shouldEventually {
+            extractMessages().shouldContainExactly(
+                ChatMessage("You", "Interrupt this response", emptyList()),
+                ChatMessage("Renalo", "Partial response", emptyList()),
+            )
+        }
+        assertThat(page.getByLabel("Stop response")).not().isVisible()
+    }
+
+    @Test
     fun safelyRendersAssistantMarkdown(page: Page) {
         saveUser("alice", UserType.USER)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
         page.route("**/api/ai-chat/messages") { route ->
             route.fulfill(
                 Route.FulfillOptions()
-                    .setContentType("application/json")
+                    .setContentType("application/x-ndjson")
                     .setBody(
-                        """{"content":"## Safe response\n<script>window.__unsafeMarkdownExecuted = true</script>\n![tracker](https://example.com/tracker.png)\n[Unsafe link](javascript:alert('unsafe'))\n[Allowed link](https://example.com/details)","toolActivities":[]}""",
+                        """
+                            {"v":1,"seq":1,"type":"turn.started"}
+                            {"v":1,"seq":2,"type":"assistant.delta","text":"## Safe response\n<script>window.__unsafeMarkdownExecuted = true</script>\n![tracker](https://example.com/tracker.png)\n[Unsafe link](javascript:alert('unsafe'))\n[Allowed link](https://example.com/details)"}
+                            {"v":1,"seq":3,"type":"turn.completed"}
+                        """.trimIndent() + "\n",
                     ),
             )
         }
@@ -215,7 +284,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             content = message.locator(".ai-chat-message-content").innerText(),
             toolActivities = message.locator(".ai-chat-tool-activity").all().map { activity ->
                 ToolActivity(
-                    label = activity.innerText(),
+                    label = activity.innerText().replace(Regex("\\s+"), " ").trim(),
                     status = activity.getAttribute("data-tool-status"),
                 )
             },

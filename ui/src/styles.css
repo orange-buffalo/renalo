@@ -2713,13 +2713,38 @@ input {
   font-weight: 500;
 }
 
-.ai-chat-tool-activity span {
+.ai-chat-tool-activity-dot {
   width: 7px;
   height: 7px;
   flex: none;
   border-radius: 50%;
   background: #548f6f;
   box-shadow: 0 0 0 3px rgb(84 143 111 / 0.12);
+}
+
+.ai-chat-tool-activity[data-tool-status="IN_PROGRESS"]
+  .ai-chat-tool-activity-dot {
+  background: #7a84ba;
+  box-shadow: 0 0 0 3px rgb(122 132 186 / 0.14);
+  animation: ai-chat-activity-pulse 1.2s ease-in-out infinite;
+}
+
+.ai-chat-tool-activity[data-tool-status="CANCELLED"]
+  .ai-chat-tool-activity-dot {
+  background: #98a0aa;
+  box-shadow: none;
+}
+
+.ai-chat-tool-activity-status {
+  color: #858c96;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+@keyframes ai-chat-activity-pulse {
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .ai-chat-markdown {
