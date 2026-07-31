@@ -59,8 +59,8 @@ AI configuration is deployment-wide and supplied through environment-backed appl
 - LiteLLM base URL.
 - LiteLLM API key.
 - Stable model alias configured in LiteLLM.
-- Connection, first-token, total-response, and tool-loop timeouts.
-- Bounded concurrent chat requests and per-turn tool-call limits.
+
+Renalo uses sensible built-in defaults for timeouts and safety limits. These are implementation details rather than deployment configuration unless operational experience establishes a concrete need to expose them.
 
 The LiteLLM key is never returned to the browser or stored in reversible form in Renalo's database. Private-network LiteLLM URLs are valid and expected for self-hosted deployments.
 
@@ -77,7 +77,6 @@ Renalo stores one lightweight row per conversation. A row is scoped to a regular
 - User-visible title.
 - Current external response ID.
 - Model alias captured when the conversation starts.
-- Lifecycle state.
 - Creation and last-update timestamps.
 - A concurrency version or equivalent locking field.
 
@@ -106,9 +105,9 @@ Users cannot share or transfer conversations. Deleting a Renalo user cascades th
 
 ### Missing external state
 
-When LiteLLM definitively reports that the latest response no longer exists, Renalo marks the conversation `GONE`. The UI keeps the conversation in the list, opens it as read-only, and explains that its externally stored history is no longer available. The user may delete it or start a new conversation, but cannot continue it as if context still existed.
+When LiteLLM cannot resolve the latest response, the UI keeps the conversation in the list and shows its external history as temporarily unavailable. Renalo preserves the external response ID and does not change the conversation to a final or unrecoverable state. The user can retry later, including after a LiteLLM configuration or storage problem is corrected.
 
-Only a definitive not-found or expired response maps to `GONE`. Authentication errors, authorization errors, timeouts, connection failures, rate limits, and gateway `5xx` responses are operational errors and must remain retryable; they must not destroy or reclassify the conversation.
+A not-found response is not conclusive because a temporary proxy misconfiguration can make durable state invisible. Not-found responses, authentication errors, authorization errors, timeouts, connection failures, rate limits, and gateway `5xx` responses are all recoverable availability failures. They must not clear the external response ID, start a context-free replacement, or otherwise reclassify the conversation.
 
 ## Turn Processing
 
@@ -121,7 +120,7 @@ A turn follows this loop:
 3. Resolve the external response when continuing an existing conversation.
 4. Submit the user input, fixed system instructions, tool specifications, model alias, and previous response ID through LangChain4j.
 5. Validate each requested tool and its arguments, execute the allowed read-only tool with server-owned user context, and return a bounded structured result.
-6. Repeat model and tool exchanges until the model produces a final answer or a configured limit is reached.
+6. Repeat model and tool exchanges until the model produces a final answer or a built-in safety limit is reached.
 7. Stream user-visible answer events to the browser and persist the newest external response pointer as it becomes authoritative.
 
 The external response pointer must be durable before a response is relied on for later tool-loop steps. A process crash can otherwise leave externally accepted state unreachable. In-progress state and restart reconciliation need explicit implementation: after restart, Renalo should inspect the stored external response, safely resume a pending read-only tool exchange when possible, or expose a recoverable interrupted-turn error. It must not invent a completed answer.
@@ -158,7 +157,7 @@ The API surface is expected to cover:
 - Sending one turn as an authenticated stream.
 - Cancelling an active turn.
 
-The exact URL and event schema should be chosen with implementation tests. Authenticated `fetch()` streaming is preferred because the existing bearer token and `X-Time-Zone` header cannot be attached by native `EventSource`. Stream events should be structured, versioned, and distinguish text deltas, completion, cancellation, tool activity summaries, and recoverable or terminal errors.
+The exact URL and event schema should be chosen with implementation tests. Authenticated `fetch()` streaming is preferred because the existing bearer token and `X-Time-Zone` header cannot be attached by native `EventSource`. Stream events should be structured, versioned, and distinguish text deltas, completion, cancellation, tool activity summaries, and recoverable errors.
 
 Blocking JDBC and long-running model calls must not run on Netty event-loop threads. Streaming work needs a bounded executor, disconnect handling, cancellation propagation, and backpressure or bounded buffering.
 
@@ -173,7 +172,7 @@ The UI must distinguish:
 - Response currently streaming.
 - Interrupted but retryable turn.
 - Temporarily unavailable gateway or model.
-- Permanently missing external conversation (`GONE`).
+- Temporarily unavailable external conversation history.
 
 Assistant Markdown rendering must not allow raw HTML and must sanitize or constrain links. Tool arguments, raw tool results, gateway identifiers, and hidden reasoning are not rendered as conversation messages. User-visible tool activity can use safe summaries such as “Reviewing expense totals.”
 
@@ -196,7 +195,7 @@ Renalo's private-deployment positioning reduces the need for SaaS billing and te
 - Invalid model tool calls return a bounded tool error to the model when repair is safe; repeated invalid calls terminate the turn.
 - Arithmetic overflow and domain-service failures propagate as failures and are never replaced with approximate values.
 - Missing conversion evidence stays explicitly unavailable.
-- Gateway authentication or configuration failures are operator-actionable and do not mark conversations gone.
+- Gateway authentication, configuration, and state-lookup failures are operator-actionable and do not alter conversation metadata.
 - Rate limits and transient provider failures preserve the conversation pointer and permit retry.
 - Context-window exhaustion produces an explicit error until a tested external compaction strategy is available.
 - Switching a LiteLLM alias to an incompatible model must not silently reinterpret an existing conversation. The conversation retains its model alias, and route compatibility is validated before continuation.
@@ -207,7 +206,7 @@ Backend tests must cover complete API responses, regular-user security, cross-us
 
 Gateway contract tests run against the pinned LiteLLM version and representative local and commercial routes. They cover streaming text, streaming tool-call assembly, multi-tool loops, response retrieval, external history reconstruction, process restarts, cancellation, missing responses, provider failures, and pointer reconciliation after interruption.
 
-Playwright coverage verifies multiple conversations, continuing after a Renalo restart, streaming and cancellation, retryable errors, and the `GONE` state. UI traces are reviewed for desktop and mobile behavior. User-facing implementation changes also update the user guide and its documentation screenshots.
+Playwright coverage verifies multiple conversations, continuing after a Renalo restart, streaming and cancellation, retryable errors, and temporarily unavailable external history. UI traces are reviewed for desktop and mobile behavior. User-facing implementation changes also update the user guide and its documentation screenshots.
 
 Model quality tests use deterministic fixtures and assert tool selection and tool arguments separately from generated prose. They do not require exact natural-language wording from nondeterministic models.
 
