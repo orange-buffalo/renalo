@@ -7,6 +7,12 @@ import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
 Renalo is published as `ghcr.io/orange-buffalo/renalo:<version>`. Use an explicit numeric version from the [GitHub releases](https://github.com/orange-buffalo/renalo/releases); Renalo does not publish a floating `latest` tag.
 
+## Intended deployment model
+
+Renalo is designed for private use by an individual, household, or small trusted group. Multiple user accounts keep budgeting data separate within the application, but the deployment operator remains trusted and can access the host, database, configuration, and backups. Do not offer one Renalo installation as a public multi-tenant service.
+
+Internet access is optional. If Renalo must be reachable outside your private network, place it behind a maintained HTTPS reverse proxy, apply updates promptly, and restrict PostgreSQL and internal companion services to private networks.
+
 ## Required configuration
 
 | Variable | Purpose |
