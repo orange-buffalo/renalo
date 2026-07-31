@@ -16,8 +16,10 @@ import { cx } from "@/utils/cx";
 export type DateFilterPreset =
   | "THIS_MONTH"
   | "PREVIOUS_MONTH"
-  | "NEXT_MONTH"
   | "LAST_12_MONTHS"
+  | "LAST_2_YEARS"
+  | "LAST_3_YEARS"
+  | "LAST_5_YEARS"
   | "THIS_YEAR"
   | "ALL_TIME";
 
@@ -37,30 +39,50 @@ type DateRangeFilterProps = {
   value: TransactionDateFilterValue;
   onChange: (value: TransactionDateFilterValue) => void;
   maxValue?: CalendarDate;
+  presets?: DateFilterPreset[];
+  warnForLargeRange?: boolean;
 };
 
 const presetLabels: Record<DateFilterPreset, string> = {
   THIS_MONTH: "This month",
   PREVIOUS_MONTH: "Previous month",
-  NEXT_MONTH: "Next month",
   LAST_12_MONTHS: "Last 12 months",
+  LAST_2_YEARS: "Last 2 years",
+  LAST_3_YEARS: "Last 3 years",
+  LAST_5_YEARS: "Last 5 years",
   THIS_YEAR: "This year",
   ALL_TIME: "All time",
 };
 
-const presetOrder: DateFilterPreset[] = [
+const overviewPresets: DateFilterPreset[] = [
   "THIS_MONTH",
   "PREVIOUS_MONTH",
-  "NEXT_MONTH",
   "LAST_12_MONTHS",
   "THIS_YEAR",
   "ALL_TIME",
+];
+
+export const dashboardDateFilterPresets: DateFilterPreset[] = [
+  "THIS_MONTH",
+  "PREVIOUS_MONTH",
+  "LAST_12_MONTHS",
+  "LAST_2_YEARS",
+  "LAST_3_YEARS",
+  "LAST_5_YEARS",
+  "THIS_YEAR",
+  "ALL_TIME",
+];
+
+const allPresets = [
+  ...new Set([...overviewPresets, ...dashboardDateFilterPresets]),
 ];
 
 export function DateRangeFilter({
   value,
   onChange,
   maxValue,
+  presets = overviewPresets,
+  warnForLargeRange = false,
 }: DateRangeFilterProps) {
   const isDesktop = useBreakpoint("md");
   const [isOpen, setIsOpen] = useState(false);
@@ -127,7 +149,7 @@ export function DateRangeFilter({
         <h2>Choose date range</h2>
       </header>
       <div className="date-filter-presets">
-        {presetOrder.map((preset) => (
+        {presets.map((preset) => (
           <button
             key={preset}
             type="button"
@@ -159,10 +181,18 @@ export function DateRangeFilter({
           maxValue={maxValue}
         />
         <div className="date-filter-dialog-footer">
-          <div className="date-filter-selected-range">
-            {draftPreset === "ALL_TIME"
-              ? "All time"
-              : `${formatFullDate(calendarDateToIsoDate(draftRange.start))} - ${formatFullDate(calendarDateToIsoDate(draftRange.end))}`}
+          <div className="date-filter-dialog-summary">
+            <div className="date-filter-selected-range">
+              {draftPreset === "ALL_TIME"
+                ? "All time"
+                : `${formatFullDate(calendarDateToIsoDate(draftRange.start))} - ${formatFullDate(calendarDateToIsoDate(draftRange.end))}`}
+            </div>
+            {warnForLargeRange && isLargeRange(draftPreset, draftRange) && (
+              <p className="date-filter-large-range-warning" role="alert">
+                This large period might load too much data and make the page
+                unresponsive.
+              </p>
+            )}
           </div>
           <div className="date-filter-dialog-actions">
             <Button
@@ -249,7 +279,7 @@ export function restoreStoredDateFilter(
     const storedFilter = JSON.parse(storedValue) as Record<string, unknown>;
     if (
       typeof storedFilter.preset === "string" &&
-      presetOrder.includes(storedFilter.preset as DateFilterPreset)
+      allPresets.includes(storedFilter.preset as DateFilterPreset)
     ) {
       return filterForPreset(storedFilter.preset as DateFilterPreset, now);
     }
@@ -293,7 +323,11 @@ export function filterForPreset(
     from: calendarDateToIsoDate(range.start),
     to: calendarDateToIsoDate(range.end),
     label:
-      preset === "THIS_YEAR" || preset === "LAST_12_MONTHS"
+      preset === "THIS_YEAR" ||
+      preset === "LAST_12_MONTHS" ||
+      preset === "LAST_2_YEARS" ||
+      preset === "LAST_3_YEARS" ||
+      preset === "LAST_5_YEARS"
         ? presetLabels[preset]
         : smartRangeLabel(range.start, range.end),
     preset,
@@ -343,19 +377,31 @@ function calendarRangeForPreset(
     const start = currentDate.set({ day: 1 }).subtract({ months: 1 });
     return { start, end: endOfMonth(start) };
   }
-  if (preset === "NEXT_MONTH") {
-    const start = currentDate.set({ day: 1 }).add({ months: 1 });
-    return { start, end: endOfMonth(start) };
-  }
   if (preset === "LAST_12_MONTHS") {
     return {
       start: currentDate.subtract({ months: 12 }).add({ days: 1 }),
       end: currentDate,
     };
   }
+  if (preset === "LAST_2_YEARS") {
+    return rollingYearRange(currentDate, 2);
+  }
+  if (preset === "LAST_3_YEARS") {
+    return rollingYearRange(currentDate, 3);
+  }
+  if (preset === "LAST_5_YEARS") {
+    return rollingYearRange(currentDate, 5);
+  }
 
   const start = currentDate.set({ month: 1, day: 1 });
   return { start, end: currentDate.set({ month: 12, day: 31 }) };
+}
+
+function rollingYearRange(currentDate: CalendarDate, years: number) {
+  return {
+    start: currentDate.subtract({ years }).add({ days: 1 }),
+    end: currentDate,
+  };
 }
 
 function calendarRangeFromFilter(
@@ -413,6 +459,16 @@ function isSingleFullMonthFilter(value: TransactionDateFilterValue) {
     start.month === end.month &&
     start.day === 1 &&
     end.day === endOfMonth(end).day
+  );
+}
+
+function isLargeRange(
+  preset: DateFilterPreset | undefined,
+  range: CalendarRange,
+) {
+  return (
+    preset === "ALL_TIME" ||
+    range.end.add({ days: 1 }).compare(range.start.add({ months: 6 })) >= 0
   );
 }
 

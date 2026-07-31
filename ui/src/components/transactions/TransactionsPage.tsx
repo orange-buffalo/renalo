@@ -259,6 +259,7 @@ export function TransactionsPage({
         <DateRangeFilter
           value={transactionDateFilter}
           onChange={setTransactionDateFilter}
+          warnForLargeRange
         />
         <div className="transaction-filter-actions">
           <Button

@@ -28,6 +28,7 @@ import { TransactionByCategoryChart } from "@/components/charts/TransactionByCat
 import { TransactionTimeSeriesChart } from "@/components/charts/TransactionTimeSeriesChart";
 import {
   DateRangeFilter,
+  dashboardDateFilterPresets,
   restoreStoredDateFilter,
   storeDateFilter,
   type TransactionDateFilterValue,
@@ -367,6 +368,7 @@ export function TrackingPage() {
               value={dateFilter}
               onChange={setDateFilter}
               maxValue={dashboardToday}
+              presets={dashboardDateFilterPresets}
             />
           </div>
           <div className="dashboard-chart-grid">

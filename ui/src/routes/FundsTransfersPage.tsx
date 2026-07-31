@@ -127,6 +127,7 @@ export function FundsTransfersPage() {
         <DateRangeFilter
           value={transactionDateFilter}
           onChange={setTransactionDateFilter}
+          warnForLargeRange
         />
         <FundsTransferMoreFilters
           value={secondaryFilters}

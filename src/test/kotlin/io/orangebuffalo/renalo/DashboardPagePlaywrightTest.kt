@@ -29,6 +29,8 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import java.time.LocalDate
+import java.time.ZoneOffset
+import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 import org.junit.jupiter.api.Test
@@ -119,7 +121,10 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
         val dateDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
         assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Last 12 months"))).isVisible()
-        assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Next month"))).isDisabled()
+        assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Next month"))).hasCount(0)
+        assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Last 2 years"))).isVisible()
+        assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Last 3 years"))).isVisible()
+        assertThat(dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Last 5 years"))).isVisible()
         dateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("This month").setExact(true)).click()
         assertThat(
             dateDialog.locator("[role='gridcell'][aria-disabled='true']")
@@ -172,20 +177,21 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         )
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("All time").setExact(true)).click()
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 2 years").setExact(true)).click()
+        assertThat(page.getByText("15 Jun 2097 - 14 Jun 2099")).isVisible()
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Apply").setExact(true)).click()
-        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true))).isVisible()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 2 years").setExact(true))).isVisible()
         page.evaluate("window.localStorage.getItem('renalo.dashboard.dateFilter')")
-            .shouldBe("""{"preset":"LAST_12_MONTHS"}""")
+            .shouldBe("""{"preset":"LAST_2_YEARS"}""")
 
+        page.clock().setFixedTime(
+            Date.from(TestTimeProvider.DEFAULT_TIME.atZone(ZoneOffset.UTC).plusMonths(1).toInstant()),
+        )
         page.reload()
 
-        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true))).isVisible()
-        page.shouldEventuallyContainChartPoints(
-            charts.nth(0),
-            ChartPoint("2099-01-01", "AUD", 2_000),
-            ChartPoint("2099-06-01", "AUD", 4_000),
-        )
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 2 years").setExact(true))).isVisible()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 2 years").setExact(true)).click()
+        assertThat(page.getByText("15 Jul 2097 - 14 Jul 2099")).isVisible()
     }
 
     @Test

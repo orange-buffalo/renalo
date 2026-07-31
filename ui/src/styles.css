@@ -1171,6 +1171,18 @@ input {
   font-weight: 500;
 }
 
+.date-filter-dialog-summary {
+  max-width: 330px;
+}
+
+.date-filter-large-range-warning {
+  margin: 4px 0 0;
+  color: #b54708;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 .date-filter-dialog-actions {
   display: flex;
   gap: 8px;
@@ -1380,6 +1392,11 @@ input {
   }
 
   .date-filter-selected-range {
+    text-align: center;
+  }
+
+  .date-filter-dialog-summary {
+    max-width: none;
     text-align: center;
   }
 

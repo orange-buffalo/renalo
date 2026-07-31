@@ -354,7 +354,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Groceries", "A$15.00", "May 15", "Main", "Previous month", "edit delete"),
         )
 
-        applyDateFilterPreset(page, "May 2099", "Next month")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range")).click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range")).click()
         assertDateFilterLabel(page, "July 2099")
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Planned expenses", "A$70.00", "", "", "", "view"),
@@ -388,6 +389,19 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
             ExpenseRow("Rent", "A$30.10", "Mar 1", "Main", "March start", "edit delete"),
             ExpenseRow("Rent", "A$31.00", "Dec 31", "Main", "Previous year", "edit delete"),
         )
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("All time").setExact(true)).click()
+        val allTimeDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        assertThat(allTimeDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Next month"))).hasCount(0)
+        assertThat(allTimeDialog.getByRole(AriaRole.ALERT))
+            .hasText("This large period might load too much data and make the page unresponsive.")
+        allTimeDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Last 12 months")).click()
+        assertThat(allTimeDialog.getByRole(AriaRole.ALERT)).isVisible()
+        allTimeDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("This year")).click()
+        assertThat(allTimeDialog.getByRole(AriaRole.ALERT)).isVisible()
+        allTimeDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Previous month")).click()
+        assertThat(allTimeDialog.getByRole(AriaRole.ALERT)).hasCount(0)
+        allTimeDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Cancel")).click()
 
         applyCustomVisibleDateRange(page, "All time", startDay = "1", startIndex = 0, endDay = "31", endIndex = 0)
         assertDateFilterLabel(page, "June 2099 - July 2099")
