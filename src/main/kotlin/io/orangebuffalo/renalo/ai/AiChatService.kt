@@ -4,13 +4,33 @@ import jakarta.inject.Singleton
 
 @Singleton
 class AiChatService {
-    fun sendMessage(content: String): String {
-        return """
-            You asked: $content
+    fun sendMessage(content: String): AiChatMessageResponse {
+        return AiChatMessageResponse(
+            content = """
+                ## Spending snapshot
 
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                You asked: **$content**
 
-            Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-        """.trimIndent()
+                Here is an example of how an AI-generated answer could present your results:
+
+                | Category | Amount | Share |
+                | --- | ---: | ---: |
+                | Groceries | ${'$'}428.30 | 42% |
+                | Transport | ${'$'}186.75 | 18% |
+                | Dining out | ${'$'}142.10 | 14% |
+
+                - **Groceries** were the largest expense category.
+                - Dining out was lower than groceries by `${'$'}286.20`.
+                - The remaining categories accounted for 26% of the sample total.
+
+                > This is placeholder data from the Chat preview. It is not calculated from your Renalo records yet.
+            """.trimIndent(),
+            toolActivities = listOf(
+                AiChatToolActivity(
+                    label = "Reviewed expense totals",
+                    status = AiChatToolActivityStatus.COMPLETED,
+                ),
+            ),
+        )
     }
 }

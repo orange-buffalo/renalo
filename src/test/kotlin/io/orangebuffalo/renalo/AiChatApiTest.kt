@@ -23,7 +23,7 @@ class AiChatApiTest : IntegrationTestSupport() {
     lateinit var passwordHasher: PasswordHasher
 
     @Test
-    fun echoesMessagesForRegularUsers() {
+    fun returnsMarkdownAndStructuredToolActivityForRegularUsers() {
         saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")
 
@@ -37,7 +37,13 @@ class AiChatApiTest : IntegrationTestSupport() {
         response.body().shouldEqualJson(
             """
                 {
-                  "content": "You asked: How was this month?\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+                  "content": "## Spending snapshot\n\nYou asked: **How was this month?**\n\nHere is an example of how an AI-generated answer could present your results:\n\n| Category | Amount | Share |\n| --- | ---: | ---: |\n| Groceries | ${'$'}428.30 | 42% |\n| Transport | ${'$'}186.75 | 18% |\n| Dining out | ${'$'}142.10 | 14% |\n\n- **Groceries** were the largest expense category.\n- Dining out was lower than groceries by `${'$'}286.20`.\n- The remaining categories accounted for 26% of the sample total.\n\n> This is placeholder data from the Chat preview. It is not calculated from your Renalo records yet.",
+                  "toolActivities": [
+                    {
+                      "label": "Reviewed expense totals",
+                      "status": "COMPLETED"
+                    }
+                  ]
                 }
             """.trimIndent(),
         )

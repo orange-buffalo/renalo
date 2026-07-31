@@ -20,7 +20,7 @@ class AiChatController(
             return HttpResponse.badRequest()
         }
 
-        return HttpResponse.ok(AiChatMessageResponse(content = aiChatService.sendMessage(request.content)))
+        return HttpResponse.ok(aiChatService.sendMessage(request.content))
     }
 }
 
@@ -30,4 +30,14 @@ data class AiChatMessageRequest(
 
 data class AiChatMessageResponse(
     val content: String,
+    val toolActivities: List<AiChatToolActivity>,
 )
+
+data class AiChatToolActivity(
+    val label: String,
+    val status: AiChatToolActivityStatus,
+)
+
+enum class AiChatToolActivityStatus {
+    COMPLETED,
+}

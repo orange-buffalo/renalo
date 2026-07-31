@@ -1,5 +1,6 @@
 import { ChevronDown, Plus, Send01 } from "@untitledui/icons";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { AiChatToolActivity } from "@/api/aiChat";
 import { sendAiChatMessage } from "@/api/aiChat";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/untitled/base/buttons/button";
@@ -10,6 +11,7 @@ type ChatMessage = {
   id: number;
   author: "You" | "Renalo";
   content: string;
+  toolActivities?: AiChatToolActivity[];
 };
 
 type Conversation = {
@@ -17,6 +19,10 @@ type Conversation = {
   title: string;
   messages: ChatMessage[];
 };
+
+const AiMarkdown = lazy(async () => ({
+  default: (await import("@/components/ai-chat/AiMarkdown")).AiMarkdown,
+}));
 
 const initialConversation: Conversation = {
   id: 1,
@@ -89,6 +95,7 @@ export function AiChatPage() {
         id: nextMessageId + 1,
         author: "Renalo",
         content: response.content,
+        toolActivities: response.toolActivities,
       };
       setNextMessageId((current) => current + 1);
       setConversations((current) =>
@@ -169,8 +176,31 @@ export function AiChatPage() {
                 key={message.id}
               >
                 <div className="ai-chat-message-body">
+                  {message.author === "Renalo" &&
+                    message.toolActivities?.map((activity) => (
+                      <div
+                        className="ai-chat-tool-activity"
+                        data-tool-status={activity.status}
+                        key={activity.label}
+                      >
+                        <span aria-hidden="true" />
+                        {activity.label}
+                      </div>
+                    ))}
                   <div className="ai-chat-message-content">
-                    {message.content}
+                    {message.author === "Renalo" ? (
+                      <Suspense
+                        fallback={
+                          <div className="ai-chat-markdown-loading">
+                            Formatting response...
+                          </div>
+                        }
+                      >
+                        <AiMarkdown>{message.content}</AiMarkdown>
+                      </Suspense>
+                    ) : (
+                      message.content
+                    )}
                   </div>
                 </div>
               </article>

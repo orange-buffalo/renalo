@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "rm -rf dist && mkdir -p dist/assets && tailwindcss -i ./src/styles.css -o ./dist/assets/styles.css --minify && bun build ./src/main.tsx --target=browser --outdir=dist --entry-naming=assets/index-[hash].[ext] --asset-naming=assets/[name]-[hash].[ext] && cp src/sw.js dist/sw.js && bun ./scripts/write-index.ts",
+    "build": "rm -rf dist && mkdir -p dist/assets && tailwindcss -i ./src/styles.css -o ./dist/assets/styles.css --minify && bun build ./src/main.tsx --target=browser --outdir=dist --entry-naming=assets/index-[hash].[ext] --chunk-naming=assets/chunks/[name]-[hash].[ext] --asset-naming=assets/[name]-[hash].[ext] --splitting && cp src/sw.js dist/sw.js && bun ./scripts/write-index.ts",
     "check": "biome check . && tsc --noEmit",
     "format": "biome check --write .",
     "test": "bun test"
@@ -13,6 +13,9 @@
     "@internationalized/date": "^3.12.2",
     "@react-stately/utils": "^3.12.1",
     "@react-types/overlays": "^3.10.0",
+    "@streamdown/code": "1.1.1",
+    "@streamdown/math": "1.0.2",
+    "@streamdown/mermaid": "1.0.2",
     "@untitledui/icons": "^0.0.22",
     "input-otp": "^1.4.2",
     "qrcode": "^1.5.4",
@@ -24,8 +27,10 @@
     "react-router": "8.2.0",
     "recharts": "^3.9.2",
     "sonner": "^2.0.7",
+    "streamdown": "2.5.0",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "type-fest": "^5.8.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",

@@ -51,13 +51,18 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
 
         page.shouldEventually {
             extractMessages().shouldContainExactly(
-                ChatMessage("You", "How was this month?"),
+                ChatMessage("You", "How was this month?", emptyList()),
                 ChatMessage(
                     "Renalo",
-                    "You asked: How was this month?\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+                    "Spending snapshot\n\nYou asked: How was this month?\n\nHere is an example of how an AI-generated answer could present your results:\n\nCategory\tAmount\tShare\nGroceries\t${'$'}428.30\t42%\nTransport\t${'$'}186.75\t18%\nDining out\t${'$'}142.10\t14%\nGroceries were the largest expense category.\nDining out was lower than groceries by ${'$'}286.20.\nThe remaining categories accounted for 26% of the sample total.\n\nThis is placeholder data from the Chat preview. It is not calculated from your Renalo records yet.",
+                    listOf(ToolActivity("Reviewed expense totals", "COMPLETED")),
                 ),
             )
         }
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+        assertThat(page.getByRole(AriaRole.TABLE)).isVisible()
+        assertThat(page.locator("[data-chat-author='Renalo'] [data-streamdown='strong']").first())
+            .containsText("How was this month?")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("New conversation")).click()
         assertThat(page.getByText("What would you like to explore?")).isVisible()
@@ -67,10 +72,11 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Conversation 1")).click()
         page.shouldEventually {
             extractMessages().shouldContainExactly(
-                ChatMessage("You", "How was this month?"),
+                ChatMessage("You", "How was this month?", emptyList()),
                 ChatMessage(
                     "Renalo",
-                    "You asked: How was this month?\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+                    "Spending snapshot\n\nYou asked: How was this month?\n\nHere is an example of how an AI-generated answer could present your results:\n\nCategory\tAmount\tShare\nGroceries\t${'$'}428.30\t42%\nTransport\t${'$'}186.75\t18%\nDining out\t${'$'}142.10\t14%\nGroceries were the largest expense category.\nDining out was lower than groceries by ${'$'}286.20.\nThe remaining categories accounted for 26% of the sample total.\n\nThis is placeholder data from the Chat preview. It is not calculated from your Renalo records yet.",
+                    listOf(ToolActivity("Reviewed expense totals", "COMPLETED")),
                 ),
             )
         }
@@ -107,6 +113,36 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         messageInput.fill((1..8).joinToString("\n") { "Draft line $it" })
         messageInput.evaluate("input => input.scrollHeight > input.clientHeight").shouldBe(true)
         assertThat(page.getByLabel("Send message")).isVisible()
+    }
+
+    @Test
+    fun safelyRendersAssistantMarkdown(page: Page) {
+        saveUser("alice", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.route("**/api/ai-chat/messages") { route ->
+            route.fulfill(
+                Route.FulfillOptions()
+                    .setContentType("application/json")
+                    .setBody(
+                        """{"content":"## Safe response\n<script>window.__unsafeMarkdownExecuted = true</script>\n![tracker](https://example.com/tracker.png)\n[Unsafe link](javascript:alert('unsafe'))\n[Allowed link](https://example.com/details)","toolActivities":[]}""",
+                    ),
+            )
+        }
+
+        page.navigate(server.url.toString() + "/chat")
+        page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        ).fill("Show a safe response")
+        page.getByLabel("Send message").click()
+
+        val assistantMessage = page.locator("[data-chat-author='Renalo']")
+        assertThat(assistantMessage.getByRole(AriaRole.HEADING)).containsText("Safe response")
+        assistantMessage.locator("script").count().shouldBe(0)
+        assistantMessage.locator("img").count().shouldBe(0)
+        assistantMessage.getByRole(AriaRole.LINK).count().shouldBe(0)
+        assertThat(assistantMessage.locator("[data-streamdown='link']")).containsText("Allowed link")
+        page.evaluate("window.__unsafeMarkdownExecuted === true").shouldBe(false)
     }
 
     @Test
@@ -174,6 +210,12 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         ChatMessage(
             author = message.getAttribute("data-chat-author"),
             content = message.locator(".ai-chat-message-content").innerText(),
+            toolActivities = message.locator(".ai-chat-tool-activity").all().map { activity ->
+                ToolActivity(
+                    label = activity.innerText(),
+                    status = activity.getAttribute("data-tool-status"),
+                )
+            },
         )
     }
 
@@ -188,5 +230,11 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     private data class ChatMessage(
         val author: String,
         val content: String,
+        val toolActivities: List<ToolActivity>,
+    )
+
+    private data class ToolActivity(
+        val label: String,
+        val status: String,
     )
 }
