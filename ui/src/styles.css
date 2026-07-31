@@ -2729,8 +2729,8 @@ input {
 
 .ai-chat-send-button {
   position: absolute;
-  right: 20px;
-  bottom: 12px;
+  right: 12px;
+  bottom: 8px;
   color: #667085;
 }
 
