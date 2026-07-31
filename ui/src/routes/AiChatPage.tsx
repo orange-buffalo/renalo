@@ -194,7 +194,7 @@ export function AiChatPage() {
             <TextArea
               aria-label="Message"
               placeholder="Write a message..."
-              rows={2}
+              rows={3}
               textAreaClassName="ai-chat-composer-textarea"
               value={draft}
               isDisabled={isSending}

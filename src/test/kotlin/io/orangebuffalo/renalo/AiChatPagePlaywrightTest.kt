@@ -94,11 +94,19 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             }
         }
 
-        assertThat(page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Message").setExact(true))).isVisible()
+        val messageInput = page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        )
+        assertThat(messageInput).isVisible()
         assertThat(page.getByLabel("Send message")).isVisible()
         page.locator(".ai-chat-feed").evaluate(
             "feed => feed.scrollHeight > feed.clientHeight && feed.scrollTop > 0",
         ).shouldBe(true)
+
+        messageInput.fill((1..8).joinToString("\n") { "Draft line $it" })
+        messageInput.evaluate("input => input.scrollHeight > input.clientHeight").shouldBe(true)
+        assertThat(page.getByLabel("Send message")).isVisible()
     }
 
     @Test
