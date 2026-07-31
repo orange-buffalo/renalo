@@ -63,6 +63,9 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TABLE)).isVisible()
         assertThat(page.locator("[data-chat-author='Renalo'] [data-streamdown='strong']").first())
             .containsText("How was this month?")
+        page.getByTitle("Copy table").click()
+        assertThat(page.getByTitle("Copy table as Markdown")).isVisible()
+        page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot")).click()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("New conversation")).click()
         assertThat(page.getByText("What would you like to explore?")).isVisible()
