@@ -226,7 +226,7 @@ class IncomesPagePlaywrightTest : IntegrationTestSupport() {
             IncomeRow("Salary", "A$1,234.00", "Today", "Main", "This month income", "edit delete"),
         )
 
-        applyDateFilterPreset(page, "June 2099", "Next month")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Next date range")).click()
         assertDateFilterLabel(page, "July 2099")
         page.shouldEventuallyContainIncomeRows(
             IncomeRow("Planned incomes", "A$2,000.00", "", "", "", "view"),

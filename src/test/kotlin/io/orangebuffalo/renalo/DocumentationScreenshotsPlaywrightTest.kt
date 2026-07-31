@@ -216,6 +216,7 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("June 2099").setExact(true)).click()
         val overviewDateDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        assertThat(overviewDateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Next month"))).hasCount(0)
         overviewDateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("All time")).click()
         assertThat(overviewDateDialog.getByRole(AriaRole.ALERT)).isVisible()
         capture(page, layout, "32-overview-large-date-range-warning")

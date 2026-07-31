@@ -16,7 +16,6 @@ import { cx } from "@/utils/cx";
 export type DateFilterPreset =
   | "THIS_MONTH"
   | "PREVIOUS_MONTH"
-  | "NEXT_MONTH"
   | "LAST_12_MONTHS"
   | "LAST_2_YEARS"
   | "LAST_3_YEARS"
@@ -47,7 +46,6 @@ type DateRangeFilterProps = {
 const presetLabels: Record<DateFilterPreset, string> = {
   THIS_MONTH: "This month",
   PREVIOUS_MONTH: "Previous month",
-  NEXT_MONTH: "Next month",
   LAST_12_MONTHS: "Last 12 months",
   LAST_2_YEARS: "Last 2 years",
   LAST_3_YEARS: "Last 3 years",
@@ -59,7 +57,6 @@ const presetLabels: Record<DateFilterPreset, string> = {
 const overviewPresets: DateFilterPreset[] = [
   "THIS_MONTH",
   "PREVIOUS_MONTH",
-  "NEXT_MONTH",
   "LAST_12_MONTHS",
   "THIS_YEAR",
   "ALL_TIME",
@@ -380,10 +377,6 @@ function calendarRangeForPreset(
     const start = currentDate.set({ day: 1 }).subtract({ months: 1 });
     return { start, end: endOfMonth(start) };
   }
-  if (preset === "NEXT_MONTH") {
-    const start = currentDate.set({ day: 1 }).add({ months: 1 });
-    return { start, end: endOfMonth(start) };
-  }
   if (preset === "LAST_12_MONTHS") {
     return {
       start: currentDate.subtract({ months: 12 }).add({ days: 1 }),
@@ -475,7 +468,7 @@ function isLargeRange(
 ) {
   return (
     preset === "ALL_TIME" ||
-    range.end.compare(range.start.add({ years: 1 })) >= 0
+    range.end.add({ days: 1 }).compare(range.start.add({ months: 6 })) >= 0
   );
 }
 
