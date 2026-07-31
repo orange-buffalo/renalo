@@ -130,6 +130,13 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName(Pattern.compile("Configure (expenses|income) chart")))).hasCount(2)
         capture(page, layout, "03-dashboard")
 
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Last 12 months").setExact(true)).click()
+        val dashboardDateDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        assertThat(dashboardDateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Last 5 years"))).isVisible()
+        assertThat(dashboardDateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Next month"))).hasCount(0)
+        capture(page, layout, "31-dashboard-date-range")
+        dashboardDateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Cancel")).click()
+
         page.locator("[data-testid='expense-category-chart']").scrollIntoViewIfNeeded()
         page.waitForTimeout(1_600.0)
         val expenseCategoryChart = page.locator("[data-testid='expense-category-chart']")
@@ -206,6 +213,13 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
             page.waitForTimeout(1_600.0)
         }
         capture(page, layout, "05-expenses-overview")
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("June 2099").setExact(true)).click()
+        val overviewDateDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Date range filter"))
+        overviewDateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("All time")).click()
+        assertThat(overviewDateDialog.getByRole(AriaRole.ALERT)).isVisible()
+        capture(page, layout, "32-overview-large-date-range-warning")
+        overviewDateDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Cancel")).click()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("More filters")).click()
         assertThat(page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))).isVisible()

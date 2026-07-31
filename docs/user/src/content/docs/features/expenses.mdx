@@ -8,6 +8,8 @@ import desktop from "../../../assets/screenshots/desktop/05-expenses-overview.pn
 import mobile from "../../../assets/screenshots/mobile/05-expenses-overview.png";
 import filtersDesktop from "../../../assets/screenshots/desktop/06-expense-filters.png";
 import filtersMobile from "../../../assets/screenshots/mobile/06-expense-filters.png";
+import dateWarningDesktop from "../../../assets/screenshots/desktop/32-overview-large-date-range-warning.png";
+import dateWarningMobile from "../../../assets/screenshots/mobile/32-overview-large-date-range-warning.png";
 
 Each expense belongs to one account and one expense category. Amounts are positive values; the expense type determines that they reduce the account balance.
 
@@ -27,7 +29,9 @@ Dates are date-only values. Today's and past entries affect current balances; fu
 
 ## Find the right entries
 
-The global date range is shared across transaction and transfer overviews. **More filters** narrows expenses by account, category, or notes, while archived accounts and categories are excluded from selectors. On mobile, these filters open in a full-page panel; use the close button to return to the overview without clearing your selections.
+The global date range is shared across transaction and transfer overviews. You can use future months for planning, but selecting more than 12 months or **All time** shows a warning because loading a large amount of data might make the page unresponsive. **More filters** narrows expenses by account, category, or notes, while archived accounts and categories are excluded from selectors. On mobile, these filters open in a full-page panel; use the close button to return to the overview without clearing your selections.
+
+<ScreenshotPair desktop={dateWarningDesktop} mobile={dateWarningMobile} alt="Large date range warning in an overview filter" />
 
 Category and account filters start at **All**, with every current option checked and no selection tags. Clear a checkbox to exclude that option, or use **Only** on any row for a quick one-item filter. Clearing the final checkbox or removing the final selection tag resets the filter to **All**. Selecting every current option also returns to unrestricted **All**, so historical entries linked to archived options remain included.
 

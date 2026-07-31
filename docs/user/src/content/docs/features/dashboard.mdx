@@ -22,6 +22,8 @@ import incomeCategoriesDesktop from "../../../assets/screenshots/desktop/29-dash
 import incomeCategoriesMobile from "../../../assets/screenshots/mobile/29-dashboard-income-by-category.png";
 import expenseCategoriesFullscreenDesktop from "../../../assets/screenshots/desktop/30-dashboard-expenses-by-category-fullscreen.png";
 import expenseCategoriesFullscreenMobile from "../../../assets/screenshots/mobile/30-dashboard-expenses-by-category-fullscreen.png";
+import dateRangeDesktop from "../../../assets/screenshots/desktop/31-dashboard-date-range.png";
+import dateRangeMobile from "../../../assets/screenshots/mobile/31-dashboard-date-range.png";
 
 The dashboard gives every active account its own card, currency, current balance, and month-to-date money flow. Below the accounts, expense, income, category breakdown, and net worth charts show how your finances change over a selected period.
 
@@ -37,7 +39,9 @@ Archived accounts are absent from the dashboard account cards but keep their rec
 
 ## Explore income and expenses
 
-The dashboard initially shows **Last 12 months**. Use the date selector below the account cards to choose a month, the last 12 months, the current year, all time, or a custom range. The dashboard remembers this selection in your browser. Relative selections such as **This month**, **Last 12 months**, and **This year** are saved as relative choices, so they move forward automatically when you return later; custom dates remain fixed.
+The dashboard initially shows **Last 12 months**. Use the date selector below the account cards to choose a recent month, the last 12 months, the last 2, 3, or 5 years, the current year, all time, or a custom range. The dashboard remembers this selection in your browser. Relative selections such as **This month**, **Last 2 years**, and **This year** are saved as relative choices, so their actual dates move forward automatically when you return later; custom dates remain fixed.
+
+<ScreenshotPair desktop={dateRangeDesktop} mobile={dateRangeMobile} alt="Dashboard date range shortcuts" />
 
 Dashboard ranges stop at today in your browser's timezone. Future dates cannot be selected here, and planned transactions are excluded even for **This year** and **All time**. Expense, income, and transfer overviews still allow future ranges for planning.
 
