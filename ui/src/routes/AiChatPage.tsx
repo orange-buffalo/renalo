@@ -1,10 +1,9 @@
-import { MessageChatCircle, Plus, Send01, Stars02 } from "@untitledui/icons";
-import { useState } from "react";
+import { ChevronDown, Plus, Send01 } from "@untitledui/icons";
+import { useEffect, useRef, useState } from "react";
 import { sendAiChatMessage } from "@/api/aiChat";
 import { PageLayout } from "@/components/PageLayout";
-import { Avatar } from "@/components/untitled/base/avatar/avatar";
 import { Button } from "@/components/untitled/base/buttons/button";
-import { Select } from "@/components/untitled/base/select/select";
+import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { TextArea } from "@/components/untitled/base/textarea/textarea";
 
 type ChatMessage = {
@@ -26,6 +25,7 @@ const initialConversation: Conversation = {
 };
 
 export function AiChatPage() {
+  const feedRef = useRef<HTMLDivElement>(null);
   const [conversations, setConversations] = useState<Conversation[]>([
     initialConversation,
   ]);
@@ -38,10 +38,17 @@ export function AiChatPage() {
   const activeConversation = conversations.find(
     (conversation) => conversation.id === activeConversationId,
   );
-  const conversationItems = conversations.map((conversation) => ({
-    id: String(conversation.id),
-    label: conversation.title,
-  }));
+
+  useEffect(() => {
+    if (!activeConversation) {
+      return;
+    }
+
+    const feed = feedRef.current;
+    if (feed) {
+      feed.scrollTop = feed.scrollHeight;
+    }
+  }, [activeConversation]);
 
   function createConversation() {
     const conversation: Conversation = {
@@ -104,36 +111,52 @@ export function AiChatPage() {
     >
       <section className="standard-page-panel ai-chat-panel">
         <div className="ai-chat-toolbar">
-          <div className="ai-chat-conversation-select">
-            <Select
-              aria-label="Current conversation"
-              size="md"
-              icon={MessageChatCircle}
-              items={conversationItems}
-              selectedKey={String(activeConversationId)}
+          <Dropdown.Root>
+            <Button
+              aria-label="Select conversation"
+              className="ai-chat-conversation-trigger"
+              color="tertiary"
+              size="sm"
+              iconTrailing={ChevronDown}
               isDisabled={isSending}
-              onSelectionChange={(key) => {
-                setActiveConversationId(Number(key));
-                setDraft("");
-                setError(undefined);
-              }}
             >
-              {(item) => <Select.Item id={item.id}>{item.label}</Select.Item>}
-            </Select>
-          </div>
+              {activeConversation?.title}
+            </Button>
+            <Dropdown.Popover placement="bottom">
+              <Dropdown.Menu
+                aria-label="Conversations"
+                selectionMode="single"
+                selectedKeys={[String(activeConversationId)]}
+              >
+                {conversations.map((conversation) => (
+                  <Dropdown.Item
+                    id={String(conversation.id)}
+                    key={conversation.id}
+                    label={conversation.title}
+                    onAction={() => {
+                      setActiveConversationId(conversation.id);
+                      setDraft("");
+                      setError(undefined);
+                    }}
+                  />
+                ))}
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown.Root>
           <Button
+            aria-label="New conversation"
+            className="ai-chat-new-conversation-button"
             color="secondary"
-            size="md"
+            size="sm"
             iconLeading={Plus}
             isDisabled={isSending}
             onPress={createConversation}
-          >
-            New conversation
-          </Button>
+          />
         </div>
 
         <div
           className="ai-chat-feed"
+          ref={feedRef}
           role="log"
           aria-label="Message feed"
           aria-live="polite"
@@ -145,18 +168,7 @@ export function AiChatPage() {
                 data-chat-author={message.author}
                 key={message.id}
               >
-                <Avatar
-                  size="sm"
-                  initials={message.author === "You" ? "Y" : undefined}
-                  placeholderIcon={
-                    message.author === "Renalo" ? Stars02 : undefined
-                  }
-                  rounded
-                />
                 <div className="ai-chat-message-body">
-                  <span className="ai-chat-message-author">
-                    {message.author}
-                  </span>
                   <div className="ai-chat-message-content">
                     {message.content}
                   </div>
@@ -165,9 +177,6 @@ export function AiChatPage() {
             ))
           ) : (
             <div className="ai-chat-empty-state">
-              <div className="ai-chat-empty-icon">
-                <Stars02 aria-hidden="true" />
-              </div>
               <h2>What would you like to explore?</h2>
               <p>Send a message to begin this conversation.</p>
             </div>
@@ -181,12 +190,12 @@ export function AiChatPage() {
 
         <div className="ai-chat-composer">
           {error && <p className="ai-chat-error">{error}</p>}
-          <div className="ai-chat-composer-row">
+          <div className="ai-chat-composer-input">
             <TextArea
               aria-label="Message"
-              className="flex-1"
               placeholder="Write a message..."
-              rows={3}
+              rows={2}
+              textAreaClassName="ai-chat-composer-textarea"
               value={draft}
               isDisabled={isSending}
               onChange={setDraft}
@@ -199,17 +208,15 @@ export function AiChatPage() {
             />
             <Button
               aria-label="Send message"
-              color="primary"
-              size="lg"
+              className="ai-chat-send-button"
+              color="tertiary"
+              size="sm"
               iconLeading={Send01}
               isDisabled={!draft.trim() || isSending}
               isLoading={isSending}
               onPress={() => void sendMessage()}
             />
           </div>
-          <p className="ai-chat-composer-hint">
-            Enter to send, Shift + Enter for a new line
-          </p>
         </div>
       </section>
     </PageLayout>

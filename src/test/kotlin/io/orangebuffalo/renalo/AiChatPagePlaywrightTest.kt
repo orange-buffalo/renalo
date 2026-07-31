@@ -5,6 +5,7 @@ import com.microsoft.playwright.Route
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldBe
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
@@ -62,8 +63,8 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByText("What would you like to explore?")).isVisible()
         assertConversationOptions(page, listOf("Conversation 1", "Conversation 2"))
 
-        conversationSelect(page).click()
-        page.getByRole(AriaRole.OPTION, Page.GetByRoleOptions().setName("Conversation 1")).click()
+        conversationSelector(page).click()
+        page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Conversation 1")).click()
         page.shouldEventually {
             extractMessages().shouldContainExactly(
                 ChatMessage("You", "How was this month?"),
@@ -73,6 +74,31 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ),
             )
         }
+    }
+
+    @Test
+    fun keepsComposerVisibleWhileTheMessageFeedScrollsOnMobile(page: Page) {
+        saveUser("alice", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.setViewportSize(390, 844)
+        page.navigate(server.url.toString() + "/chat")
+
+        repeat(3) { index ->
+            page.getByRole(
+                AriaRole.TEXTBOX,
+                Page.GetByRoleOptions().setName("Message").setExact(true),
+            ).fill("Question ${index + 1}")
+            page.getByLabel("Send message").click()
+            page.shouldEventually {
+                page.locator("[data-chat-author='Renalo']").count().shouldBe(index + 1)
+            }
+        }
+
+        assertThat(page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Message").setExact(true))).isVisible()
+        assertThat(page.getByLabel("Send message")).isVisible()
+        page.locator(".ai-chat-feed").evaluate(
+            "feed => feed.scrollHeight > feed.clientHeight && feed.scrollTop > 0",
+        ).shouldBe(true)
     }
 
     @Test
@@ -123,12 +149,18 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     private fun assertConversationOptions(page: Page, expected: List<String>) {
-        conversationSelect(page).click()
-        page.getByRole(AriaRole.OPTION).allTextContents().map(String::trim).shouldContainExactly(expected)
+        conversationSelector(page).click()
+        page.getByRole(AriaRole.MENUITEMRADIO)
+            .allTextContents()
+            .map(String::trim)
+            .shouldContainExactly(expected)
         page.keyboard().press("Escape")
     }
 
-    private fun conversationSelect(page: Page) = page.locator(".ai-chat-conversation-select button")
+    private fun conversationSelector(page: Page) = page.getByRole(
+        AriaRole.BUTTON,
+        Page.GetByRoleOptions().setName("Select conversation"),
+    )
 
     private fun Page.extractMessages(): List<ChatMessage> = locator("[data-chat-author]").all().map { message ->
         ChatMessage(
