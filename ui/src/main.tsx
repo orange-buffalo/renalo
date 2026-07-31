@@ -7,6 +7,7 @@ import type { UserType } from "./api/auth.ts";
 import { Notifications } from "./components/untitled/application/notifications/notifications.tsx";
 import { AccountAdjustmentsPage } from "./routes/AccountAdjustmentsPage.tsx";
 import { ActivateAccountPage } from "./routes/ActivateAccountPage.tsx";
+import { AiChatPage } from "./routes/AiChatPage.tsx";
 import { CreateUserPage } from "./routes/CreateUserPage.tsx";
 import { EditUserPage } from "./routes/EditUserPage.tsx";
 import {
@@ -135,6 +136,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <EditFundsTransferPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/chat",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]} requiresAiChat>
+        <AiChatPage />
       </ProtectedRoute>
     ),
   },
@@ -285,12 +294,14 @@ createRoot(root).render(
 
 function ProtectedRoute({
   allowedTypes,
+  requiresAiChat = false,
   children,
 }: {
   allowedTypes: UserType[];
+  requiresAiChat?: boolean;
   children: ReactNode;
 }) {
-  const { authStatus, profile } = useAppState();
+  const { authStatus, profile, settings } = useAppState();
 
   if (authStatus === "checking") {
     return null;
@@ -301,6 +312,10 @@ function ProtectedRoute({
   }
 
   if (!allowedTypes.includes(profile.type)) {
+    return <Navigate to={defaultRouteFor(profile.type)} replace />;
+  }
+
+  if (requiresAiChat && !settings?.aiChatEnabled) {
     return <Navigate to={defaultRouteFor(profile.type)} replace />;
   }
 

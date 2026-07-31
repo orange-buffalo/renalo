@@ -50,6 +50,7 @@ import java.util.regex.Pattern
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
+@Property(name = "renalo.ai-chat.enabled", value = "true")
 @EnabledIfEnvironmentVariable(named = "RENALO_DOCUMENTATION_SCREENSHOTS", matches = "(?i:true|1)")
 class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
     @Inject
@@ -280,6 +281,21 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         page.locator("input[name='targetAmount']").fill("210.00")
         assertThat(page.locator("input[name='exchangeRate']")).isVisible()
         capture(page, layout, "11-transfer-cross-currency-form")
+
+        page.navigate(server.url.toString() + "/chat")
+        assertThat(page.locator(".ai-chat-panel")).isVisible()
+        page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        ).fill("Summarize my spending this month")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Send message")).click()
+        assertThat(page.locator("[data-chat-author='Renalo']")).isVisible()
+        capture(page, layout, "33-chat-preview")
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
+        assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Settings"))).isVisible()
+        capture(page, layout, "34-account-menu")
+        page.keyboard().press("Escape")
 
         page.navigate(server.url.toString() + "/settings")
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Tracking accounts"))).isVisible()

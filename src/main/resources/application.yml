@@ -34,6 +34,8 @@ flyway:
 
 renalo:
   public-url: ${RENALO_PUBLIC_URL:`http://localhost:8080`}
+  ai-chat:
+    enabled: ${RENALO_AI_CHAT_ENABLED:false}
   auth:
     access-token-expiration-seconds: 1800
     remember-me-token-expiration-seconds: 2592000

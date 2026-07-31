@@ -41,6 +41,7 @@ export default defineConfig({
           items: [
             { label: "Feature map", slug: "features" },
             { label: "Dashboard", slug: "features/dashboard" },
+            { label: "Chat preview", slug: "features/chat-preview" },
             { label: "Expenses", slug: "features/expenses" },
             { label: "Incomes", slug: "features/incomes" },
             { label: "Recurring entries", slug: "features/recurring-entries" },

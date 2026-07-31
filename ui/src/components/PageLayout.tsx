@@ -3,6 +3,7 @@ import {
   CreditCard02,
   DownloadCloud01,
   LogOut01,
+  MessageChatCircle,
   Settings01,
   SwitchHorizontal01,
   TrendUp02,
@@ -39,10 +40,13 @@ export function PageLayout({
   className,
   children,
 }: PageLayoutProps) {
-  const { profile, setProfile, setSettings } = useAppState();
+  const { profile, settings, setProfile, setSettings } = useAppState();
   const location = useLocation();
   const navigate = useNavigate();
-  const navigationItems = getNavigationItems(profile?.type);
+  const navigationItems = getNavigationItems(
+    profile?.type,
+    settings?.aiChatEnabled ?? false,
+  );
 
   function handleNavigate(event: MouseEvent, href?: string) {
     if (!href?.startsWith("/")) {
@@ -157,6 +161,16 @@ export function PageLayout({
                     />
                   </div>
                   <Dropdown.Menu selectionMode="none" aria-label="Account menu">
+                    {profile.type === "USER" && (
+                      <Dropdown.Item
+                        label="Settings"
+                        icon={Settings01}
+                        selectionIndicator="none"
+                        onAction={() => {
+                          navigate("/settings");
+                        }}
+                      />
+                    )}
                     <Dropdown.Item
                       label="My Profile"
                       icon={User01}
@@ -227,7 +241,10 @@ function defaultRouteFor(userType?: UserType) {
   return userType === "ADMIN" ? "/user-management" : "/tracking";
 }
 
-function getNavigationItems(userType?: UserType): NavItemType[] {
+function getNavigationItems(
+  userType: UserType | undefined,
+  aiChatEnabled: boolean,
+): NavItemType[] {
   if (userType === "ADMIN") {
     return [
       {
@@ -238,7 +255,7 @@ function getNavigationItems(userType?: UserType): NavItemType[] {
     ];
   }
 
-  return [
+  const items: NavItemType[] = [
     {
       label: "Dashboard",
       href: "/tracking",
@@ -259,10 +276,15 @@ function getNavigationItems(userType?: UserType): NavItemType[] {
       href: "/transfers",
       icon: SwitchHorizontal01,
     },
-    {
-      label: "Settings",
-      href: "/settings",
-      icon: Settings01,
-    },
   ];
+
+  if (aiChatEnabled) {
+    items.push({
+      label: "Chat",
+      href: "/chat",
+      icon: MessageChatCircle,
+    });
+  }
+
+  return items;
 }
