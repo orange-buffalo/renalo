@@ -15,6 +15,14 @@ class TestAiChatTitleGeneratorFactory {
     AiChatTitleGenerator titleGenerator() {
         return firstPrompt -> {
             var normalizedPrompt = firstPrompt.toLowerCase(Locale.ROOT);
+            if (normalizedPrompt.contains("slow title")) {
+                try {
+                    Thread.sleep(750);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted while simulating title generation", interruptedException);
+                }
+            }
             if (normalizedPrompt.contains("fail title")) {
                 throw new IllegalStateException("Simulated title generation failure");
             }

@@ -707,6 +707,12 @@ export function AiChatPage() {
 }
 
 function ChatMessageView({ message }: { message: ChatMessage }) {
+  const isThinking =
+    message.author === "Renalo" &&
+    message.isStreaming &&
+    !message.content &&
+    !message.toolActivities?.length;
+
   return (
     <article
       className={`ai-chat-message ai-chat-message--${message.author === "You" ? "user" : "assistant"}`}
@@ -728,7 +734,20 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
             </div>
           ))}
         <div className="ai-chat-message-content">
-          {message.author === "Renalo" ? (
+          {isThinking ? (
+            <div
+              className="ai-chat-thinking"
+              role="status"
+              aria-label="Thinking..."
+            >
+              <span>Thinking</span>
+              <span className="ai-chat-thinking-dots" aria-hidden="true">
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </span>
+            </div>
+          ) : message.author === "Renalo" ? (
             <Suspense
               fallback={
                 <div className="ai-chat-markdown-loading">

@@ -2854,6 +2854,46 @@ input {
   font-size: 0.875rem;
 }
 
+.ai-chat-thinking {
+  display: inline-flex;
+  align-items: baseline;
+  color: #626872;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.ai-chat-thinking-dots {
+  display: inline-flex;
+  width: 1.2em;
+}
+
+.ai-chat-thinking-dots span {
+  opacity: 0.2;
+  animation: ai-chat-thinking-dot 1.2s ease-in-out infinite;
+}
+
+.ai-chat-thinking-dots span:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.ai-chat-thinking-dots span:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes ai-chat-thinking-dot {
+  40%,
+  60% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-chat-thinking-dots span {
+    opacity: 1;
+    animation: none;
+  }
+}
+
 .ai-chat-markdown > :first-child {
   margin-top: 0;
 }

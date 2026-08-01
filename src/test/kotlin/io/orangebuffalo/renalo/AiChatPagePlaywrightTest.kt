@@ -246,6 +246,24 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun showsThinkingBeforeTheFirstResponseActivity(page: Page) {
+        saveUser("alice", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.navigate(server.url.toString() + "/chat")
+
+        page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        ).fill("Slow title request")
+        page.getByLabel("Send message").click()
+
+        assertThat(page.getByRole(AriaRole.STATUS, Page.GetByRoleOptions().setName("Thinking..."))).isVisible()
+        assertThat(page.getByLabel("Stop response")).isVisible()
+        assertThat(page.getByRole(AriaRole.STATUS, Page.GetByRoleOptions().setName("Thinking..."))).not().isVisible()
+        assertThat(page.getByText("Reviewing expense totals")).isVisible()
+    }
+
+    @Test
     fun preservesPartialContentWhenTheStreamIsInterrupted(page: Page) {
         saveUser("alice", UserType.USER)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
