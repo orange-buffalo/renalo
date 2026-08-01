@@ -7,9 +7,9 @@ import java.time.Duration
 
 @Singleton
 class AiChatService {
-    fun streamMessage(content: String): Flux<AiChatStreamEvent> {
+    fun streamMessage(content: String, startingSequence: Int = 1): Flux<AiChatStreamEvent> {
         val events = buildList {
-            var sequence = 1
+            var sequence = startingSequence
             add(AiChatTurnStarted(seq = sequence++))
             add(
                 AiChatToolStarted(

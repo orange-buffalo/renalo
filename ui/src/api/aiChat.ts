@@ -1,4 +1,11 @@
-import { apiStreamingRequest } from "@/api/client";
+import { apiRequest, apiStreamingRequest } from "@/api/client";
+
+export type AiChatConversation = {
+  id: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type AiChatToolActivity = {
   id: string;
@@ -7,6 +14,12 @@ export type AiChatToolActivity = {
 };
 
 export type AiChatStreamEvent =
+  | {
+      v: 1;
+      seq: number;
+      type: "conversation.created";
+      conversation: AiChatConversation;
+    }
   | { v: 1; seq: number; type: "turn.started" }
   | {
       v: 1;
@@ -36,13 +49,14 @@ export type AiChatStreamEvent =
 
 export async function streamAiChatMessage(
   content: string,
+  conversationId: number | undefined,
   onEvent: (event: AiChatStreamEvent) => void,
   signal: AbortSignal,
 ) {
   const response = await apiStreamingRequest("/api/ai-chat/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, conversationId }),
     signal,
   });
   if (!response.body) {
@@ -85,6 +99,33 @@ export async function streamAiChatMessage(
   }
 }
 
+export async function fetchAiChatConversations() {
+  const response = await apiRequest<{ conversations: AiChatConversation[] }>(
+    "/api/ai-chat/conversations",
+  );
+  return response.conversations;
+}
+
+export function renameAiChatConversation(
+  conversationId: number,
+  title: string,
+) {
+  return apiRequest<AiChatConversation>(
+    `/api/ai-chat/conversations/${conversationId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    },
+  );
+}
+
+export function deleteAiChatConversation(conversationId: number) {
+  return apiRequest<void>(`/api/ai-chat/conversations/${conversationId}`, {
+    method: "DELETE",
+  });
+}
+
 function parseStreamEvent(line: string): AiChatStreamEvent {
   const event = JSON.parse(line) as Record<string, unknown>;
   if (
@@ -99,6 +140,7 @@ function parseStreamEvent(line: string): AiChatStreamEvent {
 }
 
 const streamEventTypes = new Set([
+  "conversation.created",
   "turn.started",
   "tool.started",
   "tool.completed",

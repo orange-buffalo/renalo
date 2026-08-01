@@ -1,6 +1,7 @@
 package io.orangebuffalo.renalo
 
 import com.microsoft.playwright.Page
+import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Route
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
@@ -32,7 +33,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     lateinit var testAuthTokens: TestAuthTokens
 
     @Test
-    fun managesInMemoryConversations(page: Page) {
+    fun persistsRenamesAndDeletesConversations(page: Page) {
         saveUser("alice", UserType.USER)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
@@ -43,10 +44,17 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertAccountMenuItems(page, listOf("Settings", "My Profile"))
         assertThat(page.getByLabel("Send message")).isDisabled()
 
-        page.getByRole(
+        val messageInput = page.getByRole(
             AriaRole.TEXTBOX,
             Page.GetByRoleOptions().setName("Message").setExact(true),
-        ).fill("How was this month?")
+        )
+        messageInput.fill("Discard this draft")
+        openChatActions(page)
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Delete chat")).click()
+        assertThat(page.getByRole(AriaRole.DIALOG)).not().isVisible()
+        messageInput.inputValue().shouldBe("")
+
+        messageInput.fill("How was this month?")
         page.getByLabel("Send message").click()
 
         page.shouldEventually {
@@ -67,22 +75,44 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByTitle("Copy table as Markdown")).isVisible()
         page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot")).click()
 
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("New conversation")).click()
-        assertThat(page.getByText("What would you like to explore?")).isVisible()
-        assertConversationOptions(page, listOf("Conversation 1", "Conversation 2"))
+        openChatActions(page)
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Rename chat")).click()
+        val renameDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Rename chat"))
+        val chatName = renameDialog.getByLabel("Chat name")
+        chatName.inputValue().shouldBe("New chat")
+        chatName.fill("Monthly review")
+        renameDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Save name")).click()
+        assertThat(renameDialog).not().isVisible()
+        assertThat(conversationSelector(page)).containsText("Monthly review")
 
+        page.reload()
+        assertConversationOptions(page, listOf("Monthly review", "New chat"))
         conversationSelector(page).click()
-        page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Conversation 1")).click()
-        page.shouldEventually {
-            extractMessages().shouldContainExactly(
-                ChatMessage("You", "How was this month?", emptyList()),
-                ChatMessage(
-                    "Renalo",
-                    "Spending snapshot\n\nYou asked: How was this month?\n\nHere is an example of how an AI-generated answer could present your results:\n\nCategory\tAmount\tShare\nGroceries\t${'$'}428.30\t42%\nTransport\t${'$'}186.75\t18%\nDining out\t${'$'}142.10\t14%\nGroceries were the largest expense category.\nDining out was lower than groceries by ${'$'}286.20.\nThe remaining categories accounted for 26% of the sample total.\n\nThis is placeholder data from the Chat preview. It is not calculated from your Renalo records yet.",
-                    listOf(ToolActivity("Reviewed expense totals", "COMPLETED")),
-                ),
-            )
-        }
+        page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Monthly review")).click()
+        assertThat(
+            page.getByText(
+                "This chat is saved, but previous preview messages are not stored and cannot be displayed yet.",
+            ),
+        ).isVisible()
+
+        openChatActions(page)
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Delete chat")).click()
+        val deleteDialog = page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Delete “Monthly review”?"),
+        )
+        assertThat(deleteDialog).isVisible()
+        deleteDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Cancel")).click()
+        assertThat(deleteDialog).not().isVisible()
+
+        openChatActions(page)
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Delete chat")).click()
+        page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Delete “Monthly review”?"),
+        ).getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Delete chat")).click()
+        assertThat(conversationSelector(page)).containsText("New chat")
+        assertConversationOptions(page, listOf("New chat"))
     }
 
     @Test
@@ -265,12 +295,18 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     private fun assertConversationOptions(page: Page, expected: List<String>) {
-        conversationSelector(page).click()
-        page.getByRole(AriaRole.MENUITEMRADIO)
-            .allTextContents()
-            .map(String::trim)
-            .shouldContainExactly(expected)
+        page.shouldEventually {
+            conversationSelector(page).click()
+            page.getByRole(AriaRole.MENUITEMRADIO)
+                .allTextContents()
+                .map(String::trim)
+                .shouldContainExactly(expected)
+        }
         page.keyboard().press("Escape")
+    }
+
+    private fun openChatActions(page: Page) {
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Chat actions")).click()
     }
 
     private fun conversationSelector(page: Page) = page.getByRole(

@@ -36,5 +36,6 @@ class DisabledAiChatApiTest : IntegrationTestSupport() {
             """{ "content": "Hello" }""",
             token,
         ).statusCode().shouldBe(403)
+        api().get("/api/ai-chat/conversations", token).statusCode().shouldBe(403)
     }
 }

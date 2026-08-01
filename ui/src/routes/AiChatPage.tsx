@@ -1,10 +1,35 @@
-import { ChevronDown, Plus, Send01, Stop } from "@untitledui/icons";
+import {
+  ChevronDown,
+  Edit01,
+  Menu01,
+  Plus,
+  Send01,
+  Stop,
+  Trash01,
+  XClose,
+} from "@untitledui/icons";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import type { AiChatStreamEvent, AiChatToolActivity } from "@/api/aiChat";
-import { streamAiChatMessage } from "@/api/aiChat";
+import type {
+  AiChatConversation,
+  AiChatStreamEvent,
+  AiChatToolActivity,
+} from "@/api/aiChat";
+import {
+  deleteAiChatConversation,
+  fetchAiChatConversations,
+  renameAiChatConversation,
+  streamAiChatMessage,
+} from "@/api/aiChat";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
+import {
+  Dialog,
+  Modal,
+  ModalOverlay,
+} from "@/components/untitled/application/modals/modal";
 import { Button } from "@/components/untitled/base/buttons/button";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
+import { Input } from "@/components/untitled/base/input/input";
 import { TextArea } from "@/components/untitled/base/textarea/textarea";
 
 type ChatMessage = {
@@ -16,8 +41,11 @@ type ChatMessage = {
 };
 
 type Conversation = {
-  id: number;
+  clientId: string;
+  id?: number;
   title: string;
+  createdAt?: string;
+  updatedAt?: string;
   messages: ChatMessage[];
 };
 
@@ -25,50 +53,83 @@ const AiMarkdown = lazy(async () => ({
   default: (await import("@/components/ai-chat/AiMarkdown")).AiMarkdown,
 }));
 
-const initialConversation: Conversation = {
-  id: 1,
-  title: "Conversation 1",
-  messages: [],
-};
+const initialConversation = createDraftConversation("draft-1");
 
 export function AiChatPage() {
   const feedRef = useRef<HTMLDivElement>(null);
   const activeRequestRef = useRef<AbortController>(null);
+  const nextDraftIdRef = useRef(2);
   const [conversations, setConversations] = useState<Conversation[]>([
     initialConversation,
   ]);
-  const [activeConversationId, setActiveConversationId] = useState(1);
-  const [nextConversationId, setNextConversationId] = useState(2);
+  const [activeConversationClientId, setActiveConversationClientId] = useState(
+    initialConversation.clientId,
+  );
   const [nextMessageId, setNextMessageId] = useState(1);
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string>();
+  const [conversationToRename, setConversationToRename] =
+    useState<Conversation>();
+  const [renameTitle, setRenameTitle] = useState("");
+  const [renameError, setRenameError] = useState<string>();
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [conversationToDelete, setConversationToDelete] =
+    useState<Conversation>();
+  const [isDeleting, setIsDeleting] = useState(false);
   const activeConversation = conversations.find(
-    (conversation) => conversation.id === activeConversationId,
+    (conversation) => conversation.clientId === activeConversationClientId,
   );
+
+  useEffect(() => {
+    let isActive = true;
+    void fetchAiChatConversations()
+      .then((persistedConversations) => {
+        if (!isActive) {
+          return;
+        }
+        setConversations((current) => [
+          ...persistedConversations.map((conversation) => {
+            const existing = current.find(
+              (item) => item.id === conversation.id,
+            );
+            return existing
+              ? { ...existing, ...conversation }
+              : fromPersistedConversation(conversation);
+          }),
+          ...current.filter((conversation) => conversation.id === undefined),
+        ]);
+      })
+      .catch(() => {
+        if (isActive) {
+          setError("Saved chats could not be loaded. Try refreshing the page.");
+        }
+      });
+    return () => {
+      isActive = false;
+      activeRequestRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeConversation) {
       return;
     }
-
     const feed = feedRef.current;
     if (feed) {
       feed.scrollTop = feed.scrollHeight;
     }
   }, [activeConversation]);
 
-  useEffect(() => () => activeRequestRef.current?.abort(), []);
-
   function createConversation() {
-    const conversation: Conversation = {
-      id: nextConversationId,
-      title: `Conversation ${nextConversationId}`,
-      messages: [],
-    };
-    setConversations((current) => [...current, conversation]);
-    setActiveConversationId(conversation.id);
-    setNextConversationId((current) => current + 1);
+    const conversation = createDraftConversation(
+      `draft-${nextDraftIdRef.current++}`,
+    );
+    setConversations((current) => [
+      ...current.filter((item) => item.id !== undefined),
+      conversation,
+    ]);
+    setActiveConversationClientId(conversation.clientId);
     setDraft("");
     setError(undefined);
   }
@@ -79,7 +140,7 @@ export function AiChatPage() {
       return;
     }
 
-    const conversationId = activeConversation.id;
+    const conversationClientId = activeConversation.clientId;
     const userMessageId = nextMessageId;
     const assistantMessageId = nextMessageId + 1;
     const userMessage: ChatMessage = {
@@ -96,7 +157,10 @@ export function AiChatPage() {
     };
     setNextMessageId((current) => current + 2);
     setConversations((current) =>
-      appendMessages(current, conversationId, [userMessage, assistantMessage]),
+      appendMessages(current, conversationClientId, [
+        userMessage,
+        assistantMessage,
+      ]),
     );
     setDraft("");
     setError(undefined);
@@ -107,8 +171,9 @@ export function AiChatPage() {
     try {
       await streamAiChatMessage(
         content,
+        activeConversation.id,
         (event) => {
-          applyStreamEvent(conversationId, assistantMessageId, event);
+          applyStreamEvent(conversationClientId, assistantMessageId, event);
         },
         abortController.signal,
       );
@@ -121,7 +186,7 @@ export function AiChatPage() {
       setConversations((current) =>
         finishStreamingMessage(
           current,
-          conversationId,
+          conversationClientId,
           assistantMessageId,
           isAbortError(requestError),
         ),
@@ -135,7 +200,7 @@ export function AiChatPage() {
   }
 
   function applyStreamEvent(
-    conversationId: number,
+    conversationClientId: string,
     messageId: number,
     event: AiChatStreamEvent,
   ) {
@@ -143,14 +208,110 @@ export function AiChatPage() {
       setError(event.message);
     }
     setConversations((current) =>
-      updateMessage(current, conversationId, messageId, (message) =>
-        applyEventToMessage(message, event),
-      ),
+      current.map((conversation) => {
+        if (conversation.clientId !== conversationClientId) {
+          return conversation;
+        }
+        const withMetadata =
+          event.type === "conversation.created"
+            ? { ...conversation, ...event.conversation }
+            : conversation;
+        return {
+          ...withMetadata,
+          messages: withMetadata.messages.map((message) =>
+            message.id === messageId
+              ? applyEventToMessage(message, event)
+              : message,
+          ),
+        };
+      }),
     );
   }
 
-  function cancelResponse() {
-    activeRequestRef.current?.abort();
+  function openRenameDialog() {
+    if (!activeConversation?.id) {
+      return;
+    }
+    setConversationToRename(activeConversation);
+    setRenameTitle(activeConversation.title);
+    setRenameError(undefined);
+  }
+
+  async function saveConversationTitle() {
+    if (!conversationToRename?.id || isRenaming) {
+      return;
+    }
+    const title = renameTitle.trim();
+    if (!title) {
+      setRenameError("Enter a chat name.");
+      return;
+    }
+    if (title.length > 100) {
+      setRenameError("Chat names can be up to 100 characters.");
+      return;
+    }
+
+    setIsRenaming(true);
+    setRenameError(undefined);
+    try {
+      const renamed = await renameAiChatConversation(
+        conversationToRename.id,
+        title,
+      );
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === renamed.id
+            ? { ...conversation, ...renamed }
+            : conversation,
+        ),
+      );
+      setConversationToRename(undefined);
+    } catch {
+      setRenameError("The chat could not be renamed. Try again.");
+    } finally {
+      setIsRenaming(false);
+    }
+  }
+
+  function requestDeleteConversation() {
+    if (!activeConversation) {
+      return;
+    }
+    if (activeConversation.id === undefined) {
+      createConversation();
+      return;
+    }
+    setConversationToDelete(activeConversation);
+  }
+
+  async function confirmDeleteConversation() {
+    if (!conversationToDelete?.id || isDeleting) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const deletedConversationId = conversationToDelete.id;
+      await deleteAiChatConversation(deletedConversationId);
+      const replacement = createDraftConversation(
+        `draft-${nextDraftIdRef.current++}`,
+      );
+      setConversations((current) => [
+        ...current.filter(
+          (conversation) =>
+            conversation.id !== deletedConversationId &&
+            conversation.id !== undefined,
+        ),
+        replacement,
+      ]);
+      setActiveConversationClientId(replacement.clientId);
+      setDraft("");
+      setConversationToDelete(undefined);
+    } catch {
+      setConversationToDelete(undefined);
+      setError("The chat could not be deleted. Try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   return (
@@ -176,15 +337,15 @@ export function AiChatPage() {
               <Dropdown.Menu
                 aria-label="Conversations"
                 selectionMode="single"
-                selectedKeys={[String(activeConversationId)]}
+                selectedKeys={[activeConversationClientId]}
               >
                 {conversations.map((conversation) => (
                   <Dropdown.Item
-                    id={String(conversation.id)}
-                    key={conversation.id}
+                    id={conversation.clientId}
+                    key={conversation.clientId}
                     label={conversation.title}
                     onAction={() => {
-                      setActiveConversationId(conversation.id);
+                      setActiveConversationClientId(conversation.clientId);
                       setDraft("");
                       setError(undefined);
                     }}
@@ -193,15 +354,49 @@ export function AiChatPage() {
               </Dropdown.Menu>
             </Dropdown.Popover>
           </Dropdown.Root>
-          <Button
-            aria-label="New conversation"
-            className="ai-chat-new-conversation-button"
-            color="secondary"
-            size="sm"
-            iconLeading={Plus}
-            isDisabled={isSending}
-            onPress={createConversation}
-          />
+
+          <div className="ai-chat-toolbar-actions">
+            <Dropdown.Root>
+              <Button
+                aria-label="Chat actions"
+                color="secondary"
+                size="sm"
+                iconLeading={Menu01}
+                isDisabled={isSending}
+              />
+              <Dropdown.Popover placement="bottom right">
+                <Dropdown.Menu aria-label="Chat actions" selectionMode="none">
+                  {activeConversation?.id !== undefined && (
+                    <Dropdown.Item
+                      label="Rename chat"
+                      icon={Edit01}
+                      selectionIndicator="none"
+                      onAction={openRenameDialog}
+                    />
+                  )}
+                  {activeConversation?.id !== undefined && (
+                    <Dropdown.Separator />
+                  )}
+                  <Dropdown.Item
+                    className="ai-chat-delete-menu-item"
+                    label="Delete chat"
+                    icon={Trash01}
+                    selectionIndicator="none"
+                    onAction={requestDeleteConversation}
+                  />
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown.Root>
+            <Button
+              aria-label="New conversation"
+              className="ai-chat-new-conversation-button"
+              color="secondary"
+              size="sm"
+              iconLeading={Plus}
+              isDisabled={isSending}
+              onPress={createConversation}
+            />
+          </div>
         </div>
 
         <div
@@ -214,55 +409,16 @@ export function AiChatPage() {
         >
           {activeConversation?.messages.length ? (
             activeConversation.messages.map((message) => (
-              <article
-                className={`ai-chat-message ai-chat-message--${message.author === "You" ? "user" : "assistant"}`}
-                data-chat-author={message.author}
-                key={message.id}
-              >
-                <div className="ai-chat-message-body">
-                  {message.author === "Renalo" &&
-                    message.toolActivities?.map((activity) => (
-                      <div
-                        className="ai-chat-tool-activity"
-                        data-tool-status={activity.status}
-                        key={activity.id}
-                      >
-                        <span
-                          className="ai-chat-tool-activity-dot"
-                          aria-hidden="true"
-                        />
-                        {activity.label}
-                        {activity.status === "CANCELLED" && (
-                          <span className="ai-chat-tool-activity-status">
-                            · Stopped
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  <div className="ai-chat-message-content">
-                    {message.author === "Renalo" ? (
-                      <Suspense
-                        fallback={
-                          <div className="ai-chat-markdown-loading">
-                            Formatting response...
-                          </div>
-                        }
-                      >
-                        <AiMarkdown isStreaming={message.isStreaming}>
-                          {message.content}
-                        </AiMarkdown>
-                      </Suspense>
-                    ) : (
-                      message.content
-                    )}
-                  </div>
-                </div>
-              </article>
+              <ChatMessageView message={message} key={message.id} />
             ))
           ) : (
             <div className="ai-chat-empty-state">
               <h2>What would you like to explore?</h2>
-              <p>Send a message to begin this conversation.</p>
+              <p>
+                {activeConversation?.id === undefined
+                  ? "Send a message to begin this chat. It will be saved when the message is accepted."
+                  : "This chat is saved, but previous preview messages are not stored and cannot be displayed yet."}
+              </p>
             </div>
           )}
         </div>
@@ -293,42 +449,169 @@ export function AiChatPage() {
               iconLeading={isSending ? Stop : Send01}
               isDisabled={!isSending && !draft.trim()}
               onPress={() =>
-                isSending ? cancelResponse() : void sendMessage()
+                isSending
+                  ? activeRequestRef.current?.abort()
+                  : void sendMessage()
               }
             />
           </div>
         </div>
       </section>
+
+      <ModalOverlay
+        isOpen={Boolean(conversationToRename)}
+        isDismissable
+        className="ai-chat-rename-modal-overlay"
+        onOpenChange={(isOpen) => {
+          if (!isOpen && !isRenaming) {
+            setConversationToRename(undefined);
+          }
+        }}
+      >
+        <Modal className="ai-chat-rename-modal w-full max-w-md">
+          <Dialog aria-label="Rename chat" className="ai-chat-rename-dialog">
+            <div className="ai-chat-rename-header">
+              <div>
+                <h2>Rename chat</h2>
+                <p>
+                  Use a short name that makes this conversation easy to find.
+                </p>
+              </div>
+              <Button
+                aria-label="Close rename chat dialog"
+                color="tertiary"
+                size="sm"
+                iconLeading={XClose}
+                isDisabled={isRenaming}
+                onPress={() => setConversationToRename(undefined)}
+              />
+            </div>
+            <div className="ai-chat-rename-form">
+              <Input
+                autoFocus
+                label="Chat name"
+                name="chatName"
+                size="md"
+                value={renameTitle}
+                isInvalid={Boolean(renameError)}
+                hint={renameError}
+                maxLength={100}
+                onChange={(title) => {
+                  setRenameTitle(title);
+                  setRenameError(undefined);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void saveConversationTitle();
+                  }
+                }}
+              />
+            </div>
+            <div className="ai-chat-rename-actions">
+              <Button
+                color="tertiary"
+                size="sm"
+                isDisabled={isRenaming}
+                onPress={() => setConversationToRename(undefined)}
+              >
+                Cancel
+              </Button>
+              <Button
+                color="primary"
+                size="sm"
+                isLoading={isRenaming}
+                onPress={() => void saveConversationTitle()}
+              >
+                Save name
+              </Button>
+            </div>
+          </Dialog>
+        </Modal>
+      </ModalOverlay>
+
+      <ConfirmationDialog
+        isOpen={Boolean(conversationToDelete)}
+        title={`Delete “${conversationToDelete?.title ?? ""}”?`}
+        description="This removes the saved chat from Renalo. Externally retained AI history is not deleted by this preview."
+        confirmLabel="Delete chat"
+        isConfirming={isDeleting}
+        onCancel={() => setConversationToDelete(undefined)}
+        onConfirm={() => void confirmDeleteConversation()}
+      />
     </PageLayout>
   );
 }
 
-function appendMessages(
-  conversations: Conversation[],
-  conversationId: number,
-  messages: ChatMessage[],
-) {
-  return conversations.map((conversation) =>
-    conversation.id === conversationId
-      ? { ...conversation, messages: [...conversation.messages, ...messages] }
-      : conversation,
+function ChatMessageView({ message }: { message: ChatMessage }) {
+  return (
+    <article
+      className={`ai-chat-message ai-chat-message--${message.author === "You" ? "user" : "assistant"}`}
+      data-chat-author={message.author}
+    >
+      <div className="ai-chat-message-body">
+        {message.author === "Renalo" &&
+          message.toolActivities?.map((activity) => (
+            <div
+              className="ai-chat-tool-activity"
+              data-tool-status={activity.status}
+              key={activity.id}
+            >
+              <span className="ai-chat-tool-activity-dot" aria-hidden="true" />
+              {activity.label}
+              {activity.status === "CANCELLED" && (
+                <span className="ai-chat-tool-activity-status">· Stopped</span>
+              )}
+            </div>
+          ))}
+        <div className="ai-chat-message-content">
+          {message.author === "Renalo" ? (
+            <Suspense
+              fallback={
+                <div className="ai-chat-markdown-loading">
+                  Formatting response...
+                </div>
+              }
+            >
+              <AiMarkdown isStreaming={message.isStreaming}>
+                {message.content}
+              </AiMarkdown>
+            </Suspense>
+          ) : (
+            message.content
+          )}
+        </div>
+      </div>
+    </article>
   );
 }
 
-function updateMessage(
+function createDraftConversation(clientId: string): Conversation {
+  return {
+    clientId,
+    title: "New chat",
+    messages: [],
+  };
+}
+
+function fromPersistedConversation(
+  conversation: AiChatConversation,
+): Conversation {
+  return {
+    clientId: `conversation-${conversation.id}`,
+    ...conversation,
+    messages: [],
+  };
+}
+
+function appendMessages(
   conversations: Conversation[],
-  conversationId: number,
-  messageId: number,
-  update: (message: ChatMessage) => ChatMessage,
+  conversationClientId: string,
+  messages: ChatMessage[],
 ) {
   return conversations.map((conversation) =>
-    conversation.id === conversationId
-      ? {
-          ...conversation,
-          messages: conversation.messages.map((message) =>
-            message.id === messageId ? update(message) : message,
-          ),
-        }
+    conversation.clientId === conversationClientId
+      ? { ...conversation, messages: [...conversation.messages, ...messages] }
       : conversation,
   );
 }
@@ -364,6 +647,7 @@ function applyEventToMessage(
     case "turn.completed":
     case "turn.error":
       return { ...message, isStreaming: false };
+    case "conversation.created":
     case "turn.started":
       return message;
   }
@@ -371,12 +655,12 @@ function applyEventToMessage(
 
 function finishStreamingMessage(
   conversations: Conversation[],
-  conversationId: number,
+  conversationClientId: string,
   messageId: number,
   removeIfEmpty: boolean,
 ) {
   return conversations.map((conversation) => {
-    if (conversation.id !== conversationId) {
+    if (conversation.clientId !== conversationClientId) {
       return conversation;
     }
     const message = conversation.messages.find((item) => item.id === messageId);

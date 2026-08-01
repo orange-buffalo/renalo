@@ -82,6 +82,8 @@ Renalo stores one lightweight row per conversation. A row is scoped to a regular
 
 It does not store user prompts, assistant messages, tool arguments, tool results, or a transcript. The external response ID is opaque server-side data and is not exposed to the browser.
 
+An empty new chat is browser-only. Renalo creates the metadata row when the first nonblank user message is accepted, then identifies the newly persisted conversation in the response stream. This avoids abandoned rows for chats that never contain a turn. The initial title is generic and does not copy prompt text into local metadata; users can explicitly rename persisted conversations.
+
 ### Externally owned conversation state
 
 Each successful Responses API call returns a response ID. Renalo supplies the latest ID as `previous_response_id` on the next turn and replaces its stored pointer with the newly completed response ID. The resulting response chain is the external conversation state.
@@ -152,7 +154,7 @@ The browser talks only to authenticated Renalo endpoints. It never connects dire
 The API surface is expected to cover:
 
 - Listing the authenticated user's conversation metadata.
-- Creating, renaming, and deleting a conversation.
+- Lazily creating a conversation with its first accepted turn, then renaming and deleting it.
 - Opening a conversation and resolving its external transcript/state.
 - Sending one turn as an authenticated stream.
 - Cancelling an active turn.
