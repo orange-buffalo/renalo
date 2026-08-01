@@ -182,7 +182,10 @@ export function AiChatPage() {
     );
 
     try {
-      const history = await fetchAiChatConversationHistory(conversationId);
+      const history = await fetchAiChatConversationHistory(
+        conversationId,
+        abortController.signal,
+      );
       if (abortController.signal.aborted) {
         return;
       }

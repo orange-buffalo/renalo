@@ -125,9 +125,13 @@ export async function fetchAiChatConversations() {
   return response.conversations;
 }
 
-export function fetchAiChatConversationHistory(conversationId: number) {
+export function fetchAiChatConversationHistory(
+  conversationId: number,
+  signal?: AbortSignal,
+) {
   return apiRequest<AiChatConversationHistory>(
     `/api/ai-chat/conversations/${conversationId}/history`,
+    { signal },
   );
 }
 

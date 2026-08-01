@@ -165,10 +165,18 @@ class AiChatApiTest : IntegrationTestSupport() {
         val user = saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")
         val available = conversationRepository.save(
-            AiChatConversation(userId = user.id!!, title = "Available chat"),
+            AiChatConversation(
+                userId = user.id!!,
+                title = "Available chat",
+                externalResponseId = "resp_available",
+            ),
         )
         val missing = conversationRepository.save(
-            AiChatConversation(userId = user.id!!, title = "Missing provider session"),
+            AiChatConversation(
+                userId = user.id!!,
+                title = "Missing provider session",
+                externalResponseId = "resp_missing",
+            ),
         )
 
         api().get("/api/ai-chat/conversations/${available.id}/history", token).body().shouldEqualJson(
@@ -182,7 +190,7 @@ class AiChatApiTest : IntegrationTestSupport() {
                     },
                     {
                       "role": "ASSISTANT",
-                      "content": "## Saved conversation\n\nThis preview history was loaded from the simulated external provider."
+                      "content": "## Saved conversation\n\nThis history was loaded from LiteLLM."
                     }
                   ]
                 }
@@ -198,6 +206,8 @@ class AiChatApiTest : IntegrationTestSupport() {
         )
         conversationRepository.findByIdAndUserId(missing.id!!, user.id!!)?.title
             .shouldBe("Missing provider session")
+        conversationRepository.findByIdAndUserId(missing.id!!, user.id!!)?.externalResponseId
+            .shouldBe("resp_missing")
     }
 
     @Test

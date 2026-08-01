@@ -1,36 +1,42 @@
 package io.orangebuffalo.renalo.ai
 
 import jakarta.inject.Singleton
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.time.Duration
 
 @Singleton
 class AiChatService(
     private val titleGenerator: AiChatTitleGenerator,
+    private val conversationHistoryClient: AiChatConversationHistoryClient,
 ) {
+    private val logger = LoggerFactory.getLogger(AiChatService::class.java)
+
     fun loadConversationHistory(conversation: AiChatConversation): Mono<AiChatConversationHistoryResponse> {
-        val response = if (conversation.title.contains("missing", ignoreCase = true)) {
-            AiChatConversationHistoryResponse(
-                status = AiChatConversationHistoryStatus.TEMPORARILY_UNAVAILABLE,
-                messages = emptyList(),
-            )
-        } else {
-            AiChatConversationHistoryResponse(
-                status = AiChatConversationHistoryStatus.AVAILABLE,
-                messages = listOf(
-                    AiChatHistoryMessageResponse(
-                        role = AiChatHistoryMessageRole.USER,
-                        content = "What did we discuss in this chat?",
-                    ),
-                    AiChatHistoryMessageResponse(
-                        role = AiChatHistoryMessageRole.ASSISTANT,
-                        content = "## Saved conversation\n\nThis preview history was loaded from the simulated external provider.",
-                    ),
+        val externalResponseId = conversation.externalResponseId
+            ?: return Mono.just(
+                AiChatConversationHistoryResponse(
+                    status = AiChatConversationHistoryStatus.AVAILABLE,
+                    messages = emptyList(),
                 ),
             )
-        }
-        return Mono.just(response).delayElement(HISTORY_LOADING_DELAY)
+        return Mono.fromCallable {
+            AiChatConversationHistoryResponse(
+                status = AiChatConversationHistoryStatus.AVAILABLE,
+                messages = conversationHistoryClient.loadHistory(externalResponseId),
+            )
+        }.subscribeOn(Schedulers.boundedElastic())
+            .onErrorResume { error ->
+                logger.warn("Failed to load external history for AI chat conversation {}", conversation.id, error)
+                Mono.just(
+                    AiChatConversationHistoryResponse(
+                        status = AiChatConversationHistoryStatus.TEMPORARILY_UNAVAILABLE,
+                        messages = emptyList(),
+                    ),
+                )
+            }
     }
 
     fun generateTitle(content: String): Mono<String> = Mono.fromCallable {
@@ -85,6 +91,5 @@ class AiChatService(
         private const val TOOL_ACTIVITY_ID = "activity-1"
         private val STREAM_DELAY = Duration.ofMillis(50)
         private val TOOL_EXECUTION_DELAY = Duration.ofSeconds(1)
-        private val HISTORY_LOADING_DELAY = Duration.ofSeconds(1)
     }
 }

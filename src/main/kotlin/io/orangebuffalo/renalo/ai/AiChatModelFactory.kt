@@ -13,6 +13,7 @@ import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires
 import jakarta.inject.Named
 import jakarta.inject.Singleton
+import java.net.http.HttpClient.Version.HTTP_1_1
 import java.time.Duration
 
 @Factory
@@ -30,7 +31,11 @@ class AiChatModelFactory {
                 LiteLlmResponsesStreamingHttpClientBuilder(
                     JdkHttpClient.builder()
                         .connectTimeout(CONNECT_TIMEOUT)
-                        .readTimeout(READ_TIMEOUT),
+                        .readTimeout(READ_TIMEOUT)
+                        .httpClientBuilder(
+                            java.net.http.HttpClient.newBuilder()
+                                .version(HTTP_1_1),
+                        ),
                 ),
             )
             .store(false)

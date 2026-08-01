@@ -91,6 +91,10 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         renameDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Save name")).click()
         assertThat(renameDialog).not().isVisible()
         assertThat(conversationSelector(page)).containsText("Monthly review")
+        val monthlyConversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(
+            userRepository.findByUsername("alice")!!.id!!,
+        ).single()
+        conversationRepository.update(monthlyConversation.copy(externalResponseId = "resp_monthly"))
 
         page.getByLabel("New conversation").click()
         assertThat(page.getByLabel("Chat actions")).isDisabled()
@@ -112,7 +116,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ChatMessage("You", "What did we discuss in this chat?", emptyList()),
                 ChatMessage(
                     "Renalo",
-                    "Saved conversation\n\nThis preview history was loaded from the simulated external provider.",
+                    "Saved conversation\n\nThis history was loaded from LiteLLM.",
                     emptyList(),
                 ),
             )
@@ -141,8 +145,20 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     @Test
     fun loadsSavedHistoryAndKeepsMissingProviderSessionsRecoverable(page: Page) {
         val user = saveUser("alice", UserType.USER)
-        conversationRepository.save(AiChatConversation(userId = user.id!!, title = "Available chat"))
-        conversationRepository.save(AiChatConversation(userId = user.id!!, title = "Missing provider session"))
+        conversationRepository.save(
+            AiChatConversation(
+                userId = user.id!!,
+                title = "Available chat",
+                externalResponseId = "resp_available",
+            ),
+        )
+        conversationRepository.save(
+            AiChatConversation(
+                userId = user.id!!,
+                title = "Missing provider session",
+                externalResponseId = "resp_missing",
+            ),
+        )
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/chat")
@@ -174,7 +190,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ChatMessage("You", "What did we discuss in this chat?", emptyList()),
                 ChatMessage(
                     "Renalo",
-                    "Saved conversation\n\nThis preview history was loaded from the simulated external provider.",
+                    "Saved conversation\n\nThis history was loaded from LiteLLM.",
                     emptyList(),
                 ),
             )

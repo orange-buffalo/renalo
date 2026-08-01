@@ -10,7 +10,7 @@ import mobile from "../../../assets/screenshots/mobile/33-chat-preview.png";
 
 The Chat preview is an opt-in demonstration of Renalo's future conversational interface. A deployment operator enables it and configures LiteLLM as described in [Install with Docker](/getting-started/installation/); when disabled, Chat does not appear in the main navigation.
 
-Renalo uses the configured AI model to replace a new chat's generic title with a concise title derived from its first prompt. The answer content and restored history are still simulated preview data and are not generated from your financial records.
+Renalo uses the configured AI model to replace a new chat's generic title with a concise title derived from its first prompt. When a chat has externally stored response state, Renalo restores its user and assistant messages through LiteLLM. New answer content is still simulated preview data and is not generated from your financial records.
 
 <ScreenshotPair desktop={desktop} mobile={mobile} alt="Renalo Chat preview with a conversation selector, message feed, and composer" />
 
@@ -21,8 +21,8 @@ Renalo uses the configured AI model to replace a new chat's generic title with a
 - Write a message and press **Enter** or select the send button. Use **Shift + Enter** for a new line.
 - Renalo echoes the message with placeholder text so the layout can be evaluated with longer responses.
 
-Conversations and messages exist only in the current browser page. Reloading the page clears them.
+Conversation names persist across browser reloads. Renalo reloads message history when the conversation has a stored LiteLLM response chain. If that external state is temporarily unavailable, the chat remains listed and offers a retry action without replacing or clearing the saved session.
 
 <Aside type="caution" title="Interface preview only">
-  This preview is not connected to LangChain4j, LiteLLM, a language model, or your financial records. Do not treat its responses as analysis and avoid entering sensitive information while it remains an echo demonstration.
+  The preview uses LiteLLM for generated chat titles and externally retained history, but its new answers are still placeholder content and it does not query your financial records. Do not treat its responses as analysis.
 </Aside>

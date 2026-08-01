@@ -22,7 +22,8 @@ class LangChain4jAiChatTitleGenerator(
     @Named(AiChatModelFactory.TITLE_MODEL_NAME) private val titleModel: StreamingChatModel,
 ) : AiChatTitleGenerator {
     override fun generateTitle(firstPrompt: String): String {
-        val response = CompletableFuture<ChatResponse>()
+        val response = CompletableFuture<String>()
+        val streamedText = StringBuilder()
         titleModel.chat(
             ChatRequest.builder()
                 .messages(
@@ -30,8 +31,18 @@ class LangChain4jAiChatTitleGenerator(
                 )
                 .build(),
             object : StreamingChatResponseHandler {
+                override fun onPartialResponse(partialResponse: String) {
+                    synchronized(streamedText) {
+                        streamedText.append(partialResponse)
+                    }
+                }
+
                 override fun onCompleteResponse(completeResponse: ChatResponse) {
-                    response.complete(completeResponse)
+                    response.complete(
+                        completeResponse.aiMessage().text()
+                            ?.takeIf(String::isNotBlank)
+                            ?: synchronized(streamedText) { streamedText.toString() },
+                    )
                 }
 
                 override fun onError(error: Throwable) {
@@ -39,12 +50,12 @@ class LangChain4jAiChatTitleGenerator(
                 }
             },
         )
-        return response.get(TITLE_TIMEOUT_SECONDS, TimeUnit.SECONDS).aiMessage().text()
-            ?.replace(WHITESPACE, " ")
-            ?.trim()
-            ?.removeSurrounding("\"")
-            ?.trim()
-            ?.takeIf(String::isNotEmpty)
+        return response.get(TITLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .replace(WHITESPACE, " ")
+            .trim()
+            .removeSurrounding("\"")
+            .trim()
+            .takeIf(String::isNotEmpty)
             ?.take(AiChatConversationService.TITLE_MAX_LENGTH)
             ?: error("AI title model returned no assistant text")
     }

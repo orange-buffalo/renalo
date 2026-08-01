@@ -24,8 +24,12 @@ class AiChatTitleGeneratorTest {
                 authorization = exchange.requestHeaders.getFirst("Authorization")
                 requestBody = exchange.requestBody.bufferedReader().use { it.readText() }
                 val response = (
-                    "data: " +
-                        """{"type":"response.completed","sequence_number":1,"response":{"id":"resp_title_1","object":"response","created_at":1785542400,"status":"completed","model":"renalo-chat","output":[{"id":"msg_title_1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"  \"Monthly spending review\"  ","annotations":[]}]}],"usage":{"input_tokens":30,"output_tokens":4,"total_tokens":34}}}""" +
+                    """data: {"type":"response.output_text.delta","item_id":"msg_title_1","output_index":0,"content_index":0,"delta":"  \"Monthly","sequence_number":1}""" +
+                        "\n\n" +
+                        """data: {"type":"response.output_text.delta","item_id":"msg_title_1","output_index":0,"content_index":0,"delta":" spending review\"  ","sequence_number":2}""" +
+                        "\n\n" +
+                        "data: " +
+                        """{"type":"response.completed","sequence_number":3,"response":{"id":"resp_title_1","object":"response","created_at":1785542400,"status":"completed","model":"renalo-chat","output":[],"usage":{"input_tokens":30,"output_tokens":4,"total_tokens":34}}}""" +
                         "\n\ndata: [DONE]\n\n"
                 ).toByteArray()
                 exchange.responseHeaders.add("Content-Type", "text/event-stream")
