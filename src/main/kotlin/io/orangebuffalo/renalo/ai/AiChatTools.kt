@@ -2,16 +2,21 @@ package io.orangebuffalo.renalo.ai
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
 import dev.langchain4j.agent.tool.ToolSpecification
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema
 import io.orangebuffalo.renalo.tracking.DashboardService
+import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
 import io.orangebuffalo.renalo.tracking.FundsTransferDateFilter
 import io.orangebuffalo.renalo.tracking.FundsTransferService
 import io.orangebuffalo.renalo.tracking.NetWorthAnalyticsService
 import io.orangebuffalo.renalo.tracking.TransactionDateFilter
 import io.orangebuffalo.renalo.tracking.TransactionService
+import io.orangebuffalo.renalo.tracking.TransactionQueryOrder
+import io.orangebuffalo.renalo.tracking.TransactionQueryCriteria
 import io.orangebuffalo.renalo.tracking.TransactionTimeSeriesGranularity
 import io.orangebuffalo.renalo.tracking.TransactionType
+import io.orangebuffalo.renalo.tracking.SortDirection
 import jakarta.inject.Singleton
 import java.time.LocalDate
 
@@ -23,6 +28,7 @@ class AiChatTools(
     private val fundsTransferService: FundsTransferService,
 ) {
     private val objectMapper = ObjectMapper().findAndRegisterModules()
+        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
     val specifications: List<ToolSpecification> = listOf(
         tool(
@@ -41,12 +47,35 @@ class AiChatTools(
         ),
         tool(
             name = TRANSACTION_SEARCH,
-            description = "Search expense or income transactions in an inclusive date range. Returns at most 50 newest matches; notesQuery may be empty.",
+            description = "Query the complete user transaction set with broad filters, arbitrary whitelisted ordering, pagination, and complete-set monetary summaries. All amounts are integer minor units. Empty strings mean no filter.",
             parameters = parameters(
                 "type" to "EXPENSE or INCOME",
-                "from" to "Inclusive date in YYYY-MM-DD format",
-                "to" to "Inclusive date in YYYY-MM-DD format",
-                "notesQuery" to "Optional notes text to match, or an empty string",
+                "from" to "Inclusive date in YYYY-MM-DD format, or an empty string for no lower bound",
+                "to" to "Inclusive date in YYYY-MM-DD format, or an empty string for no upper bound",
+                "transactionIds" to "Comma-separated transaction IDs, or empty",
+                "categoryIds" to "Comma-separated category IDs, or empty",
+                "categoryNameQuery" to "Case-insensitive category-name text, or empty",
+                "accountIds" to "Comma-separated account IDs, or empty",
+                "accountNameQuery" to "Case-insensitive account-name text, or empty",
+                "notesQuery" to "Notes, description, or payee words that must all match, or empty",
+                "currencies" to "Comma-separated original account currencies, or empty",
+                "minAmountMinor" to "Minimum original amount minor units, or empty",
+                "maxAmountMinor" to "Maximum original amount minor units, or empty",
+                "defaultCurrencies" to "Comma-separated projected currencies, or empty",
+                "minDefaultCurrencyAmountMinor" to "Minimum projected amount minor units, or empty",
+                "maxDefaultCurrencyAmountMinor" to "Maximum projected amount minor units, or empty",
+                "conversionSources" to "Comma-separated SAME_CURRENCY, ACTUAL_TRANSFER, or UNAVAILABLE values, or empty",
+                "conversionTransferIds" to "Comma-separated conversion evidence transfer IDs, or empty",
+                "recurring" to "ANY, TRUE, or FALSE",
+                "recurringRuleIds" to "Comma-separated recurring rule IDs, or empty",
+                "recurringInstanceFrom" to "Minimum recurring instance date in YYYY-MM-DD format, or empty",
+                "recurringInstanceTo" to "Maximum recurring instance date in YYYY-MM-DD format, or empty",
+                "recurringLocked" to "ANY, TRUE, or FALSE",
+                "metadataSources" to "Comma-separated metadata source values such as toshl, or empty",
+                "orderBy" to "ID, ACCOUNT_ID, CATEGORY_ID, DATE, AMOUNT, CURRENCY, DEFAULT_CURRENCY_AMOUNT, DEFAULT_CURRENCY, CONVERSION_SOURCE, CONVERSION_TRANSFER_ID, NOTES, ACCOUNT_NAME, CATEGORY_NAME, RECURRING_RULE_ID, RECURRING_INSTANCE_DATE, RECURRING_LOCKED, or METADATA_SOURCE",
+                "direction" to "ASC or DESC",
+                "offset" to "Zero-based result offset",
+                "limit" to "Page size from 1 to 50",
             ),
         ),
         tool(
@@ -100,34 +129,62 @@ class AiChatTools(
             }
             TRANSACTION_SEARCH -> {
                 val type = arguments.transactionType()
-                val range = arguments.dateRange()
-                val notesQuery = arguments.requiredText("notesQuery")
-                val matches = transactionService.listTransactions(
-                    userId,
-                    type,
-                    TransactionDateFilter(
-                        from = range.first,
-                        to = range.second,
-                        notesTokens = notesQuery.split(Regex("\\s+")).filter(String::isNotBlank),
-                    ),
-                )
-                val rows = matches.take(RESULT_LIMIT).map { details ->
-                    AiTransactionResult(
-                        id = details.transaction.id!!,
-                        type = details.transaction.type,
-                        date = details.transaction.date,
-                        amountMinor = details.transaction.amountMinor,
-                        currency = details.account.currency,
-                        accountName = details.account.name,
-                        categoryName = details.category.name,
-                        notes = details.transaction.notes,
-                    )
+                val from = arguments.optionalDate("from")
+                val to = arguments.optionalDate("to")
+                require(from == null || to == null || !from.isAfter(to)) { "from must not be after to" }
+                val amountMinorFrom = arguments.optionalLong("minAmountMinor")
+                val amountMinorTo = arguments.optionalLong("maxAmountMinor")
+                require(amountMinorFrom == null || amountMinorTo == null || amountMinorFrom <= amountMinorTo) {
+                    "minAmountMinor must not exceed maxAmountMinor"
                 }
+                val defaultAmountFrom = arguments.optionalLong("minDefaultCurrencyAmountMinor")
+                val defaultAmountTo = arguments.optionalLong("maxDefaultCurrencyAmountMinor")
+                require(defaultAmountFrom == null || defaultAmountTo == null || defaultAmountFrom <= defaultAmountTo) {
+                    "minDefaultCurrencyAmountMinor must not exceed maxDefaultCurrencyAmountMinor"
+                }
+                val recurringInstanceFrom = arguments.optionalDate("recurringInstanceFrom")
+                val recurringInstanceTo = arguments.optionalDate("recurringInstanceTo")
+                require(
+                    recurringInstanceFrom == null || recurringInstanceTo == null ||
+                        !recurringInstanceFrom.isAfter(recurringInstanceTo),
+                ) { "recurringInstanceFrom must not be after recurringInstanceTo" }
+                val result = transactionService.queryTransactions(
+                    userId = userId,
+                    type = type,
+                    criteria = TransactionQueryCriteria(
+                        from = from,
+                        to = to,
+                        transactionIds = arguments.longList("transactionIds"),
+                        categoryIds = arguments.longList("categoryIds"),
+                        categoryNameQuery = arguments.optionalText("categoryNameQuery"),
+                        accountIds = arguments.longList("accountIds"),
+                        accountNameQuery = arguments.optionalText("accountNameQuery"),
+                        notesTokens = arguments.requiredText("notesQuery").words(),
+                        currencies = arguments.textList("currencies"),
+                        amountMinorFrom = amountMinorFrom,
+                        amountMinorTo = amountMinorTo,
+                        defaultCurrencies = arguments.textList("defaultCurrencies"),
+                        defaultCurrencyAmountMinorFrom = defaultAmountFrom,
+                        defaultCurrencyAmountMinorTo = defaultAmountTo,
+                        conversionSources = arguments.enumList<DefaultCurrencyConversionSource>("conversionSources"),
+                        conversionTransferIds = arguments.longList("conversionTransferIds"),
+                        recurring = arguments.optionalBoolean("recurring"),
+                        recurringRuleIds = arguments.longList("recurringRuleIds"),
+                        recurringInstanceFrom = recurringInstanceFrom,
+                        recurringInstanceTo = recurringInstanceTo,
+                        recurringLocked = arguments.optionalBoolean("recurringLocked"),
+                        metadataSources = arguments.textList("metadataSources"),
+                    ),
+                    orderBy = enumValue<TransactionQueryOrder>(arguments.requiredText("orderBy")),
+                    direction = enumValue<SortDirection>(arguments.requiredText("direction")),
+                    offset = arguments.requiredText("offset").toInt(),
+                    limit = arguments.requiredText("limit").toInt(),
+                )
                 ExecutedAiChatTool(
                     call.id,
                     "Searching transactions",
                     "Searched transactions",
-                    objectMapper.writeValueAsString(AiSearchResult(rows, matches.size > RESULT_LIMIT)),
+                    objectMapper.writeValueAsString(result),
                 )
             }
             NET_WORTH -> {
@@ -183,6 +240,32 @@ class AiChatTools(
         return path(name).asText()
     }
 
+    private fun JsonNode.optionalText(name: String): String? = requiredText(name).takeIf(String::isNotBlank)
+
+    private fun JsonNode.optionalLong(name: String): Long? = optionalText(name)?.toLong()
+
+    private fun JsonNode.optionalDate(name: String): LocalDate? = optionalText(name)?.let(LocalDate::parse)
+
+    private fun JsonNode.textList(name: String): List<String> = requiredText(name).split(',')
+        .map(String::trim)
+        .filter(String::isNotBlank)
+
+    private fun JsonNode.longList(name: String): List<Long> = textList(name).map { value ->
+        value.toLong().also { require(it > 0) { "$name values must be positive" } }
+    }
+
+    private inline fun <reified T : Enum<T>> JsonNode.enumList(name: String): List<T> =
+        textList(name).map(::enumValue)
+
+    private fun JsonNode.optionalBoolean(name: String): Boolean? = when (val value = requiredText(name).uppercase()) {
+        "ANY" -> null
+        "TRUE" -> true
+        "FALSE" -> false
+        else -> throw IllegalArgumentException("$name must be ANY, TRUE, or FALSE, but was $value")
+    }
+
+    private fun String.words(): List<String> = split(Regex("\\s+")).filter(String::isNotBlank)
+
     private inline fun <reified T : Enum<T>> enumValue(value: String): T = enumValueOf(value.uppercase())
 
     private fun tool(name: String, description: String, parameters: JsonObjectSchema): ToolSpecification =
@@ -213,17 +296,6 @@ data class ExecutedAiChatTool(
 )
 
 private data class AiSearchResult<T>(val items: List<T>, val truncated: Boolean)
-
-private data class AiTransactionResult(
-    val id: Long,
-    val type: TransactionType,
-    val date: LocalDate,
-    val amountMinor: Long,
-    val currency: String,
-    val accountName: String,
-    val categoryName: String,
-    val notes: String?,
-)
 
 private data class AiTransferResult(
     val id: Long,

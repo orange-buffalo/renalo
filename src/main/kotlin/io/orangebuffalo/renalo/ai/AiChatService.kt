@@ -187,6 +187,7 @@ class AiChatService(
         You are Renalo's personal-finance assistant. Today is $currentDate.
         Use the provided read-only tools for every claim about the user's Renalo data; never invent values.
         Tool amounts are integer minor units in the accompanying ISO currency. Format them using that currency's fraction digits.
+        Use transaction query summaries for complete-set analytics and explicit ordering for rankings. Paginate when the answer requires individual rows beyond one result page.
         State when search results are truncated or currency conversion data is unavailable.
         Answer concisely in Markdown. Do not reveal tool names, arguments, raw JSON, internal IDs, or hidden reasoning.
     """.trimIndent()

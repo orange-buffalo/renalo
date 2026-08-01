@@ -1,5 +1,7 @@
 package io.orangebuffalo.renalo.tracking
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.core.type.TypeReference
 import io.micronaut.transaction.annotation.Transactional
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
 import jakarta.inject.Singleton
@@ -23,6 +25,9 @@ open class TransactionService(
     private val recurringTransactionGenerationService: RecurringTransactionGenerationService,
     private val transactionDefaultCurrencyService: TransactionDefaultCurrencyService,
 ) {
+    private val objectMapper = ObjectMapper().findAndRegisterModules()
+    private val metadataType = object : TypeReference<Map<String, String>>() {}
+
     @Transactional(readOnly = true)
     open fun listTransactions(
         userId: Long,
@@ -89,6 +94,190 @@ open class TransactionService(
                     return totals
                 }
             }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    open fun queryTransactions(
+        userId: Long,
+        type: TransactionType,
+        criteria: TransactionQueryCriteria,
+        orderBy: TransactionQueryOrder,
+        direction: SortDirection,
+        offset: Int,
+        limit: Int,
+    ): TransactionQueryResult {
+        require(offset >= 0) { "offset must not be negative" }
+        require(limit in 1..50) { "limit must be between 1 and 50" }
+        val queryFilter = advancedTransactionQueryFilter(userId, type, criteria)
+        val orderExpression = when (orderBy) {
+            TransactionQueryOrder.ID -> "t.id"
+            TransactionQueryOrder.ACCOUNT_ID -> "t.tracking_account_id"
+            TransactionQueryOrder.CATEGORY_ID -> "t.category_id"
+            TransactionQueryOrder.DATE -> "t.date"
+            TransactionQueryOrder.AMOUNT -> "t.amount_minor"
+            TransactionQueryOrder.CURRENCY -> "a.currency"
+            TransactionQueryOrder.DEFAULT_CURRENCY_AMOUNT -> "t.default_currency_amount_minor"
+            TransactionQueryOrder.DEFAULT_CURRENCY -> "t.default_currency"
+            TransactionQueryOrder.CONVERSION_SOURCE -> "t.default_currency_conversion_source"
+            TransactionQueryOrder.CONVERSION_TRANSFER_ID -> "t.default_currency_conversion_transfer_id"
+            TransactionQueryOrder.NOTES -> "t.notes"
+            TransactionQueryOrder.ACCOUNT_NAME -> "a.name"
+            TransactionQueryOrder.CATEGORY_NAME -> "c.name"
+            TransactionQueryOrder.RECURRING_RULE_ID -> "t.recurring_rule_id"
+            TransactionQueryOrder.RECURRING_INSTANCE_DATE -> "t.recurring_instance_date"
+            TransactionQueryOrder.RECURRING_LOCKED -> "t.recurring_locked"
+            TransactionQueryOrder.METADATA_SOURCE -> "t.metadata ->> 'source'"
+        }
+        val orderDirection = direction.name
+        val rowsSql = """
+            SELECT t.id,
+                   t.type,
+                   t.tracking_account_id,
+                   a.name AS account_name,
+                   a.currency,
+                   t.category_id,
+                   c.name AS category_name,
+                   t.date,
+                   t.amount_minor,
+                   t.default_currency_amount_minor,
+                   t.default_currency,
+                   t.default_currency_conversion_source,
+                   t.default_currency_conversion_transfer_id,
+                   t.notes,
+                   t.metadata::text AS metadata,
+                   t.recurring_rule_id,
+                   t.recurring_instance_date,
+                   t.recurring_locked
+            FROM transactions t
+            ${timeSeriesJoins(type)}
+            WHERE ${queryFilter.whereClause}
+            ORDER BY $orderExpression $orderDirection NULLS LAST${if (orderBy == TransactionQueryOrder.ID) "" else ", t.id $orderDirection"}
+            LIMIT ? OFFSET ?
+        """.trimIndent()
+        val summarySql = """
+            SELECT COUNT(*) AS total_count,
+                   COUNT(*) FILTER (
+                       WHERE t.default_currency_amount_minor IS NOT NULL
+                         AND t.default_currency = default_account.currency
+                   ) AS projected_count,
+                   SUM(t.default_currency_amount_minor) FILTER (
+                       WHERE t.default_currency_amount_minor IS NOT NULL
+                         AND t.default_currency = default_account.currency
+                   ) AS projected_sum,
+                   MIN(t.default_currency_amount_minor) FILTER (
+                       WHERE t.default_currency_amount_minor IS NOT NULL
+                         AND t.default_currency = default_account.currency
+                   ) AS projected_min,
+                   MAX(t.default_currency_amount_minor) FILTER (
+                       WHERE t.default_currency_amount_minor IS NOT NULL
+                         AND t.default_currency = default_account.currency
+                   ) AS projected_max,
+                   ROUND(AVG(t.default_currency_amount_minor) FILTER (
+                       WHERE t.default_currency_amount_minor IS NOT NULL
+                         AND t.default_currency = default_account.currency
+                   )) AS projected_average
+            FROM transactions t
+            ${timeSeriesJoins(type)}
+            WHERE ${queryFilter.whereClause}
+        """.trimIndent()
+        val originalCurrencySummarySql = """
+            SELECT a.currency,
+                   COUNT(*) AS transaction_count,
+                   SUM(t.amount_minor) AS amount_sum,
+                   MIN(t.amount_minor) AS amount_min,
+                   MAX(t.amount_minor) AS amount_max,
+                   ROUND(AVG(t.amount_minor)) AS amount_average
+            FROM transactions t
+            ${timeSeriesJoins(type)}
+            WHERE ${queryFilter.whereClause}
+            GROUP BY a.currency
+            ORDER BY a.currency
+        """.trimIndent()
+
+        dataSource.connection.use { connection ->
+            val items = connection.prepareStatement(rowsSql).use { statement ->
+                queryFilter.parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                statement.setInt(queryFilter.parameters.size + 1, limit)
+                statement.setInt(queryFilter.parameters.size + 2, offset)
+                statement.executeQuery().use { resultSet ->
+                    buildList {
+                        while (resultSet.next()) {
+                            add(
+                                QueriedTransaction(
+                                    id = resultSet.getLong("id"),
+                                    type = TransactionType.valueOf(resultSet.getString("type")),
+                                    accountId = resultSet.getLong("tracking_account_id"),
+                                    accountName = resultSet.getString("account_name"),
+                                    currency = resultSet.getString("currency"),
+                                    categoryId = resultSet.getLong("category_id"),
+                                    categoryName = resultSet.getString("category_name"),
+                                    date = resultSet.getDate("date").toLocalDate(),
+                                    amountMinor = resultSet.getLong("amount_minor"),
+                                    defaultCurrencyAmountMinor = resultSet.getNullableLong("default_currency_amount_minor"),
+                                    defaultCurrency = resultSet.getString("default_currency"),
+                                    conversionSource = DefaultCurrencyConversionSource.valueOf(
+                                        resultSet.getString("default_currency_conversion_source"),
+                                    ),
+                                    conversionTransferId = resultSet.getNullableLong("default_currency_conversion_transfer_id"),
+                                    notes = resultSet.getString("notes"),
+                                    metadata = resultSet.getString("metadata")?.let {
+                                        objectMapper.readValue(it, metadataType)
+                                    },
+                                    recurringRuleId = resultSet.getNullableLong("recurring_rule_id"),
+                                    recurringInstanceDate = resultSet.getDate("recurring_instance_date")?.toLocalDate(),
+                                    recurringLocked = resultSet.getBoolean("recurring_locked"),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+            val summary = connection.prepareStatement(summarySql).use { statement ->
+                queryFilter.parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                statement.executeQuery().use { resultSet ->
+                    check(resultSet.next())
+                    val totalCount = resultSet.getLong("total_count")
+                    val projectedCount = resultSet.getLong("projected_count")
+                    TransactionQuerySummary(
+                        totalCount = totalCount,
+                        defaultCurrency = trackingAccountRepository.findByUserIdAndIsDefaultTrue(userId)?.currency,
+                        projectedCount = projectedCount,
+                        unprojectedCount = totalCount - projectedCount,
+                        projectedAmountSumMinor = resultSet.getBigDecimal("projected_sum")?.longValueExact(),
+                        projectedAmountMinMinor = resultSet.getBigDecimal("projected_min")?.longValueExact(),
+                        projectedAmountMaxMinor = resultSet.getBigDecimal("projected_max")?.longValueExact(),
+                        projectedAmountAverageMinorRounded = resultSet.getBigDecimal("projected_average")?.longValueExact(),
+                    )
+                }
+            }
+            val originalCurrencySummaries = connection.prepareStatement(originalCurrencySummarySql).use { statement ->
+                queryFilter.parameters.forEachIndexed { index, parameter -> statement.setObject(index + 1, parameter) }
+                statement.executeQuery().use { resultSet ->
+                    buildList {
+                        while (resultSet.next()) {
+                            add(
+                                OriginalCurrencyTransactionSummary(
+                                    currency = resultSet.getString("currency"),
+                                    transactionCount = resultSet.getLong("transaction_count"),
+                                    amountSumMinor = resultSet.getBigDecimal("amount_sum").longValueExact(),
+                                    amountMinMinor = resultSet.getLong("amount_min"),
+                                    amountMaxMinor = resultSet.getLong("amount_max"),
+                                    amountAverageMinorRounded = resultSet.getBigDecimal("amount_average").longValueExact(),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+            return TransactionQueryResult(
+                items = items,
+                offset = offset,
+                limit = limit,
+                hasMore = offset.toLong() + items.size < summary.totalCount,
+                summary = summary,
+                originalCurrencySummaries = originalCurrencySummaries,
+            )
         }
     }
 
@@ -241,6 +430,95 @@ open class TransactionService(
         for (token in filter.notesTokens) {
             whereClauses += "LOWER(COALESCE(t.notes, '')) LIKE ?"
             parameters += "%${token.lowercase()}%"
+        }
+        return TransactionQueryFilter(whereClauses.joinToString(" AND "), parameters)
+    }
+
+    private fun advancedTransactionQueryFilter(
+        userId: Long,
+        type: TransactionType,
+        criteria: TransactionQueryCriteria,
+    ): TransactionQueryFilter {
+        val baseFilter = transactionQueryFilter(
+            userId,
+            type,
+            TransactionDateFilter(
+                from = criteria.from,
+                to = criteria.to,
+                categoryIds = criteria.categoryIds,
+                accountIds = criteria.accountIds,
+                notesTokens = criteria.notesTokens,
+            ),
+        )
+        val whereClauses = mutableListOf(baseFilter.whereClause)
+        val parameters = baseFilter.parameters.toMutableList()
+
+        if (criteria.transactionIds.isNotEmpty()) {
+            whereClauses += "t.id IN (${criteria.transactionIds.joinToString(",") { "?" }})"
+            parameters.addAll(criteria.transactionIds)
+        }
+        if (!criteria.accountNameQuery.isNullOrBlank()) {
+            whereClauses += "LOWER(a.name) LIKE ?"
+            parameters += "%${criteria.accountNameQuery.lowercase()}%"
+        }
+        if (!criteria.categoryNameQuery.isNullOrBlank()) {
+            whereClauses += "LOWER(c.name) LIKE ?"
+            parameters += "%${criteria.categoryNameQuery.lowercase()}%"
+        }
+        if (criteria.currencies.isNotEmpty()) {
+            whereClauses += "a.currency IN (${criteria.currencies.joinToString(",") { "?" }})"
+            parameters.addAll(criteria.currencies)
+        }
+        if (criteria.amountMinorFrom != null) {
+            whereClauses += "t.amount_minor >= ?"
+            parameters += criteria.amountMinorFrom
+        }
+        if (criteria.amountMinorTo != null) {
+            whereClauses += "t.amount_minor <= ?"
+            parameters += criteria.amountMinorTo
+        }
+        if (criteria.defaultCurrencyAmountMinorFrom != null) {
+            whereClauses += "t.default_currency_amount_minor >= ?"
+            parameters += criteria.defaultCurrencyAmountMinorFrom
+        }
+        if (criteria.defaultCurrencyAmountMinorTo != null) {
+            whereClauses += "t.default_currency_amount_minor <= ?"
+            parameters += criteria.defaultCurrencyAmountMinorTo
+        }
+        if (criteria.defaultCurrencies.isNotEmpty()) {
+            whereClauses += "t.default_currency IN (${criteria.defaultCurrencies.joinToString(",") { "?" }})"
+            parameters.addAll(criteria.defaultCurrencies)
+        }
+        if (criteria.conversionSources.isNotEmpty()) {
+            whereClauses += "t.default_currency_conversion_source IN (${criteria.conversionSources.joinToString(",") { "?" }})"
+            parameters.addAll(criteria.conversionSources.map { it.name })
+        }
+        if (criteria.conversionTransferIds.isNotEmpty()) {
+            whereClauses += "t.default_currency_conversion_transfer_id IN (${criteria.conversionTransferIds.joinToString(",") { "?" }})"
+            parameters.addAll(criteria.conversionTransferIds)
+        }
+        if (criteria.recurring != null) {
+            whereClauses += if (criteria.recurring) "t.recurring_rule_id IS NOT NULL" else "t.recurring_rule_id IS NULL"
+        }
+        if (criteria.recurringRuleIds.isNotEmpty()) {
+            whereClauses += "t.recurring_rule_id IN (${criteria.recurringRuleIds.joinToString(",") { "?" }})"
+            parameters.addAll(criteria.recurringRuleIds)
+        }
+        if (criteria.recurringInstanceFrom != null) {
+            whereClauses += "t.recurring_instance_date >= ?"
+            parameters += criteria.recurringInstanceFrom
+        }
+        if (criteria.recurringInstanceTo != null) {
+            whereClauses += "t.recurring_instance_date <= ?"
+            parameters += criteria.recurringInstanceTo
+        }
+        if (criteria.recurringLocked != null) {
+            whereClauses += "t.recurring_locked = ?"
+            parameters += criteria.recurringLocked
+        }
+        if (criteria.metadataSources.isNotEmpty()) {
+            whereClauses += "t.metadata ->> 'source' IN (${criteria.metadataSources.joinToString(",") { "?" }})"
+            parameters.addAll(criteria.metadataSources)
         }
         return TransactionQueryFilter(whereClauses.joinToString(" AND "), parameters)
     }
@@ -620,6 +898,31 @@ data class TransactionDateFilter(
     val notesTokens: List<String> = emptyList(),
 )
 
+data class TransactionQueryCriteria(
+    val from: LocalDate? = null,
+    val to: LocalDate? = null,
+    val categoryIds: List<Long> = emptyList(),
+    val accountIds: List<Long> = emptyList(),
+    val notesTokens: List<String> = emptyList(),
+    val accountNameQuery: String? = null,
+    val categoryNameQuery: String? = null,
+    val transactionIds: List<Long> = emptyList(),
+    val currencies: List<String> = emptyList(),
+    val amountMinorFrom: Long? = null,
+    val amountMinorTo: Long? = null,
+    val defaultCurrencyAmountMinorFrom: Long? = null,
+    val defaultCurrencyAmountMinorTo: Long? = null,
+    val defaultCurrencies: List<String> = emptyList(),
+    val conversionSources: List<DefaultCurrencyConversionSource> = emptyList(),
+    val conversionTransferIds: List<Long> = emptyList(),
+    val recurring: Boolean? = null,
+    val recurringRuleIds: List<Long> = emptyList(),
+    val recurringInstanceFrom: LocalDate? = null,
+    val recurringInstanceTo: LocalDate? = null,
+    val recurringLocked: Boolean? = null,
+    val metadataSources: List<String> = emptyList(),
+)
+
 enum class TransactionTimeSeriesGranularity {
     AUTO,
     DAY,
@@ -645,6 +948,81 @@ data class TransactionCategoryTotal(
     val categoryName: String,
     val currency: String,
     val amountMinor: Long,
+)
+
+enum class TransactionQueryOrder {
+    ID,
+    ACCOUNT_ID,
+    CATEGORY_ID,
+    DATE,
+    AMOUNT,
+    CURRENCY,
+    DEFAULT_CURRENCY_AMOUNT,
+    DEFAULT_CURRENCY,
+    CONVERSION_SOURCE,
+    CONVERSION_TRANSFER_ID,
+    NOTES,
+    ACCOUNT_NAME,
+    CATEGORY_NAME,
+    RECURRING_RULE_ID,
+    RECURRING_INSTANCE_DATE,
+    RECURRING_LOCKED,
+    METADATA_SOURCE,
+}
+
+enum class SortDirection {
+    ASC,
+    DESC,
+}
+
+data class TransactionQueryResult(
+    val items: List<QueriedTransaction>,
+    val offset: Int,
+    val limit: Int,
+    val hasMore: Boolean,
+    val summary: TransactionQuerySummary,
+    val originalCurrencySummaries: List<OriginalCurrencyTransactionSummary>,
+)
+
+data class QueriedTransaction(
+    val id: Long,
+    val type: TransactionType,
+    val accountId: Long,
+    val accountName: String,
+    val currency: String,
+    val categoryId: Long,
+    val categoryName: String,
+    val date: LocalDate,
+    val amountMinor: Long,
+    val defaultCurrencyAmountMinor: Long?,
+    val defaultCurrency: String?,
+    val conversionSource: DefaultCurrencyConversionSource,
+    val conversionTransferId: Long?,
+    val notes: String?,
+    val metadata: Map<String, String>?,
+    val recurringRuleId: Long?,
+    val recurringInstanceDate: LocalDate?,
+    val recurringLocked: Boolean,
+)
+
+data class TransactionQuerySummary(
+    val totalCount: Long,
+    val defaultCurrency: String?,
+    val projectedCount: Long,
+    val unprojectedCount: Long,
+    val projectedAmountSumMinor: Long?,
+    val projectedAmountMinMinor: Long?,
+    val projectedAmountMaxMinor: Long?,
+    val projectedAmountAverageMinorRounded: Long?,
+)
+
+data class OriginalCurrencyTransactionSummary(
+    val currency: String,
+    val transactionCount: Long,
+    val amountSumMinor: Long,
+    val amountMinMinor: Long,
+    val amountMaxMinor: Long,
+    val amountAverageMinorRounded: Long,
 )
 
 private fun ResultSet.toTransaction() = Transaction(
