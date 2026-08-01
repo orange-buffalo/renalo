@@ -15,6 +15,7 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
 import io.orangebuffalo.renalo.user.UserRepository
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
@@ -29,6 +30,8 @@ class AiChatController(
     private val userRepository: UserRepository,
     private val jsonMapper: JsonMapper,
 ) {
+    private val logger = LoggerFactory.getLogger(AiChatController::class.java)
+
     @Get("/conversations")
     fun listConversations(authentication: Authentication): HttpResponse<*> = withUser(authentication) { userId ->
         HttpResponse.ok(
@@ -105,6 +108,7 @@ class AiChatController(
                     }
                     val generatedTitle = if (result.wasCreated) {
                         aiChatService.generateTitle(request.content)
+                            .subscribeOn(Schedulers.boundedElastic())
                             .flatMap { title ->
                                 Mono.fromCallable {
                                     conversationService.updateGeneratedTitle(userId, conversationId, title)
@@ -116,6 +120,10 @@ class AiChatController(
                                     conversation = conversation.toResponse(),
                                 )
                             }
+                            .doOnError { error ->
+                                logger.warn("Failed to generate title for AI chat conversation {}", conversationId, error)
+                            }
+                            .onErrorResume { Mono.empty() }
                             .flux()
                     } else {
                         Flux.empty()

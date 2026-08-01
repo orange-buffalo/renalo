@@ -1,0 +1,99 @@
+package io.orangebuffalo.renalo
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.sun.net.httpserver.HttpServer
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.shouldBe
+import io.orangebuffalo.renalo.ai.AiChatLiteLlmConfiguration
+import io.orangebuffalo.renalo.ai.AiChatModelFactory
+import io.orangebuffalo.renalo.ai.LangChain4jAiChatTitleGenerator
+import org.junit.jupiter.api.Test
+import java.net.InetSocketAddress
+
+class AiChatTitleGeneratorTest {
+    private val objectMapper = ObjectMapper()
+
+    @Test
+    fun generatesATitleThroughTheConfiguredLiteLlmResponsesApi() {
+        var requestMethod: String? = null
+        var authorization: String? = null
+        var requestBody: String? = null
+        val server = HttpServer.create(InetSocketAddress(0), 0).apply {
+            createContext("/v1/responses") { exchange ->
+                requestMethod = exchange.requestMethod
+                authorization = exchange.requestHeaders.getFirst("Authorization")
+                requestBody = exchange.requestBody.bufferedReader().use { it.readText() }
+                val response = """
+                    {
+                      "id": "resp_title_1",
+                      "object": "response",
+                      "created_at": 1785542400,
+                      "status": "completed",
+                      "model": "renalo-chat",
+                      "output": [
+                        {
+                          "id": "msg_title_1",
+                          "type": "message",
+                          "status": "completed",
+                          "role": "assistant",
+                          "content": [
+                            {
+                              "type": "output_text",
+                              "text": "  \"Monthly spending review\"  ",
+                              "annotations": []
+                            }
+                          ]
+                        }
+                      ],
+                      "usage": {
+                        "input_tokens": 30,
+                        "output_tokens": 4,
+                        "total_tokens": 34
+                      }
+                    }
+                """.trimIndent().toByteArray()
+                exchange.responseHeaders.add("Content-Type", "application/json")
+                exchange.sendResponseHeaders(200, response.size.toLong())
+                exchange.responseBody.use { it.write(response) }
+            }
+            start()
+        }
+
+        try {
+            val configuration = AiChatLiteLlmConfiguration().apply {
+                baseUrl = "http://localhost:${server.address.port}/v1/"
+                apiKey = "test-key"
+                model = "renalo-chat"
+            }
+            val generator = LangChain4jAiChatTitleGenerator(
+                AiChatModelFactory().titleModel(configuration),
+            )
+
+            generator.generateTitle("How was my spending this month?")
+                .shouldBe("Monthly spending review")
+
+            requestMethod.shouldBe("POST")
+            authorization.shouldBe("Bearer test-key")
+            val request = objectMapper.readTree(requestBody)
+            request.path("model").asText().shouldBe("renalo-chat")
+            request.path("store").asBoolean().shouldBe(false)
+            request.path("stream").asBoolean().shouldBe(false)
+            request.path("max_output_tokens").asInt().shouldBe(50)
+            request.path("input").toList().shouldHaveSize(2)
+            request.path("input").path(0).path("role").asText().shouldBe("system")
+            request.path("input").path(0).path("content").path(0).path("text").asText()
+                .shouldBe(
+                    """
+                        Generate a concise title for a personal-finance assistant conversation based on the user's first message.
+                        Return only the title as plain text, without Markdown, quotation marks, or ending punctuation.
+                        Use at most 60 characters and do not answer the user's question.
+                    """.trimIndent(),
+                )
+            request.path("input").path(1).path("role").asText().shouldBe("user")
+            request.path("input").path(1).path("content").path(0).path("text").asText()
+                .shouldBe("How was my spending this month?")
+        } finally {
+            server.stop(0)
+        }
+    }
+}

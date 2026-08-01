@@ -6,3 +6,10 @@ import io.micronaut.context.annotation.ConfigurationProperties
 class AiChatConfiguration {
     var enabled: Boolean = false
 }
+
+@ConfigurationProperties("renalo.ai-chat.litellm")
+class AiChatLiteLlmConfiguration {
+    var baseUrl: String = ""
+    var apiKey: String = ""
+    var model: String = ""
+}

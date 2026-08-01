@@ -8,7 +8,9 @@ import ScreenshotPair from "../../../components/ScreenshotPair.astro";
 import desktop from "../../../assets/screenshots/desktop/33-chat-preview.png";
 import mobile from "../../../assets/screenshots/mobile/33-chat-preview.png";
 
-The Chat preview is an opt-in demonstration of Renalo's future conversational interface. A deployment operator enables it with `RENALO_AI_CHAT_ENABLED=true`; when disabled, Chat does not appear in the main navigation.
+The Chat preview is an opt-in demonstration of Renalo's future conversational interface. A deployment operator enables it and configures LiteLLM as described in [Install with Docker](/getting-started/installation/); when disabled, Chat does not appear in the main navigation.
+
+Renalo uses the configured AI model to replace a new chat's generic title with a concise title derived from its first prompt. The answer content and restored history are still simulated preview data and are not generated from your financial records.
 
 <ScreenshotPair desktop={desktop} mobile={mobile} alt="Renalo Chat preview with a conversation selector, message feed, and composer" />
 

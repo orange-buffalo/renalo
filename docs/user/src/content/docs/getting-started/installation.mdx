@@ -24,6 +24,9 @@ Internet access is optional. If Renalo must be reachable outside your private ne
 | `RENALO_PUBLIC_URL` | Exact externally reachable origin, such as `https://budget.example.com` |
 | `RENALO_DEFAULT_ADMIN_USERNAME` | Optional first administrator username; defaults to `admin` |
 | `RENALO_AI_CHAT_ENABLED` | Optional `true`/`false` flag for the Chat interface preview; defaults to `false` |
+| `RENALO_AI_CHAT_LITELLM_BASE_URL` | LiteLLM OpenAI-compatible API root, including `/v1` |
+| `RENALO_AI_CHAT_LITELLM_API_KEY` | LiteLLM API key; kept only on the Renalo server |
+| `RENALO_AI_CHAT_LITELLM_MODEL` | Stable LiteLLM model alias used by Renalo |
 
 Generate a strong JWT secret once and store it in your secret manager:
 
@@ -33,7 +36,9 @@ openssl rand -base64 64
 
 Do not regenerate it at every container start. Rotating it signs users out, while persisted remembered sessions must be revoked separately if the rotation responds to a compromise.
 
-The Chat preview is disabled unless `RENALO_AI_CHAT_ENABLED=true` is set on the Renalo container. This flag currently enables only an echo demonstration of the interface; it does not connect Renalo to LiteLLM or an AI model.
+The Chat preview is disabled unless `RENALO_AI_CHAT_ENABLED=true` is set on the Renalo container. An enabled deployment must also configure the three `RENALO_AI_CHAT_LITELLM_*` variables. Renalo currently uses the model only to generate the title of a new chat from its first prompt; chat answers and history remain simulated preview content.
+
+The base URL normally looks like `http://litellm:4000/v1`. Keep LiteLLM on a private network, configure the model name as a stable LiteLLM alias rather than a provider-specific model ID, and do not expose the API key to browsers or user accounts.
 
 <Tabs>
   <TabItem label="Docker Compose">

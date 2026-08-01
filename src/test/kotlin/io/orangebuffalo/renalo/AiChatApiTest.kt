@@ -81,6 +81,44 @@ class AiChatApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun continuesTheTurnWhenTitleGenerationFails() {
+        val user = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        val response = api().postJson(
+            "/api/ai-chat/messages",
+            """{ "content": "Please fail title generation" }""",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        val events = response.body().lineSequence().filter(String::isNotBlank).toList()
+        val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
+        val createdAt = eventUpdatedAt(events.first())
+        val expectedEvents = listOf(
+            """{"v":1,"seq":1,"type":"conversation.created","conversation":${conversationJson(conversation, "New chat", createdAt)}}""",
+            """{"v":1,"seq":3,"type":"turn.started"}""",
+            """{"v":1,"seq":4,"type":"tool.started","activityId":"activity-1","label":"Reviewing expense totals"}""",
+            """{"v":1,"seq":5,"type":"tool.completed","activityId":"activity-1","label":"Reviewed expense totals","status":"COMPLETED"}""",
+            """{"v":1,"seq":6,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
+            """{"v":1,"seq":7,"type":"assistant.delta","text":"You asked: **Please fail title generation**\n\n"}""",
+            """{"v":1,"seq":8,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
+            """{"v":1,"seq":9,"type":"assistant.delta","text":"| Category | Amount | Share |\n| --- | ---: | ---: |\n"}""",
+            """{"v":1,"seq":10,"type":"assistant.delta","text":"| Groceries | ${'$'}428.30 | 42% |\n"}""",
+            """{"v":1,"seq":11,"type":"assistant.delta","text":"| Transport | ${'$'}186.75 | 18% |\n"}""",
+            """{"v":1,"seq":12,"type":"assistant.delta","text":"| Dining out | ${'$'}142.10 | 14% |\n\n"}""",
+            """{"v":1,"seq":13,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
+            """{"v":1,"seq":14,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
+            """{"v":1,"seq":15,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
+            """{"v":1,"seq":16,"type":"assistant.delta","text":"> This is placeholder data from the Chat preview. It is not calculated from your Renalo records yet."}""",
+            """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
+        )
+        events.shouldHaveSize(expectedEvents.size)
+        events.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
+        conversation.title.shouldBe("New chat")
+    }
+
+    @Test
     fun listsRenamesAndDeletesConversations() {
         val user = saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")

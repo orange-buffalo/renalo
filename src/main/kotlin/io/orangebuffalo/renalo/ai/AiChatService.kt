@@ -6,7 +6,9 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 
 @Singleton
-class AiChatService {
+class AiChatService(
+    private val titleGenerator: AiChatTitleGenerator,
+) {
     fun loadConversationHistory(conversation: AiChatConversation): Mono<AiChatConversationHistoryResponse> {
         val response = if (conversation.title.contains("missing", ignoreCase = true)) {
             AiChatConversationHistoryResponse(
@@ -31,13 +33,9 @@ class AiChatService {
         return Mono.just(response).delayElement(HISTORY_LOADING_DELAY)
     }
 
-    fun generateTitle(content: String): Mono<String> = Mono.just(
-        when {
-            content.contains("month", ignoreCase = true) -> "Monthly spending review"
-            content.contains("spend", ignoreCase = true) -> "Spending review"
-            else -> "Financial overview"
-        },
-    ).delayElement(TITLE_GENERATION_DELAY)
+    fun generateTitle(content: String): Mono<String> = Mono.fromCallable {
+        titleGenerator.generateTitle(content)
+    }
 
     fun streamMessage(content: String, startingSequence: Int = 1): Flux<AiChatStreamEvent> {
         val events = buildList {
@@ -86,7 +84,6 @@ class AiChatService {
     companion object {
         private const val TOOL_ACTIVITY_ID = "activity-1"
         private val STREAM_DELAY = Duration.ofMillis(50)
-        private val TITLE_GENERATION_DELAY = Duration.ofMillis(300)
         private val TOOL_EXECUTION_DELAY = Duration.ofSeconds(1)
         private val HISTORY_LOADING_DELAY = Duration.ofSeconds(1)
     }
