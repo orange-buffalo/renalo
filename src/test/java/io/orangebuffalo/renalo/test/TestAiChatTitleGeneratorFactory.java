@@ -83,6 +83,21 @@ class TestAiChatTitleGeneratorFactory {
                     .map(item -> item.path("content").path(0).path("text").asText())
                     .findFirst()
                     .orElse("your request");
+            if (prompt.toLowerCase(Locale.ROOT).contains("chart")
+                    && request.getConversationItems().stream()
+                    .map(TestAiChatTitleGeneratorFactory::parseJson)
+                    .noneMatch(item -> item.path("type").asText().equals("function_call")
+                            && item.path("name").asText().equals("present_chart"))) {
+                var arguments = "{\"kind\":\"DONUT\",\"title\":\"Expenses by category\"}";
+                return Flux.just(new AiChatModelStepEvent.Completed(
+                        responseId,
+                        "renalo-chat",
+                        List.of(new AiChatModelToolCall("call_chart", "present_chart", arguments)),
+                        List.of(
+                                "{\"type\":\"function_call\",\"id\":\"fc_chart\",\"call_id\":\"call_chart\",\"name\":\"present_chart\",\"arguments\":\"{\\\"kind\\\":\\\"DONUT\\\",\\\"title\\\":\\\"Expenses by category\\\"}\",\"status\":\"completed\"}"
+                        )
+                ));
+            }
             return Flux.fromIterable(List.of(
                     new AiChatModelStepEvent.TextDelta("## Spending snapshot\n\n"),
                     new AiChatModelStepEvent.TextDelta("You asked: **" + prompt + "**\n\n"),

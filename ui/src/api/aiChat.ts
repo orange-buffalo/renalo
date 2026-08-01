@@ -12,7 +12,20 @@ export type AiChatConversationHistory = {
   messages: Array<{
     role: "USER" | "ASSISTANT";
     content: string;
+    charts: AiChatChart[];
   }>;
+};
+
+export type AiChatChart = {
+  id: string;
+  kind: "LINE" | "PIE" | "DONUT";
+  title: string;
+  currency: string;
+  series: Array<{
+    name: string;
+    points: Array<{ label: string; amountMinor: string }>;
+  }>;
+  segments: Array<{ label: string; amountMinor: string }>;
 };
 
 export type AiChatToolActivity = {
@@ -51,6 +64,7 @@ export type AiChatStreamEvent =
       status: "COMPLETED";
     }
   | { v: 1; seq: number; type: "assistant.delta"; text: string }
+  | { v: 1; seq: number; type: "assistant.chart"; chart: AiChatChart }
   | {
       v: 1;
       seq: number;
@@ -175,6 +189,7 @@ const streamEventTypes = new Set([
   "tool.started",
   "tool.completed",
   "assistant.delta",
+  "assistant.chart",
   "turn.completed",
   "turn.error",
 ]);

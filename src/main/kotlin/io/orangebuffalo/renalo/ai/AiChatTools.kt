@@ -26,6 +26,7 @@ class AiChatTools(
     private val transactionService: TransactionService,
     private val netWorthAnalyticsService: NetWorthAnalyticsService,
     private val fundsTransferService: FundsTransferService,
+    private val charts: AiChatCharts,
 ) {
     private val objectMapper = ObjectMapper().findAndRegisterModules()
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
@@ -79,6 +80,16 @@ class AiChatTools(
             ),
         ),
         tool(
+            name = TRANSACTION_TIME_SERIES,
+            description = "Get expense or income totals by calendar bucket in the current default currency for a line chart or time-based analysis.",
+            parameters = parameters(
+                "type" to "EXPENSE or INCOME",
+                "from" to "Inclusive date in YYYY-MM-DD format",
+                "to" to "Inclusive date in YYYY-MM-DD format",
+                "granularity" to "AUTO, DAY, WEEK, or MONTH",
+            ),
+        ),
+        tool(
             name = NET_WORTH,
             description = "Get cumulative net worth in the default currency over an inclusive date range through today.",
             parameters = parameters(
@@ -95,18 +106,33 @@ class AiChatTools(
                 "to" to "Inclusive date in YYYY-MM-DD format",
             ),
         ),
+        tool(
+            name = AiChatCharts.PRESENT_CHART_TOOL,
+            description = "Present a prior compatible data-tool result as a chart. Prefer a chart whenever it can answer or materially clarify the user's question. LINE requires time-series or net-worth data; PIE and DONUT require category totals.",
+            parameters = parameters(
+                "kind" to "LINE, PIE, or DONUT",
+                "title" to "Concise plain-text chart title, 1 to 100 characters",
+            ),
+        ),
     )
 
     fun activity(call: AiChatModelToolCall): Pair<String, String> = when (call.name) {
         ACCOUNT_BALANCES -> "Reviewing account balances" to "Reviewed account balances"
         CATEGORY_TOTALS -> "Calculating category totals" to "Calculated category totals"
         TRANSACTION_SEARCH -> "Searching transactions" to "Searched transactions"
+        TRANSACTION_TIME_SERIES -> "Calculating transaction trend" to "Calculated transaction trend"
         NET_WORTH -> "Calculating net worth" to "Calculated net worth"
         TRANSFER_SEARCH -> "Searching transfers" to "Searched transfers"
+        AiChatCharts.PRESENT_CHART_TOOL -> "Preparing chart" to "Prepared chart"
         else -> "Reviewing financial data" to "Reviewed financial data"
     }
 
-    fun execute(userId: Long, currentDate: LocalDate, call: AiChatModelToolCall): ExecutedAiChatTool {
+    fun execute(
+        userId: Long,
+        currentDate: LocalDate,
+        call: AiChatModelToolCall,
+        context: AiChatToolExecutionContext = AiChatToolExecutionContext(),
+    ): ExecutedAiChatTool {
         val arguments = objectMapper.readTree(call.arguments)
         return when (call.name) {
             ACCOUNT_BALANCES -> ExecutedAiChatTool(
@@ -118,13 +144,46 @@ class AiChatTools(
             CATEGORY_TOTALS -> {
                 val type = arguments.transactionType()
                 val range = arguments.dateRange()
+                val totals = transactionService.getCategoryTotals(
+                    userId,
+                    type,
+                    TransactionDateFilter(range.first, range.second),
+                )
                 ExecutedAiChatTool(
                     call.id,
                     "Calculating category totals",
                     "Calculated category totals",
-                    objectMapper.writeValueAsString(
-                        transactionService.getCategoryTotals(userId, type, TransactionDateFilter(range.first, range.second)),
-                    ),
+                    objectMapper.writeValueAsString(totals),
+                    chartSource = totals.firstOrNull()?.let { first ->
+                        AiChatChartSource.Slices(
+                            currency = first.currency,
+                            segments = totals.map { AiChatChartSourceSegment(it.categoryName, it.amountMinor) },
+                        )
+                    },
+                )
+            }
+            TRANSACTION_TIME_SERIES -> {
+                val type = arguments.transactionType()
+                val range = arguments.dateRange()
+                val granularity = enumValue<TransactionTimeSeriesGranularity>(arguments.requiredText("granularity"))
+                val timeSeries = transactionService.getTimeSeries(
+                    userId,
+                    type,
+                    TransactionDateFilter(range.first, range.second),
+                    granularity,
+                )
+                ExecutedAiChatTool(
+                    call.id,
+                    "Calculating transaction trend",
+                    "Calculated transaction trend",
+                    objectMapper.writeValueAsString(timeSeries),
+                    chartSource = timeSeries.points.firstOrNull()?.let { first ->
+                        AiChatChartSource.Line(
+                            currency = first.currency,
+                            seriesName = if (type == TransactionType.EXPENSE) "Expenses" else "Income",
+                            points = timeSeries.points.map { AiChatChartSourcePoint(it.bucket, it.amountMinor) },
+                        )
+                    },
                 )
             }
             TRANSACTION_SEARCH -> {
@@ -191,13 +250,25 @@ class AiChatTools(
                 val range = arguments.dateRange()
                 require(!range.second.isAfter(currentDate)) { "to must not be after today" }
                 val granularity = enumValue<TransactionTimeSeriesGranularity>(arguments.requiredText("granularity"))
+                val timeSeries = netWorthAnalyticsService.getTimeSeries(
+                    userId,
+                    range.first,
+                    range.second,
+                    granularity,
+                    currentDate,
+                )
                 ExecutedAiChatTool(
                     call.id,
                     "Calculating net worth",
                     "Calculated net worth",
-                    objectMapper.writeValueAsString(
-                        netWorthAnalyticsService.getTimeSeries(userId, range.first, range.second, granularity, currentDate),
-                    ),
+                    objectMapper.writeValueAsString(timeSeries),
+                    chartSource = timeSeries.points.firstOrNull()?.let { first ->
+                        AiChatChartSource.Line(
+                            currency = first.currency,
+                            seriesName = "Net worth",
+                            points = timeSeries.points.map { AiChatChartSourcePoint(it.bucket, it.amountMinor) },
+                        )
+                    },
                 )
             }
             TRANSFER_SEARCH -> {
@@ -220,6 +291,27 @@ class AiChatTools(
                     "Searching transfers",
                     "Searched transfers",
                     objectMapper.writeValueAsString(AiSearchResult(rows, matches.size > RESULT_LIMIT)),
+                )
+            }
+            AiChatCharts.PRESENT_CHART_TOOL -> {
+                val kind = enumValue<AiChatChartKind>(arguments.requiredText("kind"))
+                val source = context.chartSources.values.lastOrNull {
+                    when (kind) {
+                        AiChatChartKind.LINE -> it is AiChatChartSource.Line
+                        AiChatChartKind.PIE, AiChatChartKind.DONUT -> it is AiChatChartSource.Slices
+                    }
+                } ?: throw IllegalArgumentException("chart requires compatible data from this turn")
+                val chart = charts.create(
+                    kind = kind,
+                    title = arguments.requiredText("title"),
+                    source = source,
+                )
+                ExecutedAiChatTool(
+                    call.id,
+                    "Preparing chart",
+                    "Prepared chart",
+                    charts.encodeArtifact(chart),
+                    chart = chart,
                 )
             }
             else -> error("Unsupported AI tool request")
@@ -282,6 +374,7 @@ class AiChatTools(
         private const val ACCOUNT_BALANCES = "get_account_balances"
         private const val CATEGORY_TOTALS = "get_category_totals"
         private const val TRANSACTION_SEARCH = "search_transactions"
+        private const val TRANSACTION_TIME_SERIES = "get_transaction_time_series"
         private const val NET_WORTH = "get_net_worth"
         private const val TRANSFER_SEARCH = "search_transfers"
         private const val RESULT_LIMIT = 50
@@ -293,6 +386,8 @@ data class ExecutedAiChatTool(
     val startedLabel: String,
     val completedLabel: String,
     val result: String,
+    val chartSource: AiChatChartSource? = null,
+    val chart: AiChatChartResponse? = null,
 )
 
 private data class AiSearchResult<T>(val items: List<T>, val truncated: Boolean)

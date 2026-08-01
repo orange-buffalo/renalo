@@ -66,6 +66,7 @@
 - AI chat financial tools are read-only, user-bound server-side, and return exact minor-unit amounts with currencies. Model-visible arguments never include `userId`; browser-local today is injected by Renalo. Tool activity shown in the browser uses safe Renalo-owned labels and never exposes raw tool names, arguments, or results.
 - The LiteLLM ChatGPT Responses connector rejects system-role input messages. Keep Renalo's server-owned prompt as a LangChain4j system message internally, but the LiteLLM HTTP compatibility adapter must move it to the top-level Responses API `instructions` field and remove it from `input`.
 - AI assistant prose is Markdown, while tool execution is structured application state derived from LangChain4j tool lifecycle callbacks. Browser responses must use safe Renalo-owned activity labels and statuses; never expose raw tool names, arguments, results, reasoning, or provider/tool identifiers.
+- AI chat charts are validated server-owned artifacts built from the most recent compatible authoritative data-tool result in the current turn; model-facing chart arguments must not expose or require opaque tool-call identifiers.
 
 ## Frontend
 

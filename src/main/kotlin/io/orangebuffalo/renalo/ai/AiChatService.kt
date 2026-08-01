@@ -65,6 +65,7 @@ class AiChatService(
                 )
                 val conversationItems = conversationEventService.loadItems(userId, conversationId)
                     ?: return@defer Flux.error(IllegalStateException("AI chat conversation no longer exists"))
+                val toolContext = AiChatToolExecutionContext()
 
                 Flux.concat(
                     Flux.just(AiChatTurnStarted(seq = sequence.getAndIncrement())),
@@ -77,6 +78,7 @@ class AiChatService(
                         conversationItems = conversationItems,
                         sequence = sequence,
                         toolCallCount = 0,
+                        toolContext = toolContext,
                     ),
                 )
             }.subscribeOn(Schedulers.boundedElastic())
@@ -101,6 +103,7 @@ class AiChatService(
         conversationItems: List<String>,
         sequence: AtomicInteger,
         toolCallCount: Int,
+        toolContext: AiChatToolExecutionContext,
     ): Flux<AiChatStreamEvent> = modelGateway.streamStep(
         AiChatModelStepRequest(
             systemPrompt = systemPrompt(currentDate),
@@ -132,6 +135,7 @@ class AiChatService(
                         event.toolCalls,
                         sequence,
                         toolCallCount + event.toolCalls.size,
+                        toolContext,
                     )
                 }
             }
@@ -146,23 +150,32 @@ class AiChatService(
         calls: List<AiChatModelToolCall>,
         sequence: AtomicInteger,
         toolCallCount: Int,
+        toolContext: AiChatToolExecutionContext,
     ): Flux<AiChatStreamEvent> {
         val results = mutableListOf<AiChatModelInput.ToolResult>()
         return Flux.fromIterable(calls).concatMap { call ->
             val activity = tools.activity(call)
             Flux.concat(
-                Flux.just(AiChatToolStarted(sequence.getAndIncrement(), call.id, activity.first)),
+                Flux.just<AiChatStreamEvent>(AiChatToolStarted(sequence.getAndIncrement(), call.id, activity.first)),
                 Mono.delay(MIN_TOOL_ACTIVITY_DURATION)
-                    .then(Mono.fromCallable { tools.execute(userId, currentDate, call) })
+                    .then(Mono.fromCallable { tools.execute(userId, currentDate, call, toolContext) })
                     .subscribeOn(Schedulers.boundedElastic())
-                    .map { executed ->
+                    .flatMapMany { executed ->
                         results += AiChatModelInput.ToolResult(call.id, call.name, executed.result)
+                        executed.chartSource?.let { toolContext.chartSources[call.id] = it }
                         conversationEventService.appendItems(
                             userId,
                             conversationId,
                             listOf(conversationEventService.toolResult(call, executed.result)),
                         )
-                        AiChatToolCompleted(sequence.getAndIncrement(), executed.activityId, executed.completedLabel)
+                        Flux.fromIterable(
+                            buildList<AiChatStreamEvent> {
+                                add(AiChatToolCompleted(sequence.getAndIncrement(), executed.activityId, executed.completedLabel))
+                                executed.chart?.let { chart ->
+                                    add(AiChatAssistantChart(sequence.getAndIncrement(), chart))
+                                }
+                            },
+                        )
                     },
             )
         }.concatWith(
@@ -178,6 +191,7 @@ class AiChatService(
                     conversationItems,
                     sequence,
                     toolCallCount,
+                    toolContext,
                 )
             },
         )
@@ -188,6 +202,7 @@ class AiChatService(
         Use the provided read-only tools for every claim about the user's Renalo data; never invent values.
         Tool amounts are integer minor units in the accompanying ISO currency. Format them using that currency's fraction digits.
         Use transaction query summaries for complete-set analytics and explicit ordering for rankings. Paginate when the answer requires individual rows beyond one result page.
+        Prefer presenting a line, pie, or donut chart whenever a chart can answer or materially clarify the user's question. First obtain compatible authoritative data, then present it with the chart tool.
         State when search results are truncated or currency conversion data is unavailable.
         Answer concisely in Markdown. Do not reveal tool names, arguments, raw JSON, internal IDs, or hidden reasoning.
     """.trimIndent()

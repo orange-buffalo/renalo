@@ -212,6 +212,8 @@ enum class AiChatConversationHistoryStatus {
 data class AiChatHistoryMessageResponse(
     val role: AiChatHistoryMessageRole,
     val content: String,
+    @field:JsonInclude(JsonInclude.Include.ALWAYS)
+    val charts: List<AiChatChartResponse> = emptyList(),
 )
 
 enum class AiChatHistoryMessageRole {
@@ -269,6 +271,12 @@ data class AiChatAssistantDelta(
     override val seq: Int,
     val text: String,
     override val type: String = "assistant.delta",
+) : AiChatStreamEvent
+
+data class AiChatAssistantChart(
+    override val seq: Int,
+    val chart: AiChatChartResponse,
+    override val type: String = "assistant.chart",
 ) : AiChatStreamEvent
 
 data class AiChatTurnCompleted(

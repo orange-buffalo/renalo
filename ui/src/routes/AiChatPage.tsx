@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 import type {
+  AiChatChart,
   AiChatConversation,
   AiChatStreamEvent,
   AiChatToolActivity,
@@ -28,6 +29,7 @@ import {
   renameAiChatConversation,
   streamAiChatMessage,
 } from "@/api/aiChat";
+import { AiChatChart as AiChatChartView } from "@/components/ai-chat/AiChatChart";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
@@ -45,6 +47,7 @@ type ChatMessage = {
   id: number;
   author: "You" | "Renalo";
   content: string;
+  charts?: AiChatChart[];
   toolActivities?: AiChatToolActivity[];
   isStreaming?: boolean;
 };
@@ -207,6 +210,7 @@ export function AiChatPage() {
               id: -(index + 1),
               author: message.role === "USER" ? "You" : "Renalo",
               content: message.content,
+              charts: message.charts,
             })),
             historyStatus: "AVAILABLE",
           };
@@ -255,6 +259,7 @@ export function AiChatPage() {
       id: assistantMessageId,
       author: "Renalo",
       content: "",
+      charts: [],
       toolActivities: [],
       isStreaming: true,
     };
@@ -714,6 +719,7 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
     message.author === "Renalo" &&
     message.isStreaming &&
     !message.content &&
+    !message.charts?.length &&
     !message.toolActivities?.length;
 
   return (
@@ -751,17 +757,24 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
               </span>
             </div>
           ) : message.author === "Renalo" ? (
-            <Suspense
-              fallback={
-                <div className="ai-chat-markdown-loading">
-                  Formatting response...
-                </div>
-              }
-            >
-              <AiMarkdown isStreaming={message.isStreaming}>
-                {message.content}
-              </AiMarkdown>
-            </Suspense>
+            <>
+              {message.charts?.map((chart) => (
+                <AiChatChartView chart={chart} key={chart.id} />
+              ))}
+              {message.content && (
+                <Suspense
+                  fallback={
+                    <div className="ai-chat-markdown-loading">
+                      Formatting response...
+                    </div>
+                  }
+                >
+                  <AiMarkdown isStreaming={message.isStreaming}>
+                    {message.content}
+                  </AiMarkdown>
+                </Suspense>
+              )}
+            </>
           ) : (
             message.content
           )}
@@ -810,6 +823,8 @@ function applyEventToMessage(
   switch (event.type) {
     case "assistant.delta":
       return { ...message, content: message.content + event.text };
+    case "assistant.chart":
+      return { ...message, charts: [...(message.charts ?? []), event.chart] };
     case "tool.started":
       return {
         ...message,
@@ -856,6 +871,7 @@ function finishStreamingMessage(
       removeIfEmpty &&
       message &&
       !message.content &&
+      !message.charts?.length &&
       !message.toolActivities?.length
     ) {
       return {

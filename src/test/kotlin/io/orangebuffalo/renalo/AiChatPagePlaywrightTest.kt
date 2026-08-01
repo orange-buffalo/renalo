@@ -15,12 +15,26 @@ import io.orangebuffalo.renalo.test.shouldEventually
 import io.orangebuffalo.renalo.ai.AiChatConversation
 import io.orangebuffalo.renalo.ai.AiChatConversationEventService
 import io.orangebuffalo.renalo.ai.AiChatConversationRepository
+import io.orangebuffalo.renalo.ai.AiChatChartKind
+import io.orangebuffalo.renalo.ai.AiChatChartSource
+import io.orangebuffalo.renalo.ai.AiChatChartSourcePoint
+import io.orangebuffalo.renalo.ai.AiChatChartSourceSegment
+import io.orangebuffalo.renalo.ai.AiChatCharts
+import io.orangebuffalo.renalo.ai.AiChatModelToolCall
+import io.orangebuffalo.renalo.tracking.ExpenseCategory
+import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
+import io.orangebuffalo.renalo.tracking.TrackingAccount
+import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
@@ -40,6 +54,140 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var conversationEventService: AiChatConversationEventService
+
+    @Inject lateinit var charts: AiChatCharts
+    @Inject lateinit var trackingAccountRepository: TrackingAccountRepository
+    @Inject lateinit var expenseCategoryRepository: ExpenseCategoryRepository
+    @Inject lateinit var transactionRepository: TransactionRepository
+
+    @Test
+    fun streamsAndReloadsAssistantCharts(page: Page) {
+        val user = saveUser("alice", UserType.USER)
+        val account = trackingAccountRepository.save(
+            TrackingAccount(userId = user.id!!, name = "Main", currency = "AUD", initialBalanceMinor = 0, isDefault = true),
+        )
+        val category = expenseCategoryRepository.save(ExpenseCategory(userId = user.id!!, name = "Groceries"))
+        transactionRepository.save(
+            Transaction(
+                userId = user.id!!,
+                type = TransactionType.EXPENSE,
+                trackingAccountId = account.id!!,
+                categoryId = category.id!!,
+                date = LocalDate.parse("2026-08-01"),
+                amountMinor = 2_345,
+                defaultCurrencyAmountMinor = 2_345,
+                defaultCurrency = "AUD",
+            ),
+        )
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.navigate(server.url.toString() + "/chat")
+
+        page.getByRole(AriaRole.TEXTBOX, Page.GetByRoleOptions().setName("Message").setExact(true))
+            .fill("Show a chart of spending")
+        page.getByLabel("Send message").click()
+
+        page.shouldEventually {
+            extractChartData().shouldContainExactly(
+                ChartData(
+                    title = "Expenses by category",
+                    kind = "DONUT",
+                    rows = listOf(ChartRow("Donut segment", "Groceries", "A${'$'}23.45")),
+                ),
+            )
+        }
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+
+        page.reload()
+        page.shouldEventually {
+            extractChartData().shouldContainExactly(
+                ChartData(
+                    title = "Expenses by category",
+                    kind = "DONUT",
+                    rows = listOf(ChartRow("Donut segment", "Groceries", "A${'$'}23.45")),
+                ),
+            )
+        }
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+    }
+
+    @Test
+    fun rendersLinePieAndDonutChartsFromSavedHistory(page: Page) {
+        val user = saveUser("alice", UserType.USER)
+        val conversation = conversationRepository.save(AiChatConversation(userId = user.id!!, title = "Chart gallery"))
+        val chartValues = listOf(
+            charts.create(
+                AiChatChartKind.LINE,
+                "Balance trend",
+                AiChatChartSource.Line(
+                    "AUD",
+                    "Balance",
+                    listOf(
+                        AiChatChartSourcePoint(LocalDate.parse("2026-01-01"), 1_000),
+                        AiChatChartSourcePoint(LocalDate.parse("2026-02-01"), 2_500),
+                    ),
+                ),
+                "00000000-0000-0000-0000-000000000101",
+            ),
+            charts.create(
+                AiChatChartKind.PIE,
+                "Expense share",
+                AiChatChartSource.Slices(
+                    "AUD",
+                    listOf(AiChatChartSourceSegment("Food", 1_200), AiChatChartSourceSegment("Rent", 8_800)),
+                ),
+                "00000000-0000-0000-0000-000000000102",
+            ),
+            charts.create(
+                AiChatChartKind.DONUT,
+                "Income share",
+                AiChatChartSource.Slices(
+                    "AUD",
+                    listOf(AiChatChartSourceSegment("Salary", 9_000), AiChatChartSourceSegment("Interest", 1_000)),
+                ),
+                "00000000-0000-0000-0000-000000000103",
+            ),
+        )
+        val items = mutableListOf(conversationEventService.userMessage("Show all chart styles"))
+        chartValues.forEachIndexed { index, chart ->
+            val call = AiChatModelToolCall("chart-$index", "present_chart", "{}")
+            items += """{"type":"function_call","call_id":"${call.id}","name":"present_chart","arguments":"{}"}"""
+            items += conversationEventService.toolResult(call, charts.encodeArtifact(chart))
+        }
+        items += """{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Here are the requested charts."}]}"""
+        conversationEventService.appendItems(user.id!!, conversation.id!!, items)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/chat")
+
+        page.shouldEventually {
+            extractChartData().shouldContainExactly(
+                ChartData(
+                    "Balance trend",
+                    "LINE",
+                    listOf(
+                        ChartRow("Balance", "2026-01-01", "A${'$'}10.00"),
+                        ChartRow("Balance", "2026-02-01", "A${'$'}25.00"),
+                    ),
+                ),
+                ChartData(
+                    "Expense share",
+                    "PIE",
+                    listOf(
+                        ChartRow("Pie segment", "Food", "A${'$'}12.00"),
+                        ChartRow("Pie segment", "Rent", "A${'$'}88.00"),
+                    ),
+                ),
+                ChartData(
+                    "Income share",
+                    "DONUT",
+                    listOf(
+                        ChartRow("Donut segment", "Salary", "A${'$'}90.00"),
+                        ChartRow("Donut segment", "Interest", "A${'$'}10.00"),
+                    ),
+                ),
+            )
+        }
+    }
 
     @Test
     fun persistsRenamesAndDeletesConversations(page: Page) {
@@ -421,6 +569,17 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         )
     }
 
+    private fun Page.extractChartData(): List<ChartData> = locator("[data-testid='ai-chat-chart']").all().map { chart ->
+        ChartData(
+            title = chart.getByRole(AriaRole.HEADING).innerText(),
+            kind = chart.getAttribute("data-chart-kind"),
+            rows = chart.locator("tbody tr").all().map { row ->
+                val cells = row.locator("td").allTextContents()
+                ChartRow(cells[0], cells[1], cells[2])
+            },
+        )
+    }
+
     private fun saveUser(username: String, type: UserType): User = userRepository.save(
         User(
             username = username,
@@ -438,5 +597,17 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     private data class ToolActivity(
         val label: String,
         val status: String,
+    )
+
+    private data class ChartData(
+        val title: String,
+        val kind: String,
+        val rows: List<ChartRow>,
+    )
+
+    private data class ChartRow(
+        val series: String,
+        val label: String,
+        val value: String,
     )
 }

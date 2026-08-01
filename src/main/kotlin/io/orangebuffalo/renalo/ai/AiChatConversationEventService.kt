@@ -11,6 +11,7 @@ import javax.sql.DataSource
 open class AiChatConversationEventService(
     private val dataSource: DataSource,
     private val conversationRepository: AiChatConversationRepository,
+    private val charts: AiChatCharts,
 ) {
     private val objectMapper = ObjectMapper()
 
@@ -74,7 +75,7 @@ open class AiChatConversationEventService(
         val items = loadItems(userId, conversationId) ?: return null
         return AiChatConversationHistoryResponse(
             status = AiChatConversationHistoryStatus.AVAILABLE,
-            messages = items.mapNotNull { itemJson -> toHistoryMessage(objectMapper.readTree(itemJson)) },
+            messages = projectHistory(items.map(objectMapper::readTree)),
         )
     }
 
@@ -94,21 +95,67 @@ open class AiChatConversationEventService(
         ),
     )
 
-    private fun toHistoryMessage(item: JsonNode): AiChatHistoryMessageResponse? {
-        if (item.path("type").asText() != "message") return null
+    private fun projectHistory(items: List<JsonNode>): List<AiChatHistoryMessageResponse> {
+        val messages = mutableListOf<AiChatHistoryMessageResponse>()
+        val callNames = mutableMapOf<String, String>()
+        val pendingCharts = mutableListOf<AiChatChartResponse>()
+        items.forEach { item ->
+            when (item.path("type").asText()) {
+                "function_call" -> callNames[item.path("call_id").asText()] = item.path("name").asText()
+                "function_call_output" -> {
+                    if (callNames[item.path("call_id").asText()] == AiChatCharts.PRESENT_CHART_TOOL) {
+                        charts.decodeArtifact(item.path("output").asText())?.let(pendingCharts::add)
+                    }
+                }
+                "message" -> {
+                    val role = historyRole(item) ?: return@forEach
+                    if (role == AiChatHistoryMessageRole.USER && pendingCharts.isNotEmpty()) {
+                        messages += AiChatHistoryMessageResponse(
+                            role = AiChatHistoryMessageRole.ASSISTANT,
+                            content = "",
+                            charts = pendingCharts.toList(),
+                        )
+                        pendingCharts.clear()
+                    }
+                    val content = historyText(item, role)
+                    if (content.isNotBlank() || (role == AiChatHistoryMessageRole.ASSISTANT && pendingCharts.isNotEmpty())) {
+                        messages += AiChatHistoryMessageResponse(
+                            role = role,
+                            content = content,
+                            charts = if (role == AiChatHistoryMessageRole.ASSISTANT) pendingCharts.toList() else emptyList(),
+                        )
+                        if (role == AiChatHistoryMessageRole.ASSISTANT) pendingCharts.clear()
+                    }
+                }
+            }
+        }
+        if (pendingCharts.isNotEmpty()) {
+            messages += AiChatHistoryMessageResponse(
+                role = AiChatHistoryMessageRole.ASSISTANT,
+                content = "",
+                charts = pendingCharts,
+            )
+        }
+        return messages
+    }
+
+    private fun historyRole(item: JsonNode): AiChatHistoryMessageRole? {
         val role = when (item.path("role").asText()) {
             "user" -> AiChatHistoryMessageRole.USER
             "assistant" -> AiChatHistoryMessageRole.ASSISTANT
             else -> return null
         }
+        return role
+    }
+
+    private fun historyText(item: JsonNode, role: AiChatHistoryMessageRole): String {
         val textTypes = if (role == AiChatHistoryMessageRole.USER) setOf("input_text") else setOf("output_text", "refusal")
-        val content = item.path("content").mapNotNull { part ->
+        return item.path("content").mapNotNull { part ->
             when (part.path("type").asText()) {
                 in textTypes -> part.path("text").asText().takeIf(String::isNotBlank)
                     ?: part.path("refusal").asText().takeIf(String::isNotBlank)
                 else -> null
             }
         }.joinToString("")
-        return content.takeIf(String::isNotBlank)?.let { AiChatHistoryMessageResponse(role, it) }
     }
 }

@@ -10,6 +10,13 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.ai.AiChatConversation
 import io.orangebuffalo.renalo.ai.AiChatConversationEventService
 import io.orangebuffalo.renalo.ai.AiChatConversationRepository
+import io.orangebuffalo.renalo.tracking.ExpenseCategory
+import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
+import io.orangebuffalo.renalo.tracking.TrackingAccount
+import io.orangebuffalo.renalo.tracking.TrackingAccountRepository
+import io.orangebuffalo.renalo.tracking.Transaction
+import io.orangebuffalo.renalo.tracking.TransactionRepository
+import io.orangebuffalo.renalo.tracking.TransactionType
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
@@ -36,6 +43,10 @@ class AiChatApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var conversationEventService: AiChatConversationEventService
+
+    @Inject lateinit var trackingAccountRepository: TrackingAccountRepository
+    @Inject lateinit var expenseCategoryRepository: ExpenseCategoryRepository
+    @Inject lateinit var transactionRepository: TransactionRepository
 
     @Test
     fun streamsMarkdownAndStructuredToolActivityForRegularUsers() {
@@ -81,6 +92,103 @@ class AiChatApiTest : IntegrationTestSupport() {
         conversation.version.shouldBe(3)
         (createdUpdatedAt < titleUpdatedAt).shouldBe(true)
         (titleUpdatedAt < conversation.updatedAt).shouldBe(true)
+    }
+
+    @Test
+    fun streamsAndReloadsAValidatedChart() {
+        val user = saveUser("alice", UserType.USER)
+        val account = trackingAccountRepository.save(
+            TrackingAccount(userId = user.id!!, name = "Main", currency = "AUD", initialBalanceMinor = 0, isDefault = true),
+        )
+        val category = expenseCategoryRepository.save(ExpenseCategory(userId = user.id!!, name = "Groceries"))
+        transactionRepository.save(
+            Transaction(
+                userId = user.id!!,
+                type = TransactionType.EXPENSE,
+                trackingAccountId = account.id!!,
+                categoryId = category.id!!,
+                date = java.time.LocalDate.parse("2026-08-01"),
+                amountMinor = 2_345,
+                defaultCurrencyAmountMinor = 2_345,
+                defaultCurrency = "AUD",
+            ),
+        )
+        val token = api().login("alice", "password")
+
+        val response = api().postJson(
+            "/api/ai-chat/messages",
+            """{"content":"Show a chart of spending"}""",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        val events = response.body().lineSequence().filter(String::isNotBlank).toList()
+        val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
+        val chartId = objectMapper.readTree(events[7]).path("chart").path("id").asText()
+        events.map { objectMapper.readTree(it).path("type").asText() }.shouldBe(
+            listOf(
+                "conversation.created",
+                "conversation.updated",
+                "turn.started",
+                "tool.started",
+                "tool.completed",
+                "tool.started",
+                "tool.completed",
+                "assistant.chart",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "turn.completed",
+            ),
+        )
+        events[7].shouldEqualJson(
+            """
+                {
+                  "v":1,
+                  "seq":8,
+                  "type":"assistant.chart",
+                  "chart":{
+                    "id":"$chartId",
+                    "kind":"DONUT",
+                    "title":"Expenses by category",
+                    "currency":"AUD",
+                    "series":[],
+                    "segments":[{"label":"Groceries","amountMinor":"2345"}]
+                  }
+                }
+            """.trimIndent(),
+        )
+
+        api().get("/api/ai-chat/conversations/${conversation.id}/history", token).body().shouldEqualJson(
+            """
+                {
+                  "status":"AVAILABLE",
+                  "messages":[
+                    {"role":"USER","content":"Show a chart of spending","charts":[]},
+                    {
+                      "role":"ASSISTANT",
+                      "content":"## Spending snapshot\n\nYou asked: **Show a chart of spending**\n\nHere is an example of how an AI-generated answer could present your results:\n\n| Category | Amount | Share |\n| --- | ---: | ---: |\n| Groceries | ${'$'}428.30 | 42% |\n| Transport | ${'$'}186.75 | 18% |\n| Dining out | ${'$'}142.10 | 14% |\n\n- **Groceries** were the largest expense category.\n- Dining out was lower than groceries by `${'$'}286.20`.\n- The remaining categories accounted for 26% of the sample total.\n\n> This response was generated from Renalo's read-only financial tools.",
+                      "charts":[{
+                        "id":"$chartId",
+                        "kind":"DONUT",
+                        "title":"Expenses by category",
+                        "currency":"AUD",
+                        "series":[],
+                        "segments":[{"label":"Groceries","amountMinor":"2345"}]
+                      }]
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
     }
 
     @Test
@@ -224,11 +332,13 @@ class AiChatApiTest : IntegrationTestSupport() {
                   "messages": [
                     {
                       "role": "USER",
-                      "content": "What did we discuss in this chat?"
+                      "content": "What did we discuss in this chat?",
+                      "charts": []
                     },
                     {
                       "role": "ASSISTANT",
-                      "content": "## Saved conversation\n\nThis history was loaded from Renalo's event log."
+                      "content": "## Saved conversation\n\nThis history was loaded from Renalo's event log.",
+                      "charts": []
                     }
                   ]
                 }

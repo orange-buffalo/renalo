@@ -2849,6 +2849,124 @@ input {
   color: #343841;
 }
 
+.ai-chat-chart {
+  width: 100%;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border-color-secondary);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.04);
+}
+
+.ai-chat-chart + .ai-chat-chart,
+.ai-chat-chart + .ai-chat-markdown {
+  margin-top: 18px;
+}
+
+.ai-chat-chart-header {
+  margin-bottom: 14px;
+}
+
+.ai-chat-chart-header h3 {
+  margin: 0;
+  color: #252932;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.ai-chat-chart-header p {
+  margin: 3px 0 0;
+  color: #69707b;
+  font-size: 0.75rem;
+}
+
+.ai-chat-chart-canvas {
+  width: 100%;
+  height: 230px;
+  min-width: 0;
+}
+
+.ai-chat-chart-canvas--slice {
+  position: relative;
+  height: 220px;
+}
+
+.ai-chat-slice-chart {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.9fr) minmax(190px, 1.1fr);
+  align-items: center;
+  gap: 20px;
+}
+
+.ai-chat-chart-total {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: 46%;
+  color: #343841;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.ai-chat-chart-legend {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-chat-chart-legend-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #4e5560;
+  font-size: 0.75rem;
+}
+
+.ai-chat-chart-legend-item > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.ai-chat-chart-legend-item strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-chat-chart-legend-item small {
+  color: #69707b;
+  font-size: inherit;
+}
+
+@media (max-width: 520px) {
+  .ai-chat-chart {
+    padding: 14px;
+  }
+
+  .ai-chat-chart-canvas {
+    height: 210px;
+  }
+
+  .ai-chat-slice-chart {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .ai-chat-chart-canvas--slice {
+    height: 200px;
+  }
+}
+
 .ai-chat-markdown-loading {
   color: #626872;
   font-size: 0.875rem;

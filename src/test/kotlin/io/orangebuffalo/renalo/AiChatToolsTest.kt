@@ -2,9 +2,11 @@ package io.orangebuffalo.renalo
 
 import io.kotest.assertions.json.shouldEqualJson
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldBe
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.ai.AiChatModelToolCall
 import io.orangebuffalo.renalo.ai.AiChatTools
+import io.orangebuffalo.renalo.ai.AiChatToolExecutionContext
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
@@ -51,6 +53,7 @@ class AiChatToolsTest : IntegrationTestSupport() {
             ),
         )
 
+        val context = AiChatToolExecutionContext()
         tools.execute(
             alice.id!!,
             LocalDate.parse("2026-08-01"),
@@ -67,7 +70,7 @@ class AiChatToolsTest : IntegrationTestSupport() {
                 }]
             """.trimIndent(),
         )
-        tools.execute(
+        val categoryResult = tools.execute(
             alice.id!!,
             LocalDate.parse("2026-08-01"),
             AiChatModelToolCall(
@@ -75,7 +78,9 @@ class AiChatToolsTest : IntegrationTestSupport() {
                 "get_category_totals",
                 """{"type":"EXPENSE","from":"2026-08-01","to":"2026-08-01"}""",
             ),
-        ).result.shouldEqualJson(
+            context,
+        )
+        categoryResult.result.shouldEqualJson(
             """
                 [{
                   "categoryId": ${category.id},
@@ -84,6 +89,21 @@ class AiChatToolsTest : IntegrationTestSupport() {
                   "amountMinor": 2345
                 }]
             """.trimIndent(),
+        )
+        context.chartSources["call-2"] = categoryResult.chartSource!!
+        val chartResult = tools.execute(
+            alice.id!!,
+            LocalDate.parse("2026-08-01"),
+            AiChatModelToolCall(
+                "call-chart",
+                "present_chart",
+                """{"kind":"DONUT","title":"Expenses by category"}""",
+            ),
+            context,
+        )
+        chartResult.chart?.kind.shouldBe(io.orangebuffalo.renalo.ai.AiChatChartKind.DONUT)
+        chartResult.chart?.segments.shouldBe(
+            listOf(io.orangebuffalo.renalo.ai.AiChatChartSegmentResponse("Groceries", "2345")),
         )
 
     }
@@ -94,8 +114,10 @@ class AiChatToolsTest : IntegrationTestSupport() {
             "get_account_balances",
             "get_category_totals",
             "search_transactions",
+            "get_transaction_time_series",
             "get_net_worth",
             "search_transfers",
+            "present_chart",
         )
     }
 
