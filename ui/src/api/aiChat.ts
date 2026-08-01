@@ -7,6 +7,14 @@ export type AiChatConversation = {
   updatedAt: string;
 };
 
+export type AiChatConversationHistory = {
+  status: "AVAILABLE" | "TEMPORARILY_UNAVAILABLE";
+  messages: Array<{
+    role: "USER" | "ASSISTANT";
+    content: string;
+  }>;
+};
+
 export type AiChatToolActivity = {
   id: string;
   label: string;
@@ -115,6 +123,12 @@ export async function fetchAiChatConversations() {
     "/api/ai-chat/conversations",
   );
   return response.conversations;
+}
+
+export function fetchAiChatConversationHistory(conversationId: number) {
+  return apiRequest<AiChatConversationHistory>(
+    `/api/ai-chat/conversations/${conversationId}/history`,
+  );
 }
 
 export function renameAiChatConversation(

@@ -8,7 +8,14 @@ import {
   Trash01,
   XClose,
 } from "@untitledui/icons";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import type {
   AiChatConversation,
   AiChatStreamEvent,
@@ -16,12 +23,14 @@ import type {
 } from "@/api/aiChat";
 import {
   deleteAiChatConversation,
+  fetchAiChatConversationHistory,
   fetchAiChatConversations,
   renameAiChatConversation,
   streamAiChatMessage,
 } from "@/api/aiChat";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
+import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
 import {
   Dialog,
   Modal,
@@ -47,6 +56,11 @@ type Conversation = {
   createdAt?: string;
   updatedAt?: string;
   messages: ChatMessage[];
+  historyStatus:
+    | "NOT_LOADED"
+    | "LOADING"
+    | "AVAILABLE"
+    | "TEMPORARILY_UNAVAILABLE";
 };
 
 const AiMarkdown = lazy(async () => ({
@@ -58,6 +72,7 @@ const initialConversation = createDraftConversation("draft-1");
 export function AiChatPage() {
   const feedRef = useRef<HTMLDivElement>(null);
   const activeRequestRef = useRef<AbortController>(null);
+  const historyRequestRef = useRef<AbortController>(null);
   const nextDraftIdRef = useRef(2);
   const [conversations, setConversations] = useState<Conversation[]>([
     initialConversation,
@@ -79,6 +94,9 @@ export function AiChatPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const activeConversation = conversations.find(
     (conversation) => conversation.clientId === activeConversationClientId,
+  );
+  const loadInitialConversationHistory = useEffectEvent(
+    loadConversationHistory,
   );
 
   useEffect(() => {
@@ -105,8 +123,11 @@ export function AiChatPage() {
           ]),
         );
         if (sortedPersisted[0]) {
-          setActiveConversationClientId(
-            `conversation-${sortedPersisted[0].id}`,
+          const conversationClientId = `conversation-${sortedPersisted[0].id}`;
+          setActiveConversationClientId(conversationClientId);
+          void loadInitialConversationHistory(
+            conversationClientId,
+            sortedPersisted[0].id,
           );
         }
       })
@@ -118,6 +139,7 @@ export function AiChatPage() {
     return () => {
       isActive = false;
       activeRequestRef.current?.abort();
+      historyRequestRef.current?.abort();
     };
   }, []);
 
@@ -144,9 +166,77 @@ export function AiChatPage() {
     setError(undefined);
   }
 
+  async function loadConversationHistory(
+    conversationClientId: string,
+    conversationId: number,
+  ) {
+    historyRequestRef.current?.abort();
+    const abortController = new AbortController();
+    historyRequestRef.current = abortController;
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.clientId === conversationClientId
+          ? { ...conversation, historyStatus: "LOADING" }
+          : conversation,
+      ),
+    );
+
+    try {
+      const history = await fetchAiChatConversationHistory(conversationId);
+      if (abortController.signal.aborted) {
+        return;
+      }
+      setConversations((current) =>
+        current.map((conversation) => {
+          if (conversation.clientId !== conversationClientId) {
+            return conversation;
+          }
+          if (history.status === "TEMPORARILY_UNAVAILABLE") {
+            return {
+              ...conversation,
+              messages: [],
+              historyStatus: "TEMPORARILY_UNAVAILABLE",
+            };
+          }
+          return {
+            ...conversation,
+            messages: history.messages.map((message, index) => ({
+              id: -(index + 1),
+              author: message.role === "USER" ? "You" : "Renalo",
+              content: message.content,
+            })),
+            historyStatus: "AVAILABLE",
+          };
+        }),
+      );
+    } catch (historyError) {
+      if (!isAbortError(historyError)) {
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.clientId === conversationClientId
+              ? {
+                  ...conversation,
+                  historyStatus: "TEMPORARILY_UNAVAILABLE",
+                }
+              : conversation,
+          ),
+        );
+      }
+    } finally {
+      if (historyRequestRef.current === abortController) {
+        historyRequestRef.current = null;
+      }
+    }
+  }
+
   async function sendMessage() {
     const content = draft.trim();
-    if (!content || isSending || !activeConversation) {
+    if (
+      !content ||
+      isSending ||
+      !activeConversation ||
+      activeConversation.historyStatus !== "AVAILABLE"
+    ) {
       return;
     }
 
@@ -362,6 +452,15 @@ export function AiChatPage() {
                       setActiveConversationClientId(conversation.clientId);
                       setDraft("");
                       setError(undefined);
+                      if (
+                        conversation.id !== undefined &&
+                        conversation.historyStatus === "NOT_LOADED"
+                      ) {
+                        void loadConversationHistory(
+                          conversation.clientId,
+                          conversation.id,
+                        );
+                      }
                     }}
                   >
                     <span className="ai-chat-conversation-option">
@@ -429,10 +528,43 @@ export function AiChatPage() {
           ref={feedRef}
           role="log"
           aria-label="Message feed"
-          aria-busy={isSending}
+          aria-busy={
+            isSending || activeConversation?.historyStatus === "LOADING"
+          }
           aria-live="polite"
         >
-          {activeConversation?.messages.length ? (
+          {activeConversation?.historyStatus === "LOADING" ? (
+            <div className="ai-chat-history-loading">
+              <LoadingIndicator
+                type="line-spinner"
+                size="md"
+                label="Loading chat history..."
+              />
+            </div>
+          ) : activeConversation?.historyStatus ===
+            "TEMPORARILY_UNAVAILABLE" ? (
+            <div className="ai-chat-history-unavailable">
+              <h2>Chat history is temporarily unavailable</h2>
+              <p>
+                This saved chat is unchanged. Retry after the external provider
+                state is available again.
+              </p>
+              <Button
+                color="secondary"
+                size="sm"
+                onPress={() => {
+                  if (activeConversation.id !== undefined) {
+                    void loadConversationHistory(
+                      activeConversation.clientId,
+                      activeConversation.id,
+                    );
+                  }
+                }}
+              >
+                Retry loading history
+              </Button>
+            </div>
+          ) : activeConversation?.messages.length ? (
             activeConversation.messages.map((message) => (
               <ChatMessageView message={message} key={message.id} />
             ))
@@ -457,7 +589,9 @@ export function AiChatPage() {
               rows={3}
               textAreaClassName="ai-chat-composer-textarea"
               value={draft}
-              isDisabled={isSending}
+              isDisabled={
+                isSending || activeConversation?.historyStatus !== "AVAILABLE"
+              }
               onChange={setDraft}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
@@ -472,7 +606,11 @@ export function AiChatPage() {
               color="tertiary"
               size="sm"
               iconLeading={isSending ? Stop : Send01}
-              isDisabled={!isSending && !draft.trim()}
+              isDisabled={
+                !isSending &&
+                (!draft.trim() ||
+                  activeConversation?.historyStatus !== "AVAILABLE")
+              }
               onPress={() =>
                 isSending
                   ? activeRequestRef.current?.abort()
@@ -616,6 +754,7 @@ function createDraftConversation(clientId: string): Conversation {
     clientId,
     title: "New chat",
     messages: [],
+    historyStatus: "AVAILABLE",
   };
 }
 
@@ -626,6 +765,7 @@ function fromPersistedConversation(
     clientId: `conversation-${conversation.id}`,
     ...conversation,
     messages: [],
+    historyStatus: "NOT_LOADED",
   };
 }
 

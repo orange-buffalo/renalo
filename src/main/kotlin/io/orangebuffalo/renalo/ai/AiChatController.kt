@@ -38,6 +38,19 @@ class AiChatController(
         )
     }
 
+    @Get("/conversations/{conversationId}/history")
+    fun loadConversationHistory(
+        conversationId: Long,
+        authentication: Authentication,
+    ): Mono<HttpResponse<*>> {
+        val user = userRepository.findByUsername(authentication.name)
+            ?: return Mono.just(HttpResponse.unauthorized<Any>())
+        val conversation = conversationService.findConversation(user.id!!, conversationId)
+            ?: return Mono.just(HttpResponse.notFound<Any>())
+        return aiChatService.loadConversationHistory(conversation)
+            .map<HttpResponse<*>> { HttpResponse.ok(it) }
+    }
+
     @Patch("/conversations/{conversationId}")
     fun renameConversation(
         conversationId: Long,
@@ -161,6 +174,27 @@ data class AiChatConversationResponse(
     val createdAt: Instant,
     val updatedAt: Instant,
 )
+
+data class AiChatConversationHistoryResponse(
+    val status: AiChatConversationHistoryStatus,
+    @field:JsonInclude(JsonInclude.Include.ALWAYS)
+    val messages: List<AiChatHistoryMessageResponse>,
+)
+
+enum class AiChatConversationHistoryStatus {
+    AVAILABLE,
+    TEMPORARILY_UNAVAILABLE,
+}
+
+data class AiChatHistoryMessageResponse(
+    val role: AiChatHistoryMessageRole,
+    val content: String,
+)
+
+enum class AiChatHistoryMessageRole {
+    USER,
+    ASSISTANT,
+}
 
 private fun AiChatConversation.toResponse() = AiChatConversationResponse(
     id = id ?: error("AI chat conversation must be persisted before it can be returned"),

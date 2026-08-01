@@ -123,6 +123,46 @@ class AiChatApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun loadsAvailableAndTemporarilyUnavailableConversationHistory() {
+        val user = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+        val available = conversationRepository.save(
+            AiChatConversation(userId = user.id!!, title = "Available chat"),
+        )
+        val missing = conversationRepository.save(
+            AiChatConversation(userId = user.id!!, title = "Missing provider session"),
+        )
+
+        api().get("/api/ai-chat/conversations/${available.id}/history", token).body().shouldEqualJson(
+            """
+                {
+                  "status": "AVAILABLE",
+                  "messages": [
+                    {
+                      "role": "USER",
+                      "content": "What did we discuss in this chat?"
+                    },
+                    {
+                      "role": "ASSISTANT",
+                      "content": "## Saved conversation\n\nThis preview history was loaded from the simulated external provider."
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+        api().get("/api/ai-chat/conversations/${missing.id}/history", token).body().shouldEqualJson(
+            """
+                {
+                  "status": "TEMPORARILY_UNAVAILABLE",
+                  "messages": []
+                }
+            """.trimIndent(),
+        )
+        conversationRepository.findByIdAndUserId(missing.id!!, user.id!!)?.title
+            .shouldBe("Missing provider session")
+    }
+
+    @Test
     fun touchesAndReordersConversationsWhenTurnsStartAndComplete() {
         val user = saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")
@@ -171,6 +211,7 @@ class AiChatApiTest : IntegrationTestSupport() {
             aliceToken,
         ).statusCode().shouldBe(404)
         api().delete("/api/ai-chat/conversations/${bobConversation.id}", aliceToken).statusCode().shouldBe(404)
+        api().get("/api/ai-chat/conversations/${bobConversation.id}/history", aliceToken).statusCode().shouldBe(404)
         api().postJson(
             "/api/ai-chat/messages",
             """{"conversationId":${bobConversation.id},"content":"Hello"}""",
@@ -192,6 +233,8 @@ class AiChatApiTest : IntegrationTestSupport() {
         api().postJson("/api/ai-chat/messages", request, adminToken).statusCode().shouldBe(403)
         api().get("/api/ai-chat/conversations", null).statusCode().shouldBe(401)
         api().get("/api/ai-chat/conversations", adminToken).statusCode().shouldBe(403)
+        api().get("/api/ai-chat/conversations/1/history", null).statusCode().shouldBe(401)
+        api().get("/api/ai-chat/conversations/1/history", adminToken).statusCode().shouldBe(403)
     }
 
     @Test

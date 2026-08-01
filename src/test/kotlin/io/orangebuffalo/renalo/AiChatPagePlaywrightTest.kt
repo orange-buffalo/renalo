@@ -12,6 +12,8 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestAuthTokens
 import io.orangebuffalo.renalo.test.shouldEventually
+import io.orangebuffalo.renalo.ai.AiChatConversation
+import io.orangebuffalo.renalo.ai.AiChatConversationRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
@@ -31,6 +33,9 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var testAuthTokens: TestAuthTokens
+
+    @Inject
+    lateinit var conversationRepository: AiChatConversationRepository
 
     @Test
     fun persistsRenamesAndDeletesConversations(page: Page) {
@@ -101,11 +106,17 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertConversationOptions(page, listOf("Spending review", "Monthly review", "New chat"))
         conversationSelector(page).click()
         page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Monthly review")).click()
-        assertThat(
-            page.getByText(
-                "This chat is saved, but previous preview messages are not stored and cannot be displayed yet.",
-            ),
-        ).isVisible()
+        assertThat(page.getByText("Loading chat history...")).isVisible()
+        page.shouldEventually {
+            extractMessages().shouldContainExactly(
+                ChatMessage("You", "What did we discuss in this chat?", emptyList()),
+                ChatMessage(
+                    "Renalo",
+                    "Saved conversation\n\nThis preview history was loaded from the simulated external provider.",
+                    emptyList(),
+                ),
+            )
+        }
 
         openChatActions(page)
         page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Delete chat")).click()
@@ -125,6 +136,50 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         ).getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Delete chat")).click()
         assertThat(conversationSelector(page)).containsText("Spending review")
         assertConversationOptions(page, listOf("Spending review", "New chat"))
+    }
+
+    @Test
+    fun loadsSavedHistoryAndKeepsMissingProviderSessionsRecoverable(page: Page) {
+        val user = saveUser("alice", UserType.USER)
+        conversationRepository.save(AiChatConversation(userId = user.id!!, title = "Available chat"))
+        conversationRepository.save(AiChatConversation(userId = user.id!!, title = "Missing provider session"))
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+
+        page.navigate(server.url.toString() + "/chat")
+
+        assertThat(page.getByText("Loading chat history...")).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Chat history is temporarily unavailable")))
+            .isVisible()
+        assertThat(
+            page.getByText(
+                "This saved chat is unchanged. Retry after the external provider state is available again.",
+            ),
+        ).isVisible()
+        val messageInput = page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        )
+        assertThat(messageInput).isDisabled()
+
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Retry loading history")).click()
+        assertThat(page.getByText("Loading chat history...")).isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Chat history is temporarily unavailable")))
+            .isVisible()
+
+        conversationSelector(page).click()
+        page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Available chat")).click()
+        assertThat(page.getByText("Loading chat history...")).isVisible()
+        page.shouldEventually {
+            extractMessages().shouldContainExactly(
+                ChatMessage("You", "What did we discuss in this chat?", emptyList()),
+                ChatMessage(
+                    "Renalo",
+                    "Saved conversation\n\nThis preview history was loaded from the simulated external provider.",
+                    emptyList(),
+                ),
+            )
+        }
+        assertThat(messageInput).isEnabled()
     }
 
     @Test

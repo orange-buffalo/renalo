@@ -7,6 +7,30 @@ import java.time.Duration
 
 @Singleton
 class AiChatService {
+    fun loadConversationHistory(conversation: AiChatConversation): Mono<AiChatConversationHistoryResponse> {
+        val response = if (conversation.title.contains("missing", ignoreCase = true)) {
+            AiChatConversationHistoryResponse(
+                status = AiChatConversationHistoryStatus.TEMPORARILY_UNAVAILABLE,
+                messages = emptyList(),
+            )
+        } else {
+            AiChatConversationHistoryResponse(
+                status = AiChatConversationHistoryStatus.AVAILABLE,
+                messages = listOf(
+                    AiChatHistoryMessageResponse(
+                        role = AiChatHistoryMessageRole.USER,
+                        content = "What did we discuss in this chat?",
+                    ),
+                    AiChatHistoryMessageResponse(
+                        role = AiChatHistoryMessageRole.ASSISTANT,
+                        content = "## Saved conversation\n\nThis preview history was loaded from the simulated external provider.",
+                    ),
+                ),
+            )
+        }
+        return Mono.just(response).delayElement(HISTORY_LOADING_DELAY)
+    }
+
     fun generateTitle(content: String): Mono<String> = Mono.just(
         when {
             content.contains("month", ignoreCase = true) -> "Monthly spending review"
@@ -64,5 +88,6 @@ class AiChatService {
         private val STREAM_DELAY = Duration.ofMillis(50)
         private val TITLE_GENERATION_DELAY = Duration.ofMillis(300)
         private val TOOL_EXECUTION_DELAY = Duration.ofSeconds(1)
+        private val HISTORY_LOADING_DELAY = Duration.ofSeconds(1)
     }
 }

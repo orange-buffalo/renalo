@@ -10,6 +10,9 @@ open class AiChatConversationService(
     fun listConversations(userId: Long): List<AiChatConversation> =
         conversationRepository.findByUserIdOrderByUpdatedAtDesc(userId)
 
+    fun findConversation(userId: Long, conversationId: Long): AiChatConversation? =
+        conversationRepository.findByIdAndUserId(conversationId, userId)
+
     @Transactional
     open fun prepareConversation(userId: Long, conversationId: Long?): PrepareAiChatConversationResult {
         if (conversationId == null) {

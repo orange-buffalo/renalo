@@ -37,5 +37,6 @@ class DisabledAiChatApiTest : IntegrationTestSupport() {
             token,
         ).statusCode().shouldBe(403)
         api().get("/api/ai-chat/conversations", token).statusCode().shouldBe(403)
+        api().get("/api/ai-chat/conversations/1/history", token).statusCode().shouldBe(403)
     }
 }

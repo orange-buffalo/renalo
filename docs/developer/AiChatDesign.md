@@ -107,7 +107,7 @@ Users cannot share or transfer conversations. Deleting a Renalo user cascades th
 
 ### Missing external state
 
-When LiteLLM cannot resolve the latest response, the UI keeps the conversation in the list and shows its external history as temporarily unavailable. Renalo preserves the external response ID and does not change the conversation to a final or unrecoverable state. The user can retry later, including after a LiteLLM configuration or storage problem is corrected.
+Opening a persisted conversation shows a dedicated loading state while Renalo resolves its external history. The composer remains blocked so the user cannot accidentally start a context-free continuation. When LiteLLM cannot resolve the latest response, the UI keeps the conversation in the list and shows its external history as temporarily unavailable with a retry action. Renalo preserves the external response ID and does not change the conversation to a final or unrecoverable state. The user can retry later, including after a LiteLLM configuration or storage problem is corrected.
 
 A not-found response is not conclusive because a temporary proxy misconfiguration can make durable state invisible. Not-found responses, authentication errors, authorization errors, timeouts, connection failures, rate limits, and gateway `5xx` responses are all recoverable availability failures. They must not clear the external response ID, start a context-free replacement, or otherwise reclassify the conversation.
 

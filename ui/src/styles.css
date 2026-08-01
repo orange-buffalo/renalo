@@ -2738,6 +2738,35 @@ input {
   font-size: 1.125rem;
 }
 
+.ai-chat-history-loading,
+.ai-chat-history-unavailable {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  justify-content: center;
+  min-height: 100%;
+  padding: 48px 24px;
+}
+
+.ai-chat-history-unavailable {
+  flex-direction: column;
+  text-align: center;
+}
+
+.ai-chat-history-unavailable h2 {
+  margin: 0 0 8px;
+  color: #343841;
+  font-size: 1.125rem;
+}
+
+.ai-chat-history-unavailable p {
+  max-width: 480px;
+  margin: 0 0 20px;
+  color: #626872;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .ai-chat-message {
   display: flex;
   max-width: min(82%, 720px);
