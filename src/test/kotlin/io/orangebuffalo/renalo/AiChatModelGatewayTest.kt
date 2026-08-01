@@ -94,9 +94,14 @@ data: [DONE]
             requestBodies.shouldHaveSize(2)
             val firstRequest = objectMapper.readTree(requestBodies.first())
             firstRequest.path("store").asBoolean().shouldBe(true)
+            firstRequest.path("instructions").asText().shouldBe("Use tools")
+            firstRequest.path("input").none { it.path("role").asText() == "system" }.shouldBe(true)
+            firstRequest.path("input").single().path("role").asText().shouldBe("user")
             firstRequest.path("tools").path(0).path("name").asText().shouldBe("get_account_balances")
             val secondRequest = objectMapper.readTree(requestBodies.last())
             secondRequest.path("previous_response_id").asText().shouldBe("resp_tool")
+            secondRequest.path("instructions").asText().shouldBe("Use tools")
+            secondRequest.path("input").none { it.path("role").asText() == "system" }.shouldBe(true)
             secondRequest.path("input").any {
                 it.path("type").asText() == "function_call_output" && it.path("output").asText() == "[]"
             }.shouldBe(true)

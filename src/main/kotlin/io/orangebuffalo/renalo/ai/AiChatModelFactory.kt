@@ -1,5 +1,8 @@
 package io.orangebuffalo.renalo.ai
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.langchain4j.http.client.HttpClient
 import dev.langchain4j.http.client.HttpClientBuilder
 import dev.langchain4j.http.client.HttpRequest
@@ -98,19 +101,48 @@ private class LiteLlmResponsesStreamingHttpClient(
     }
 
     private fun HttpRequest.withLiteLlmChatGptStreamingCompatibility(): HttpRequest {
-        val compatibleBody = body().replace(STREAMING_FLAG, "\"stream\":false")
-        check(compatibleBody != body()) { "Expected a streaming Responses request body" }
+        val requestBody = OBJECT_MAPPER.readTree(body()) as ObjectNode
+        check(requestBody.path("stream").asBoolean()) { "Expected a streaming Responses request body" }
+        requestBody.put("stream", false)
+        requestBody.moveSystemMessagesToInstructions()
         return HttpRequest.builder()
             .method(method())
             .url(url())
             .headers(headers())
             .formDataFields(formDataFields())
             .formDataFiles(formDataFiles())
-            .body(compatibleBody)
+            .body(OBJECT_MAPPER.writeValueAsString(requestBody))
             .build()
     }
 
+    private fun ObjectNode.moveSystemMessagesToInstructions() {
+        val input = path("input") as? ArrayNode ?: return
+        val retainedInput = input.filterNot { it.path("role").asText() == "system" }
+        val systemInstructions = input.filter { it.path("role").asText() == "system" }
+            .mapNotNull { message ->
+                val content = message.path("content")
+                when {
+                    content.isTextual -> content.asText()
+                    content.isArray -> content.mapNotNull { part ->
+                        part.path("text").takeIf { it.isTextual }?.asText()
+                    }.joinToString("\n")
+                    else -> null
+                }
+            }
+            .filter(String::isNotBlank)
+        if (systemInstructions.isEmpty()) return
+
+        input.removeAll()
+        retainedInput.forEach(input::add)
+        val existingInstructions = path("instructions").takeIf { it.isTextual }?.asText()
+        put(
+            "instructions",
+            (listOfNotNull(existingInstructions?.takeIf(String::isNotBlank)) + systemInstructions)
+                .joinToString("\n\n"),
+        )
+    }
+
     companion object {
-        private val STREAMING_FLAG = Regex("\"stream\"\\s*:\\s*true")
+        private val OBJECT_MAPPER = ObjectMapper()
     }
 }
