@@ -21,7 +21,7 @@ Renalo uses the configured AI model to answer questions through read-only access
 - Write a message and press **Enter** or select the send button. Use **Shift + Enter** for a new line.
 - Review the activity labels to see when Renalo is calculating or searching financial data for the answer.
 
-Conversation names persist across browser reloads. Renalo reloads message history when the conversation has a stored LiteLLM response chain. If that external state is temporarily unavailable, the chat remains listed and offers a retry action without replacing or clearing the saved session.
+Conversation names and message history persist across browser reloads. Renalo keeps the conversation event log in its own database, so saved history remains available even when LiteLLM or the configured model is temporarily unavailable.
 
 <Aside type="caution" title="AI-generated explanations">
   The model can make mistakes when interpreting tool results. Verify important decisions against Renalo's regular dashboards and transaction pages. Your prompts and the financial data needed to answer them are sent through the configured LiteLLM deployment and may be processed by its model provider.

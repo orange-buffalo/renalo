@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @Singleton
 class AiChatService(
     private val titleGenerator: AiChatTitleGenerator,
-    private val conversationHistoryClient: AiChatConversationHistoryClient,
+    private val conversationEventService: AiChatConversationEventService,
     private val modelGateway: AiChatModelGateway,
     private val tools: AiChatTools,
     private val conversationService: AiChatConversationService,
@@ -22,21 +22,12 @@ class AiChatService(
     private val logger = LoggerFactory.getLogger(AiChatService::class.java)
 
     fun loadConversationHistory(conversation: AiChatConversation): Mono<AiChatConversationHistoryResponse> {
-        val externalResponseId = conversation.externalResponseId
-            ?: return Mono.just(
-                AiChatConversationHistoryResponse(
-                    status = AiChatConversationHistoryStatus.AVAILABLE,
-                    messages = emptyList(),
-                ),
-            )
         return Mono.fromCallable {
-            AiChatConversationHistoryResponse(
-                status = AiChatConversationHistoryStatus.AVAILABLE,
-                messages = conversationHistoryClient.loadHistory(externalResponseId),
-            )
+            conversationEventService.loadHistory(conversation.userId, conversation.id!!)
+                ?: error("AI chat conversation no longer exists")
         }.subscribeOn(Schedulers.boundedElastic())
             .onErrorResume { error ->
-                logger.warn("Failed to load external history for AI chat conversation {}", conversation.id, error)
+                logger.warn("Failed to load history for AI chat conversation {}", conversation.id, error)
                 Mono.just(
                     AiChatConversationHistoryResponse(
                         status = AiChatConversationHistoryStatus.TEMPORARILY_UNAVAILABLE,
@@ -67,17 +58,23 @@ class AiChatService(
                 check(conversation.modelAlias == null || conversation.modelAlias == configuredModel) {
                     "AI chat conversation model no longer matches the configured model alias"
                 }
-                conversation.externalResponseId?.let(conversationHistoryClient::loadHistory)
+                conversationEventService.appendItems(
+                    userId,
+                    conversationId,
+                    listOf(conversationEventService.userMessage(content)),
+                )
+                val conversationItems = conversationEventService.loadItems(userId, conversationId)
+                    ?: return@defer Flux.error(IllegalStateException("AI chat conversation no longer exists"))
 
                 Flux.concat(
                     Flux.just(AiChatTurnStarted(seq = sequence.getAndIncrement())),
                     streamModelStep(
                         userId = userId,
                         conversationId = conversationId,
-                        expectedResponseId = conversation.externalResponseId,
                         modelAlias = configuredModel,
                         currentDate = currentDate,
                         input = listOf(AiChatModelInput.User(content)),
+                        conversationItems = conversationItems,
                         sequence = sequence,
                         toolCallCount = 0,
                     ),
@@ -98,18 +95,18 @@ class AiChatService(
     private fun streamModelStep(
         userId: Long,
         conversationId: Long,
-        expectedResponseId: String?,
         modelAlias: String,
         currentDate: LocalDate,
         input: List<AiChatModelInput>,
+        conversationItems: List<String>,
         sequence: AtomicInteger,
         toolCallCount: Int,
     ): Flux<AiChatStreamEvent> = modelGateway.streamStep(
         AiChatModelStepRequest(
-            previousResponseId = expectedResponseId,
             systemPrompt = systemPrompt(currentDate),
             input = input,
             toolSpecifications = tools.specifications,
+            conversationItems = conversationItems,
         ),
     ).concatMap { event ->
         when (event) {
@@ -117,11 +114,10 @@ class AiChatService(
                 AiChatAssistantDelta(seq = sequence.getAndIncrement(), text = event.text),
             )
             is AiChatModelStepEvent.Completed -> {
-                conversationService.updateExternalState(
+                conversationEventService.appendItems(userId, conversationId, event.outputItems)
+                conversationService.setModelAlias(
                     userId,
                     conversationId,
-                    expectedResponseId,
-                    event.responseId,
                     modelAlias,
                 )
                 if (event.toolCalls.isEmpty()) {
@@ -131,7 +127,6 @@ class AiChatService(
                     executeTools(
                         userId,
                         conversationId,
-                        event.responseId,
                         modelAlias,
                         currentDate,
                         event.toolCalls,
@@ -146,7 +141,6 @@ class AiChatService(
     private fun executeTools(
         userId: Long,
         conversationId: Long,
-        previousResponseId: String,
         modelAlias: String,
         currentDate: LocalDate,
         calls: List<AiChatModelToolCall>,
@@ -163,18 +157,25 @@ class AiChatService(
                     .subscribeOn(Schedulers.boundedElastic())
                     .map { executed ->
                         results += AiChatModelInput.ToolResult(call.id, call.name, executed.result)
+                        conversationEventService.appendItems(
+                            userId,
+                            conversationId,
+                            listOf(conversationEventService.toolResult(call, executed.result)),
+                        )
                         AiChatToolCompleted(sequence.getAndIncrement(), executed.activityId, executed.completedLabel)
                     },
             )
         }.concatWith(
             Flux.defer {
+                val conversationItems = conversationEventService.loadItems(userId, conversationId)
+                    ?: return@defer Flux.error(IllegalStateException("AI chat conversation no longer exists"))
                 streamModelStep(
                     userId,
                     conversationId,
-                    previousResponseId,
                     modelAlias,
                     currentDate,
                     results,
+                    conversationItems,
                     sequence,
                     toolCallCount,
                 )

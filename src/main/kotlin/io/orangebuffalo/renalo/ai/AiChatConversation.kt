@@ -15,7 +15,6 @@ data class AiChatConversation(
     var id: Long? = null,
     val userId: Long,
     val title: String,
-    val externalResponseId: String? = null,
     val modelAlias: String? = null,
     @field:DateCreated
     val createdAt: Instant? = null,

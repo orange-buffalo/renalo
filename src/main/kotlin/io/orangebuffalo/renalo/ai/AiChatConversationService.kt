@@ -62,26 +62,21 @@ open class AiChatConversationService(
     }
 
     @Transactional
-    open fun updateExternalState(
+    open fun setModelAlias(
         userId: Long,
         conversationId: Long,
-        expectedExternalResponseId: String?,
-        newExternalResponseId: String,
         modelAlias: String,
     ): AiChatConversation {
-        require(newExternalResponseId.isNotBlank())
         require(modelAlias.isNotBlank())
         check(
-            conversationRepository.updateExternalState(
+            conversationRepository.setModelAlias(
                 userId,
                 conversationId,
-                expectedExternalResponseId,
-                newExternalResponseId,
                 modelAlias,
             ) == 1L,
-        ) { "AI chat external response state changed concurrently" }
+        ) { "AI chat model alias changed concurrently" }
         return conversationRepository.findByIdAndUserId(conversationId, userId)
-            ?: error("AI chat conversation disappeared while its external state was being updated")
+            ?: error("AI chat conversation disappeared while its model alias was being updated")
     }
 
     @Transactional

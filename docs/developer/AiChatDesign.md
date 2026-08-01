@@ -16,11 +16,11 @@ Regular-user data boundaries still apply. Each conversation belongs to one authe
 
 - Let a regular user ask questions about their Renalo data in natural language.
 - Support multiple independent conversations per user.
-- Keep conversations usable across Renalo restarts without storing chat messages in Renalo's database.
+- Keep conversations usable across Renalo and LiteLLM restarts through a Renalo-owned append-only event log.
 - Support local models and major commercial providers through one application-facing protocol.
 - Keep authorization, financial calculations, date semantics, and tool execution inside Renalo.
 - Stream answers to the browser and allow cancellation.
-- Degrade clearly when the gateway, model, or externally stored conversation is unavailable.
+- Degrade clearly when the gateway or model is unavailable.
 
 ## Non-goals
 
@@ -29,7 +29,7 @@ Regular-user data boundaries still apply. Each conversation belongs to one authe
 - Write-capable financial tools in the initial design.
 - Treating generated prose as an authoritative financial calculation.
 - Guaranteeing that consumer AI subscriptions provide durable API access.
-- Persisting a second copy of the chat transcript in Renalo.
+- Maintaining a separate mutable transcript alongside the canonical event log.
 
 ## Architecture Decision
 
@@ -47,7 +47,7 @@ Browser
 
 LangChain4j is wired as ordinary Micronaut beans. The experimental Micronaut LangChain4j integration is not required. This keeps dependency alignment explicit and lets Renalo control request context, session locking, error mapping, and streaming.
 
-Renalo targets LiteLLM's OpenAI-compatible Responses API rather than exposing provider-specific integrations. LangChain4j's `OpenAiResponsesChatModel` and `OpenAiResponsesStreamingChatModel` support `previousResponseId`, tools, and response metadata, but this integration is currently experimental. Compatibility with the pinned LangChain4j and LiteLLM versions is therefore a tested application contract, not an assumption.
+Renalo targets LiteLLM's OpenAI-compatible Responses API rather than exposing provider-specific integrations. The configured ChatGPT connector does not support durable stored Responses or `previous_response_id`, so Renalo submits complete ordered Responses input on every model step. LangChain4j's Responses integration is currently experimental; compatibility with the pinned LangChain4j and LiteLLM versions is therefore a tested application contract, not an assumption.
 
 LiteLLM owns provider credentials, model aliases, routing, and provider-specific translation. Renalo owns the conversation workflow and all domain tools. Internal tools are ordinary Kotlin/Java methods; MCP is unnecessary for them.
 
@@ -68,48 +68,45 @@ The deployment must pin a tested LiteLLM version. Arbitrary OpenAI-compatible ga
 
 ## Conversation Ownership and Persistence
 
-### Renalo-owned metadata
+### Renalo-owned state
 
-Renalo stores one lightweight row per conversation. A row is scoped to a regular user and contains only the metadata required to list and resume it, for example:
+Renalo stores one metadata row per conversation. A row is scoped to a regular user and contains:
 
 - Renalo conversation ID.
 - Owning `user_id`.
 - User-visible title.
-- Current external response ID.
 - Model alias captured when the conversation starts.
 - Creation and last-update timestamps.
 - A concurrency version or equivalent locking field.
 
-It does not store user prompts, assistant messages, tool arguments, tool results, or a transcript. The external response ID is opaque server-side data and is not exposed to the browser.
+Renalo also stores the canonical conversation state as append-only ordered Responses API items. These include user messages, assistant output messages, function calls, function outputs, and opaque encrypted reasoning items returned by the provider. The raw event log is server-only. Browser history is a projection containing only user input text and assistant output text.
 
 An empty new chat is browser-only. Renalo creates the metadata row when the first nonblank user message is accepted, then identifies the newly persisted conversation in the response stream. This avoids abandoned rows for chats that never contain a turn. The initial title is generic; an AI-generated title derived from the first prompt replaces it asynchronously, and users can explicitly rename persisted conversations. Title generation uses an independent Responses API request with external response storage disabled; it does not become part of the persisted conversation chain. If title generation fails, Renalo reports the failure in server logs, retains the generic title, and continues the accepted chat turn. Conversation metadata is touched when each user message is accepted and when each assistant turn completes so recently active conversations sort first.
 
-### Externally owned conversation state
+### Append-only conversation state
 
-Each successful Responses API call returns a response ID. Renalo supplies the latest ID as `previous_response_id` on the next turn and replaces its stored pointer with the newly completed response ID. The resulting response chain is the external conversation state.
+Before invoking the model, Renalo appends the accepted user message. Each completed model step contributes its raw ordered `response.output_item.done` items. Tool execution appends the corresponding `function_call_output` before the next model step. A continuation replays all items in sequence as the next Responses API `input`, with `store=false` and no `previous_response_id`.
 
-LiteLLM must be configured with durable response/session storage appropriate to the selected providers so this chain survives both Renalo and LiteLLM restarts. For providers bridged through LiteLLM, this can require LiteLLM prompt/response storage and its supporting PostgreSQL and object storage configuration. Provider-native retention alone must not be assumed.
+The event log is authoritative and survives both Renalo and LiteLLM restarts. Opaque reasoning items are preserved exactly rather than interpreted by Renalo because some providers require them when subsequent input includes tool calls or prior reasoning.
 
-Opening a conversation requires resolving its latest response ID through LiteLLM. Transcript reconstruction follows the externally retained response chain; Renalo does not reconstruct context from financial records or guess missing messages. Before implementation is considered compatible with a model route, tests must prove that the route can:
+Before a model route is considered compatible, tests must prove that it can:
 
-- Create and retrieve stored responses.
-- Continue with `previous_response_id` after Renalo and LiteLLM restarts.
-- Reconstruct the ordered user-visible transcript, including turns involving Renalo tool calls.
-- Distinguish a missing response from temporary gateway failures.
+- Accept replayed user, assistant, reasoning, function-call, and function-output items.
+- Continue after Renalo and LiteLLM restarts without provider-side stored state.
+- Preserve multi-step tool loops and follow-up context.
+- Return complete raw output items in the streaming response.
 
-If the pinned LiteLLM Responses API cannot reconstruct the complete chain for a configured route, that route does not satisfy Renalo's persistent-session contract. A possible later adapter could place LangChain4j memory in an external durable store, but Renalo must not silently fall back to storing messages locally.
+If the pinned LiteLLM Responses API cannot accept exact replay or return complete output items for a configured route, that route does not satisfy Renalo's persistent-session contract.
 
 ### Multiple conversations
 
-A user can create and retain multiple conversation rows. Starting a conversation sends no `previous_response_id`; continuing one uses only that conversation's latest external response ID. Requests for a conversation always query by both Renalo conversation ID and authenticated user ID.
+A user can create and retain multiple conversation rows. Each continuation loads only that conversation's ordered events. Requests for a conversation always query by both Renalo conversation ID and authenticated user ID.
 
-Users cannot share or transfer conversations. Deleting a Renalo user cascades their conversation metadata. Conversation deletion should request deletion of the external response chain when the gateway supports it, then delete the local metadata; failure to remove externally retained data must be visible to the operator rather than silently ignored.
+Users cannot share or transfer conversations. Deleting a conversation or user cascades its local event log.
 
-### Missing external state
+### History projection
 
-Opening a persisted conversation shows a dedicated loading state while Renalo resolves its external history. The composer remains blocked so the user cannot accidentally start a context-free continuation. When LiteLLM cannot resolve the latest response, the UI keeps the conversation in the list and shows its external history as temporarily unavailable with a retry action. Renalo preserves the external response ID and does not change the conversation to a final or unrecoverable state. The user can retry later, including after a LiteLLM configuration or storage problem is corrected.
-
-A not-found response is not conclusive because a temporary proxy misconfiguration can make durable state invisible. Not-found responses, authentication errors, authorization errors, timeouts, connection failures, rate limits, and gateway `5xx` responses are all recoverable availability failures. They must not clear the external response ID, start a context-free replacement, or otherwise reclassify the conversation.
+Opening a persisted conversation projects its local events into user and assistant messages. Function calls, function outputs, reasoning, identifiers, and provider metadata remain hidden. Because history does not depend on LiteLLM availability, users can read saved conversations while the model gateway is unavailable.
 
 ## Turn Processing
 
@@ -119,15 +116,15 @@ A turn follows this loop:
 
 1. Authenticate the regular user and load the conversation by both conversation ID and user ID.
 2. Validate the browser timezone and derive browser-local current-date context in Renalo.
-3. Resolve the external response when continuing an existing conversation.
-4. Submit the user input, fixed system instructions, tool specifications, model alias, and previous response ID through LangChain4j.
+3. Append the user message and load the ordered conversation event log.
+4. Submit the fixed system instructions, tool specifications, model alias, and replayed event items through LangChain4j.
 5. Validate each requested tool and its arguments, execute the allowed read-only tool with server-owned user context, and return a bounded structured result.
 6. Repeat model and tool exchanges until the model produces a final answer or a built-in safety limit is reached.
-7. Stream user-visible answer events to the browser and persist the newest external response pointer as it becomes authoritative.
+7. Append each model output item before relying on it for the next step and stream user-visible answer events to the browser.
 
-The external response pointer must be durable before a response is relied on for later tool-loop steps. A process crash can otherwise leave externally accepted state unreachable. In-progress state and restart reconciliation need explicit implementation: after restart, Renalo should inspect the stored external response, safely resume a pending read-only tool exchange when possible, or expose a recoverable interrupted-turn error. It must not invent a completed answer.
+Output items and function outputs must be durable before they are relied on by a later tool-loop step. A process crash may leave an incomplete final turn in the append-only log; restart behavior must expose that interruption and must not invent a completed answer.
 
-Cancellation stops browser streaming and attempts to cancel the active model response. Provider cancellation is not universal, so Renalo must also stop accepting further stream events and tool calls locally. A cancelled or failed response does not replace the last known resumable conversation pointer unless the external protocol requires retaining an intermediate tool-loop response for reconciliation.
+Cancellation stops browser streaming and attempts to cancel the active model response. Provider cancellation is not universal, so Renalo must also stop accepting further stream events and tool calls locally. Already accepted event-log items remain durable.
 
 ## Tool Boundary
 
@@ -155,7 +152,7 @@ The API surface is expected to cover:
 
 - Listing the authenticated user's conversation metadata.
 - Lazily creating a conversation with its first accepted turn, then renaming and deleting it.
-- Opening a conversation and resolving its external transcript/state.
+- Opening a conversation and projecting its local event history.
 - Sending one turn as an authenticated stream.
 - Cancelling an active turn.
 
@@ -174,7 +171,6 @@ The UI must distinguish:
 - Response currently streaming.
 - Interrupted but retryable turn.
 - Temporarily unavailable gateway or model.
-- Temporarily unavailable external conversation history.
 
 Assistant Markdown rendering must not allow raw HTML and must sanitize or constrain links. Tool arguments, raw tool results, gateway identifiers, and hidden reasoning are not rendered as conversation messages. User-visible tool activity can use safe summaries such as “Reviewing expense totals.”
 
@@ -188,7 +184,7 @@ Assistant Markdown rendering must not allow raw HTML and must sanitize or constr
 - Gateway keys and provider credentials remain server-side secrets.
 - Raw financial data sent to LiteLLM may continue to an external provider and may be retained by LiteLLM, object storage, or that provider.
 - A local model behind a local LiteLLM deployment is the option for keeping model inputs within operator-controlled infrastructure.
-- The operator documentation must state the configured retention, backup, and deletion behavior of LiteLLM's conversation storage.
+- Renalo database backups include raw conversation event items; operators must protect and retain them as financial-adjacent private data.
 
 Renalo's private-deployment positioning reduces the need for SaaS billing and tenant administration, but it does not remove user-data isolation or external disclosure risks.
 
@@ -197,8 +193,8 @@ Renalo's private-deployment positioning reduces the need for SaaS billing and te
 - Invalid model tool calls return a bounded tool error to the model when repair is safe; repeated invalid calls terminate the turn.
 - Arithmetic overflow and domain-service failures propagate as failures and are never replaced with approximate values.
 - Missing conversion evidence stays explicitly unavailable.
-- Gateway authentication, configuration, and state-lookup failures are operator-actionable and do not alter conversation metadata.
-- Rate limits and transient provider failures preserve the conversation pointer and permit retry.
+- Gateway authentication and configuration failures are operator-actionable and do not delete persisted events.
+- Rate limits and transient provider failures preserve the event log and permit retry.
 - Context-window exhaustion produces an explicit error until a tested external compaction strategy is available.
 - Switching a LiteLLM alias to an incompatible model must not silently reinterpret an existing conversation. The conversation retains its model alias, and route compatibility is validated before continuation.
 
@@ -206,9 +202,9 @@ Renalo's private-deployment positioning reduces the need for SaaS billing and te
 
 Backend tests must cover complete API responses, regular-user security, cross-user conversation isolation, hidden user context, malformed tool calls, ownership validation, limits, exact amounts, timezones, and all failure mappings.
 
-Gateway contract tests run against the pinned LiteLLM version and representative local and commercial routes. They cover streaming text, streaming tool-call assembly, multi-tool loops, response retrieval, external history reconstruction, process restarts, cancellation, missing responses, provider failures, and pointer reconciliation after interruption.
+Gateway contract tests run against the pinned LiteLLM version and representative routes. They cover streaming text, raw output-item capture, replayed input, multi-tool loops, follow-up turns, process restarts, cancellation, and provider failures.
 
-Playwright coverage verifies multiple conversations, continuing after a Renalo restart, streaming and cancellation, retryable errors, and temporarily unavailable external history. UI traces are reviewed for desktop and mobile behavior. User-facing implementation changes also update the user guide and its documentation screenshots.
+Playwright coverage verifies multiple conversations, persisted local history, continuing after a Renalo restart, streaming, cancellation, and retryable errors. UI traces are reviewed for desktop and mobile behavior. User-facing implementation changes also update the user guide and its documentation screenshots.
 
 Model quality tests use deterministic fixtures and assert tool selection and tool arguments separately from generated prose. They do not require exact natural-language wording from nondeterministic models.
 

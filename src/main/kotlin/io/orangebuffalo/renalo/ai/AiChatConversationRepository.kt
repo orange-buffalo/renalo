@@ -22,21 +22,17 @@ interface AiChatConversationRepository : CrudRepository<AiChatConversation, Long
     @Query(
         """
             UPDATE ai_chat_conversations
-            SET external_response_id = :newExternalResponseId,
-                model_alias = COALESCE(model_alias, :modelAlias),
+            SET model_alias = COALESCE(model_alias, :modelAlias),
                 updated_at = CURRENT_TIMESTAMP,
                 version = version + 1
             WHERE id = :conversationId
               AND user_id = :userId
-              AND external_response_id IS NOT DISTINCT FROM :expectedExternalResponseId
               AND (model_alias IS NULL OR model_alias = :modelAlias)
         """,
     )
-    fun updateExternalState(
+    fun setModelAlias(
         userId: Long,
         conversationId: Long,
-        expectedExternalResponseId: String?,
-        newExternalResponseId: String,
         modelAlias: String,
     ): Long
 }

@@ -105,6 +105,7 @@ private class LiteLlmResponsesStreamingHttpClient(
         check(requestBody.path("stream").asBoolean()) { "Expected a streaming Responses request body" }
         requestBody.put("stream", false)
         requestBody.moveSystemMessagesToInstructions()
+        requestBody.expandConversationItems()
         return HttpRequest.builder()
             .method(method())
             .url(url())
@@ -140,6 +141,24 @@ private class LiteLlmResponsesStreamingHttpClient(
             (listOfNotNull(existingInstructions?.takeIf(String::isNotBlank)) + systemInstructions)
                 .joinToString("\n\n"),
         )
+    }
+
+    private fun ObjectNode.expandConversationItems() {
+        val input = path("input") as? ArrayNode ?: return
+        val markerMessage = input.firstOrNull { message ->
+            message.path("role").asText() == "user" &&
+                message.path("content").firstOrNull()?.path("text")?.asText()
+                    ?.startsWith(LangChain4jAiChatModelGateway.CONVERSATION_ITEMS_MARKER) == true
+        } ?: return
+        val markerText = markerMessage.path("content").first().path("text").asText()
+        val itemJsonValues = OBJECT_MAPPER.readTree(
+            markerText.removePrefix(LangChain4jAiChatModelGateway.CONVERSATION_ITEMS_MARKER),
+        )
+        check(itemJsonValues.isArray) { "AI chat conversation replay marker is malformed" }
+        val retainedInput = input.filterNot { it === markerMessage }
+        input.removeAll()
+        itemJsonValues.forEach { itemJson -> input.add(OBJECT_MAPPER.readTree(itemJson.asText())) }
+        retainedInput.forEach(input::add)
     }
 
     companion object {

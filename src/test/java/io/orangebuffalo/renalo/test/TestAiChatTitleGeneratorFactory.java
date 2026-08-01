@@ -1,11 +1,11 @@
 package io.orangebuffalo.renalo.test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.annotation.Replaces;
 import io.orangebuffalo.renalo.ai.AiChatTitleGenerator;
-import io.orangebuffalo.renalo.ai.AiChatConversationHistoryClient;
-import io.orangebuffalo.renalo.ai.AiChatHistoryMessageResponse;
-import io.orangebuffalo.renalo.ai.AiChatHistoryMessageRole;
 import io.orangebuffalo.renalo.ai.AiChatModelGateway;
 import io.orangebuffalo.renalo.ai.AiChatModelInput;
 import io.orangebuffalo.renalo.ai.AiChatModelStepEvent;
@@ -17,10 +17,11 @@ import reactor.core.publisher.Flux;
 import java.util.Locale;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Factory
 class TestAiChatTitleGeneratorFactory {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     @Singleton
     @Replaces(LangChain4jAiChatTitleGenerator.class)
     AiChatTitleGenerator titleGenerator() {
@@ -48,34 +49,8 @@ class TestAiChatTitleGeneratorFactory {
     }
 
     @Singleton
-    AiChatConversationHistoryClient conversationHistoryClient() {
-        return latestResponseId -> {
-            try {
-                Thread.sleep(250);
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted while simulating history lookup", interruptedException);
-            }
-            if (latestResponseId.contains("missing")) {
-                throw new IllegalStateException("Simulated missing LiteLLM response");
-            }
-            return List.of(
-                    new AiChatHistoryMessageResponse(
-                            AiChatHistoryMessageRole.USER,
-                            "What did we discuss in this chat?"
-                    ),
-                    new AiChatHistoryMessageResponse(
-                            AiChatHistoryMessageRole.ASSISTANT,
-                            "## Saved conversation\n\nThis history was loaded from LiteLLM."
-                    )
-            );
-        };
-    }
-
-    @Singleton
     AiChatModelGateway chatModelGateway() {
         var responseSequence = new AtomicLong();
-        var promptsByResponseId = new ConcurrentHashMap<String, String>();
         return request -> {
             var responseId = "resp_test_" + responseSequence.incrementAndGet();
             if (request.getInput().stream().anyMatch(AiChatModelInput.User.class::isInstance)) {
@@ -88,7 +63,6 @@ class TestAiChatTitleGeneratorFactory {
                 if (prompt.toLowerCase(Locale.ROOT).contains("fail model")) {
                     return Flux.error(new IllegalStateException("Simulated model failure"));
                 }
-                promptsByResponseId.put(responseId, prompt);
                 return Flux.just(new AiChatModelStepEvent.Completed(
                         responseId,
                         "renalo-chat",
@@ -96,10 +70,19 @@ class TestAiChatTitleGeneratorFactory {
                                 "call_category_totals",
                                 "get_category_totals",
                                 "{\"type\":\"EXPENSE\",\"from\":\"2026-08-01\",\"to\":\"2026-08-01\"}"
-                        ))
+                        )),
+                        List.of(
+                                "{\"type\":\"function_call\",\"id\":\"fc_category_totals\",\"call_id\":\"call_category_totals\",\"name\":\"get_category_totals\",\"arguments\":\"{\\\"type\\\":\\\"EXPENSE\\\",\\\"from\\\":\\\"2026-08-01\\\",\\\"to\\\":\\\"2026-08-01\\\"}\",\"status\":\"completed\"}"
+                        )
                 ));
             }
-            var prompt = promptsByResponseId.getOrDefault(request.getPreviousResponseId(), "your request");
+            var prompt = request.getConversationItems().stream()
+                    .map(TestAiChatTitleGeneratorFactory::parseJson)
+                    .filter(item -> item.path("type").asText().equals("message"))
+                    .filter(item -> item.path("role").asText().equals("user"))
+                    .map(item -> item.path("content").path(0).path("text").asText())
+                    .findFirst()
+                    .orElse("your request");
             return Flux.fromIterable(List.of(
                     new AiChatModelStepEvent.TextDelta("## Spending snapshot\n\n"),
                     new AiChatModelStepEvent.TextDelta("You asked: **" + prompt + "**\n\n"),
@@ -112,8 +95,23 @@ class TestAiChatTitleGeneratorFactory {
                     new AiChatModelStepEvent.TextDelta("- Dining out was lower than groceries by `$286.20`.\n"),
                     new AiChatModelStepEvent.TextDelta("- The remaining categories accounted for 26% of the sample total.\n\n"),
                     new AiChatModelStepEvent.TextDelta("> This response was generated from Renalo's read-only financial tools."),
-                    new AiChatModelStepEvent.Completed(responseId, "renalo-chat", List.of())
+                    new AiChatModelStepEvent.Completed(
+                            responseId,
+                            "renalo-chat",
+                            List.of(),
+                            List.of(
+                                    "{\"type\":\"message\",\"id\":\"msg_" + responseId + "\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"## Spending snapshot\\n\\nYou asked: **" + prompt.replace("\\", "\\\\").replace("\"", "\\\"") + "**\\n\\nHere is an example of how an AI-generated answer could present your results:\\n\\n| Category | Amount | Share |\\n| --- | ---: | ---: |\\n| Groceries | $428.30 | 42% |\\n| Transport | $186.75 | 18% |\\n| Dining out | $142.10 | 14% |\\n\\n- **Groceries** were the largest expense category.\\n- Dining out was lower than groceries by `$286.20`.\\n- The remaining categories accounted for 26% of the sample total.\\n\\n> This response was generated from Renalo's read-only financial tools.\"}]}"
+                            )
+                    )
             ));
         };
+    }
+
+    private static JsonNode parseJson(String json) {
+        try {
+            return OBJECT_MAPPER.readTree(json);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("Invalid AI chat test event", exception);
+        }
     }
 }

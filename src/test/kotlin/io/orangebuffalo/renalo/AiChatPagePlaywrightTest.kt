@@ -13,6 +13,7 @@ import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.test.TestAuthTokens
 import io.orangebuffalo.renalo.test.shouldEventually
 import io.orangebuffalo.renalo.ai.AiChatConversation
+import io.orangebuffalo.renalo.ai.AiChatConversationEventService
 import io.orangebuffalo.renalo.ai.AiChatConversationRepository
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.User
@@ -36,6 +37,9 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var conversationRepository: AiChatConversationRepository
+
+    @Inject
+    lateinit var conversationEventService: AiChatConversationEventService
 
     @Test
     fun persistsRenamesAndDeletesConversations(page: Page) {
@@ -91,11 +95,6 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         renameDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Save name")).click()
         assertThat(renameDialog).not().isVisible()
         assertThat(conversationSelector(page)).containsText("Monthly review")
-        val monthlyConversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(
-            userRepository.findByUsername("alice")!!.id!!,
-        ).single()
-        conversationRepository.update(monthlyConversation.copy(externalResponseId = "resp_monthly"))
-
         page.getByLabel("New conversation").click()
         assertThat(page.getByLabel("Chat actions")).isDisabled()
         assertThat(page.getByLabel("New conversation")).isDisabled()
@@ -110,13 +109,12 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertConversationOptions(page, listOf("Spending review", "Monthly review", "New chat"))
         conversationSelector(page).click()
         page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Monthly review")).click()
-        assertThat(page.getByText("Loading chat history...")).isVisible()
         page.shouldEventually {
             extractMessages().shouldContainExactly(
-                ChatMessage("You", "What did we discuss in this chat?", emptyList()),
+                ChatMessage("You", "How was this month?", emptyList()),
                 ChatMessage(
                     "Renalo",
-                    "Saved conversation\n\nThis history was loaded from LiteLLM.",
+                    "Spending snapshot\n\nYou asked: How was this month?\n\nHere is an example of how an AI-generated answer could present your results:\n\nCategory\tAmount\tShare\nGroceries\t${'$'}428.30\t42%\nTransport\t${'$'}186.75\t18%\nDining out\t${'$'}142.10\t14%\nGroceries were the largest expense category.\nDining out was lower than groceries by ${'$'}286.20.\nThe remaining categories accounted for 26% of the sample total.\n\nThis response was generated from Renalo's read-only financial tools.",
                     emptyList(),
                 ),
             )
@@ -143,54 +141,46 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun loadsSavedHistoryAndKeepsMissingProviderSessionsRecoverable(page: Page) {
+    fun loadsSavedHistoryFromThePersistedEventLog(page: Page) {
         val user = saveUser("alice", UserType.USER)
-        conversationRepository.save(
+        val available = conversationRepository.save(
             AiChatConversation(
                 userId = user.id!!,
                 title = "Available chat",
-                externalResponseId = "resp_available",
             ),
         )
         conversationRepository.save(
             AiChatConversation(
                 userId = user.id!!,
-                title = "Missing provider session",
-                externalResponseId = "resp_missing",
+                title = "Empty chat",
+            ),
+        )
+        conversationEventService.appendItems(
+            user.id!!,
+            available.id!!,
+            listOf(
+                conversationEventService.userMessage("What did we discuss in this chat?"),
+                """{"type":"message","role":"assistant","content":[{"type":"output_text","text":"## Saved conversation\n\nThis history was loaded from Renalo's event log."}]}""",
             ),
         )
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
 
         page.navigate(server.url.toString() + "/chat")
 
-        assertThat(page.getByText("Loading chat history...")).isVisible()
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Chat history is temporarily unavailable")))
-            .isVisible()
-        assertThat(
-            page.getByText(
-                "This saved chat is unchanged. Retry after the external provider state is available again.",
-            ),
-        ).isVisible()
         val messageInput = page.getByRole(
             AriaRole.TEXTBOX,
             Page.GetByRoleOptions().setName("Message").setExact(true),
         )
-        assertThat(messageInput).isDisabled()
-
-        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Retry loading history")).click()
-        assertThat(page.getByText("Loading chat history...")).isVisible()
-        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Chat history is temporarily unavailable")))
-            .isVisible()
+        assertThat(messageInput).isEnabled()
 
         conversationSelector(page).click()
         page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Available chat")).click()
-        assertThat(page.getByText("Loading chat history...")).isVisible()
         page.shouldEventually {
             extractMessages().shouldContainExactly(
                 ChatMessage("You", "What did we discuss in this chat?", emptyList()),
                 ChatMessage(
                     "Renalo",
-                    "Saved conversation\n\nThis history was loaded from LiteLLM.",
+                    "Saved conversation\n\nThis history was loaded from Renalo's event log.",
                     emptyList(),
                 ),
             )

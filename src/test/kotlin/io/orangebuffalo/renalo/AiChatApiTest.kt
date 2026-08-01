@@ -8,6 +8,7 @@ import io.kotest.matchers.string.shouldStartWith
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.ai.AiChatConversation
+import io.orangebuffalo.renalo.ai.AiChatConversationEventService
 import io.orangebuffalo.renalo.ai.AiChatConversationRepository
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.user.PasswordHasher
@@ -32,6 +33,9 @@ class AiChatApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var conversationRepository: AiChatConversationRepository
+
+    @Inject
+    lateinit var conversationEventService: AiChatConversationEventService
 
     @Test
     fun streamsMarkdownAndStructuredToolActivityForRegularUsers() {
@@ -73,7 +77,6 @@ class AiChatApiTest : IntegrationTestSupport() {
         actualEvents.shouldHaveSize(expectedEvents.size)
         actualEvents.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
         conversation.title.shouldBe("Monthly spending review")
-        conversation.externalResponseId.shouldStartWith("resp_test_")
         conversation.modelAlias.shouldBe("renalo-chat")
         conversation.version.shouldBe(3)
         (createdUpdatedAt < titleUpdatedAt).shouldBe(true)
@@ -144,7 +147,6 @@ class AiChatApiTest : IntegrationTestSupport() {
             """.trimIndent(),
         )
         val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
-        conversation.externalResponseId.shouldBe(null)
         conversation.modelAlias.shouldBe(null)
     }
 
@@ -191,21 +193,27 @@ class AiChatApiTest : IntegrationTestSupport() {
     }
 
     @Test
-    fun loadsAvailableAndTemporarilyUnavailableConversationHistory() {
+    fun loadsConversationHistoryFromThePersistedEventLog() {
         val user = saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")
         val available = conversationRepository.save(
             AiChatConversation(
                 userId = user.id!!,
                 title = "Available chat",
-                externalResponseId = "resp_available",
             ),
         )
-        val missing = conversationRepository.save(
+        val empty = conversationRepository.save(
             AiChatConversation(
                 userId = user.id!!,
-                title = "Missing provider session",
-                externalResponseId = "resp_missing",
+                title = "Empty chat",
+            ),
+        )
+        conversationEventService.appendItems(
+            user.id!!,
+            available.id!!,
+            listOf(
+                conversationEventService.userMessage("What did we discuss in this chat?"),
+                """{"type":"message","role":"assistant","content":[{"type":"output_text","text":"## Saved conversation\n\nThis history was loaded from Renalo's event log."}]}""",
             ),
         )
 
@@ -220,24 +228,20 @@ class AiChatApiTest : IntegrationTestSupport() {
                     },
                     {
                       "role": "ASSISTANT",
-                      "content": "## Saved conversation\n\nThis history was loaded from LiteLLM."
+                      "content": "## Saved conversation\n\nThis history was loaded from Renalo's event log."
                     }
                   ]
                 }
             """.trimIndent(),
         )
-        api().get("/api/ai-chat/conversations/${missing.id}/history", token).body().shouldEqualJson(
+        api().get("/api/ai-chat/conversations/${empty.id}/history", token).body().shouldEqualJson(
             """
                 {
-                  "status": "TEMPORARILY_UNAVAILABLE",
+                  "status": "AVAILABLE",
                   "messages": []
                 }
             """.trimIndent(),
         )
-        conversationRepository.findByIdAndUserId(missing.id!!, user.id!!)?.title
-            .shouldBe("Missing provider session")
-        conversationRepository.findByIdAndUserId(missing.id!!, user.id!!)?.externalResponseId
-            .shouldBe("resp_missing")
     }
 
     @Test

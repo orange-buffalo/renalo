@@ -15,6 +15,7 @@ import dev.langchain4j.model.chat.response.PartialToolCallContext
 import dev.langchain4j.model.chat.response.StreamingHandle
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler
 import dev.langchain4j.model.openai.OpenAiResponsesChatRequestParameters
+import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata
 import io.micronaut.context.annotation.Requires
 import jakarta.inject.Named
 import jakarta.inject.Singleton
@@ -26,10 +27,10 @@ interface AiChatModelGateway {
 }
 
 data class AiChatModelStepRequest(
-    val previousResponseId: String?,
     val systemPrompt: String,
     val input: List<AiChatModelInput>,
     val toolSpecifications: List<ToolSpecification>,
+    val conversationItems: List<String> = emptyList(),
 )
 
 sealed interface AiChatModelInput {
@@ -43,6 +44,7 @@ sealed interface AiChatModelStepEvent {
         val responseId: String,
         val modelAlias: String,
         val toolCalls: List<AiChatModelToolCall>,
+        val outputItems: List<String> = emptyList(),
     ) : AiChatModelStepEvent
 }
 
@@ -62,15 +64,16 @@ class LangChain4jAiChatModelGateway(
         val streamingHandle = AtomicReference<StreamingHandle>()
         sink.onCancel { streamingHandle.get()?.cancel() }
         val parameters = OpenAiResponsesChatRequestParameters.builder()
-            .previousResponseId(request.previousResponseId)
-            .store(true)
+            .store(false)
             .strictTools(true)
             .parallelToolCalls(false)
             .toolSpecifications(request.toolSpecifications)
             .build()
         val messages = buildList<ChatMessage> {
             add(SystemMessage.from(request.systemPrompt))
-            request.input.forEach { input ->
+            if (request.conversationItems.isNotEmpty()) {
+                add(UserMessage.from(CONVERSATION_ITEMS_MARKER + OBJECT_MAPPER.writeValueAsString(request.conversationItems)))
+            } else request.input.forEach { input ->
                 add(
                     when (input) {
                         is AiChatModelInput.User -> UserMessage.from(input.content)
@@ -106,7 +109,16 @@ class LangChain4jAiChatModelGateway(
                     val toolCalls = completeResponse.aiMessage().toolExecutionRequests().map { call ->
                         AiChatModelToolCall(call.id(), call.name(), call.arguments())
                     }
-                    sink.next(AiChatModelStepEvent.Completed(responseId, modelAlias, toolCalls))
+                    val outputItems = (completeResponse.metadata() as OpenAiResponsesChatResponseMetadata)
+                        .rawServerSentEvents()
+                        .mapNotNull { event ->
+                            val payload = runCatching { OBJECT_MAPPER.readTree(event.data()) }.getOrNull()
+                            payload?.takeIf { it.path("type").asText() == "response.output_item.done" }
+                                ?.path("item")
+                                ?.takeUnless { it.isMissingNode }
+                                ?.let(OBJECT_MAPPER::writeValueAsString)
+                        }
+                    sink.next(AiChatModelStepEvent.Completed(responseId, modelAlias, toolCalls, outputItems))
                     sink.complete()
                 }
 
@@ -115,5 +127,10 @@ class LangChain4jAiChatModelGateway(
                 }
             },
         )
+    }
+
+    companion object {
+        const val CONVERSATION_ITEMS_MARKER = "__RENALO_CONVERSATION_ITEMS__"
+        private val OBJECT_MAPPER = com.fasterxml.jackson.databind.ObjectMapper()
     }
 }
