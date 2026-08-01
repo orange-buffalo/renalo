@@ -82,7 +82,7 @@ Renalo stores one lightweight row per conversation. A row is scoped to a regular
 
 It does not store user prompts, assistant messages, tool arguments, tool results, or a transcript. The external response ID is opaque server-side data and is not exposed to the browser.
 
-An empty new chat is browser-only. Renalo creates the metadata row when the first nonblank user message is accepted, then identifies the newly persisted conversation in the response stream. This avoids abandoned rows for chats that never contain a turn. The initial title is generic and does not copy prompt text into local metadata; users can explicitly rename persisted conversations.
+An empty new chat is browser-only. Renalo creates the metadata row when the first nonblank user message is accepted, then identifies the newly persisted conversation in the response stream. This avoids abandoned rows for chats that never contain a turn. The initial title is generic; an AI-generated title derived from the first prompt replaces it asynchronously, and users can explicitly rename persisted conversations. Conversation metadata is touched when each user message is accepted and when each assistant turn completes so recently active conversations sort first.
 
 ### Externally owned conversation state
 

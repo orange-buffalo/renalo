@@ -7,6 +7,14 @@ import java.time.Duration
 
 @Singleton
 class AiChatService {
+    fun generateTitle(content: String): Mono<String> = Mono.just(
+        when {
+            content.contains("month", ignoreCase = true) -> "Monthly spending review"
+            content.contains("spend", ignoreCase = true) -> "Spending review"
+            else -> "Financial overview"
+        },
+    ).delayElement(TITLE_GENERATION_DELAY)
+
     fun streamMessage(content: String, startingSequence: Int = 1): Flux<AiChatStreamEvent> {
         val events = buildList {
             var sequence = startingSequence
@@ -54,6 +62,7 @@ class AiChatService {
     companion object {
         private const val TOOL_ACTIVITY_ID = "activity-1"
         private val STREAM_DELAY = Duration.ofMillis(50)
+        private val TITLE_GENERATION_DELAY = Duration.ofMillis(300)
         private val TOOL_EXECUTION_DELAY = Duration.ofSeconds(1)
     }
 }

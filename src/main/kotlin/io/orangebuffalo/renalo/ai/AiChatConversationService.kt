@@ -45,6 +45,20 @@ open class AiChatConversationService(
     }
 
     @Transactional
+    open fun updateGeneratedTitle(userId: Long, conversationId: Long, title: String): AiChatConversation {
+        val conversation = conversationRepository.findByIdAndUserId(conversationId, userId)
+            ?: error("AI chat conversation disappeared while its title was being generated")
+        return conversationRepository.update(conversation.copy(title = title)).reload(userId)
+    }
+
+    @Transactional
+    open fun completeTurn(userId: Long, conversationId: Long): AiChatConversation {
+        val conversation = conversationRepository.findByIdAndUserId(conversationId, userId)
+            ?: error("AI chat conversation disappeared while its turn was completing")
+        return conversationRepository.update(conversation.copy()).reload(userId)
+    }
+
+    @Transactional
     open fun deleteConversation(userId: Long, conversationId: Long): DeleteAiChatConversationResult {
         val conversation = conversationRepository.findByIdAndUserId(conversationId, userId)
             ?: return DeleteAiChatConversationResult.NotFound

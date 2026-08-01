@@ -20,6 +20,12 @@ export type AiChatStreamEvent =
       type: "conversation.created";
       conversation: AiChatConversation;
     }
+  | {
+      v: 1;
+      seq: number;
+      type: "conversation.updated";
+      conversation: AiChatConversation;
+    }
   | { v: 1; seq: number; type: "turn.started" }
   | {
       v: 1;
@@ -37,7 +43,12 @@ export type AiChatStreamEvent =
       status: "COMPLETED";
     }
   | { v: 1; seq: number; type: "assistant.delta"; text: string }
-  | { v: 1; seq: number; type: "turn.completed" }
+  | {
+      v: 1;
+      seq: number;
+      type: "turn.completed";
+      conversation?: AiChatConversation;
+    }
   | {
       v: 1;
       seq: number;
@@ -141,6 +152,7 @@ function parseStreamEvent(line: string): AiChatStreamEvent {
 
 const streamEventTypes = new Set([
   "conversation.created",
+  "conversation.updated",
   "turn.started",
   "tool.started",
   "tool.completed",

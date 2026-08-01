@@ -16,6 +16,8 @@ import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
 import io.orangebuffalo.renalo.user.UserRepository
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.time.Instant
 
 @Controller("/api/ai-chat")
@@ -71,7 +73,9 @@ class AiChatController(
             when (val result = conversationService.prepareConversation(userId, request.conversationId)) {
                 PrepareAiChatConversationResult.NotFound -> HttpResponse.notFound<Any>()
                 is PrepareAiChatConversationResult.Prepared -> {
-                    val conversationCreated = if (result.wasCreated) {
+                    val conversationId = result.conversation.id
+                        ?: error("Prepared AI chat conversation must be persisted")
+                    val initialMetadata = if (result.wasCreated) {
                         Flux.just(
                             AiChatConversationCreated(
                                 seq = 1,
@@ -79,12 +83,46 @@ class AiChatController(
                             ),
                         )
                     } else {
+                        Flux.just(
+                            AiChatConversationUpdated(
+                                seq = 1,
+                                conversation = result.conversation.toResponse(),
+                            ),
+                        )
+                    }
+                    val generatedTitle = if (result.wasCreated) {
+                        aiChatService.generateTitle(request.content)
+                            .flatMap { title ->
+                                Mono.fromCallable {
+                                    conversationService.updateGeneratedTitle(userId, conversationId, title)
+                                }.subscribeOn(Schedulers.boundedElastic())
+                            }
+                            .map { conversation ->
+                                AiChatConversationUpdated(
+                                    seq = 2,
+                                    conversation = conversation.toResponse(),
+                                )
+                            }
+                            .flux()
+                    } else {
                         Flux.empty()
                     }
-                    val firstTurnSequence = if (result.wasCreated) 2 else 1
+                    val firstTurnSequence = if (result.wasCreated) 3 else 2
+                    val turnEvents = aiChatService.streamMessage(request.content, firstTurnSequence)
+                        .concatMap { event ->
+                            if (event is AiChatTurnCompleted) {
+                                Mono.fromCallable {
+                                    val conversation = conversationService.completeTurn(userId, conversationId)
+                                    event.copy(conversation = conversation.toResponse())
+                                }.subscribeOn(Schedulers.boundedElastic())
+                            } else {
+                                Mono.just(event)
+                            }
+                        }
                     val stream = Flux.concat(
-                        conversationCreated,
-                        aiChatService.streamMessage(request.content, firstTurnSequence),
+                        initialMetadata,
+                        generatedTitle,
+                        turnEvents,
                     ).map { event ->
                         jsonMapper.writeValueAsBytes(event) + '\n'.code.toByte()
                     }
@@ -144,6 +182,12 @@ data class AiChatConversationCreated(
     override val type: String = "conversation.created",
 ) : AiChatStreamEvent
 
+data class AiChatConversationUpdated(
+    override val seq: Int,
+    val conversation: AiChatConversationResponse,
+    override val type: String = "conversation.updated",
+) : AiChatStreamEvent
+
 data class AiChatTurnStarted(
     override val seq: Int,
     override val type: String = "turn.started",
@@ -172,5 +216,6 @@ data class AiChatAssistantDelta(
 
 data class AiChatTurnCompleted(
     override val seq: Int,
+    val conversation: AiChatConversationResponse? = null,
     override val type: String = "turn.completed",
 ) : AiChatStreamEvent

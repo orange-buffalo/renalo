@@ -1,7 +1,7 @@
 import {
   ChevronDown,
+  DotsHorizontal,
   Edit01,
-  Menu01,
   Plus,
   Send01,
   Stop,
@@ -88,17 +88,27 @@ export function AiChatPage() {
         if (!isActive) {
           return;
         }
-        setConversations((current) => [
-          ...persistedConversations.map((conversation) => {
-            const existing = current.find(
-              (item) => item.id === conversation.id,
-            );
-            return existing
-              ? { ...existing, ...conversation }
-              : fromPersistedConversation(conversation);
-          }),
-          ...current.filter((conversation) => conversation.id === undefined),
-        ]);
+        const sortedPersisted = [...persistedConversations].sort(
+          compareConversationsByUpdatedAt,
+        );
+        setConversations((current) =>
+          sortConversations([
+            ...sortedPersisted.map((conversation) => {
+              const existing = current.find(
+                (item) => item.id === conversation.id,
+              );
+              return existing
+                ? { ...existing, ...conversation }
+                : fromPersistedConversation(conversation);
+            }),
+            ...current.filter((conversation) => conversation.id === undefined),
+          ]),
+        );
+        if (sortedPersisted[0]) {
+          setActiveConversationClientId(
+            `conversation-${sortedPersisted[0].id}`,
+          );
+        }
       })
       .catch(() => {
         if (isActive) {
@@ -208,23 +218,25 @@ export function AiChatPage() {
       setError(event.message);
     }
     setConversations((current) =>
-      current.map((conversation) => {
-        if (conversation.clientId !== conversationClientId) {
-          return conversation;
-        }
-        const withMetadata =
-          event.type === "conversation.created"
-            ? { ...conversation, ...event.conversation }
+      sortConversations(
+        current.map((conversation) => {
+          if (conversation.clientId !== conversationClientId) {
+            return conversation;
+          }
+          const metadata = getConversationMetadata(event);
+          const withMetadata = metadata
+            ? { ...conversation, ...metadata }
             : conversation;
-        return {
-          ...withMetadata,
-          messages: withMetadata.messages.map((message) =>
-            message.id === messageId
-              ? applyEventToMessage(message, event)
-              : message,
-          ),
-        };
-      }),
+          return {
+            ...withMetadata,
+            messages: withMetadata.messages.map((message) =>
+              message.id === messageId
+                ? applyEventToMessage(message, event)
+                : message,
+            ),
+          };
+        }),
+      ),
     );
   }
 
@@ -259,10 +271,12 @@ export function AiChatPage() {
         title,
       );
       setConversations((current) =>
-        current.map((conversation) =>
-          conversation.id === renamed.id
-            ? { ...conversation, ...renamed }
-            : conversation,
+        sortConversations(
+          current.map((conversation) =>
+            conversation.id === renamed.id
+              ? { ...conversation, ...renamed }
+              : conversation,
+          ),
         ),
       );
       setConversationToRename(undefined);
@@ -292,18 +306,18 @@ export function AiChatPage() {
     try {
       const deletedConversationId = conversationToDelete.id;
       await deleteAiChatConversation(deletedConversationId);
-      const replacement = createDraftConversation(
-        `draft-${nextDraftIdRef.current++}`,
-      );
-      setConversations((current) => [
-        ...current.filter(
-          (conversation) =>
-            conversation.id !== deletedConversationId &&
-            conversation.id !== undefined,
-        ),
-        replacement,
-      ]);
-      setActiveConversationClientId(replacement.clientId);
+      setConversations((current) => {
+        const remaining = sortConversations(
+          current.filter(
+            (conversation) => conversation.id !== deletedConversationId,
+          ),
+        );
+        const replacement =
+          remaining[0] ??
+          createDraftConversation(`draft-${nextDraftIdRef.current++}`);
+        setActiveConversationClientId(replacement.clientId);
+        return remaining.length > 0 ? remaining : [replacement];
+      });
       setDraft("");
       setConversationToDelete(undefined);
     } catch {
@@ -343,13 +357,24 @@ export function AiChatPage() {
                   <Dropdown.Item
                     id={conversation.clientId}
                     key={conversation.clientId}
-                    label={conversation.title}
+                    textValue={conversation.title}
                     onAction={() => {
                       setActiveConversationClientId(conversation.clientId);
                       setDraft("");
                       setError(undefined);
                     }}
-                  />
+                  >
+                    <span className="ai-chat-conversation-option">
+                      <span data-chat-conversation-title>
+                        {conversation.title}
+                      </span>
+                      {conversation.updatedAt && (
+                        <span className="ai-chat-conversation-option-time">
+                          {formatConversationUpdatedAt(conversation.updatedAt)}
+                        </span>
+                      )}
+                    </span>
+                  </Dropdown.Item>
                 ))}
               </Dropdown.Menu>
             </Dropdown.Popover>
@@ -359,10 +384,10 @@ export function AiChatPage() {
             <Dropdown.Root>
               <Button
                 aria-label="Chat actions"
-                color="secondary"
+                color="tertiary"
                 size="sm"
-                iconLeading={Menu01}
-                isDisabled={isSending}
+                iconLeading={DotsHorizontal}
+                isDisabled={isSending || activeConversation?.id === undefined}
               />
               <Dropdown.Popover placement="bottom right">
                 <Dropdown.Menu aria-label="Chat actions" selectionMode="none">
@@ -393,7 +418,7 @@ export function AiChatPage() {
               color="secondary"
               size="sm"
               iconLeading={Plus}
-              isDisabled={isSending}
+              isDisabled={isSending || activeConversation?.id === undefined}
               onPress={createConversation}
             />
           </div>
@@ -648,6 +673,7 @@ function applyEventToMessage(
     case "turn.error":
       return { ...message, isStreaming: false };
     case "conversation.created":
+    case "conversation.updated":
     case "turn.started":
       return message;
   }
@@ -696,4 +722,47 @@ function finishStreamingMessage(
 
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function getConversationMetadata(event: AiChatStreamEvent) {
+  if (
+    event.type === "conversation.created" ||
+    event.type === "conversation.updated"
+  ) {
+    return event.conversation;
+  }
+  return event.type === "turn.completed" ? event.conversation : undefined;
+}
+
+function sortConversations(conversations: Conversation[]) {
+  return [...conversations].sort((left, right) => {
+    if (left.updatedAt && right.updatedAt) {
+      return compareConversationsByUpdatedAt(left, right);
+    }
+    if (left.updatedAt) {
+      return -1;
+    }
+    if (right.updatedAt) {
+      return 1;
+    }
+    return 0;
+  });
+}
+
+function compareConversationsByUpdatedAt(
+  left: Pick<Conversation, "updatedAt">,
+  right: Pick<Conversation, "updatedAt">,
+) {
+  return (right.updatedAt ?? "").localeCompare(left.updatedAt ?? "");
+}
+
+const conversationTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+function formatConversationUpdatedAt(updatedAt: string) {
+  return `Updated ${conversationTimeFormatter.format(new Date(updatedAt))}`;
 }

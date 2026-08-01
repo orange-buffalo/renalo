@@ -49,10 +49,9 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             Page.GetByRoleOptions().setName("Message").setExact(true),
         )
         messageInput.fill("Discard this draft")
-        openChatActions(page)
-        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Delete chat")).click()
-        assertThat(page.getByRole(AriaRole.DIALOG)).not().isVisible()
-        messageInput.inputValue().shouldBe("")
+        assertThat(page.getByLabel("Chat actions")).isDisabled()
+        assertThat(page.getByLabel("New conversation")).isDisabled()
+        messageInput.fill("")
 
         messageInput.fill("How was this month?")
         page.getByLabel("Send message").click()
@@ -71,6 +70,9 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.TABLE)).isVisible()
         assertThat(page.locator("[data-chat-author='Renalo'] [data-streamdown='strong']").first())
             .containsText("How was this month?")
+        assertThat(conversationSelector(page)).containsText("Monthly spending review")
+        assertThat(page.getByLabel("Chat actions")).isEnabled()
+        assertThat(page.getByLabel("New conversation")).isEnabled()
         page.getByTitle("Copy table").click()
         assertThat(page.getByTitle("Copy table as Markdown")).isVisible()
         page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot")).click()
@@ -79,14 +81,24 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Rename chat")).click()
         val renameDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Rename chat"))
         val chatName = renameDialog.getByLabel("Chat name")
-        chatName.inputValue().shouldBe("New chat")
+        chatName.inputValue().shouldBe("Monthly spending review")
         chatName.fill("Monthly review")
         renameDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Save name")).click()
         assertThat(renameDialog).not().isVisible()
         assertThat(conversationSelector(page)).containsText("Monthly review")
 
+        page.getByLabel("New conversation").click()
+        assertThat(page.getByLabel("Chat actions")).isDisabled()
+        assertThat(page.getByLabel("New conversation")).isDisabled()
+        messageInput.fill("Show my spending")
+        page.getByLabel("Send message").click()
+        page.shouldEventually {
+            conversationSelector(page).textContent().shouldBe("Spending review")
+        }
+
         page.reload()
-        assertConversationOptions(page, listOf("Monthly review", "New chat"))
+        assertThat(conversationSelector(page)).containsText("Spending review")
+        assertConversationOptions(page, listOf("Spending review", "Monthly review", "New chat"))
         conversationSelector(page).click()
         page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Monthly review")).click()
         assertThat(
@@ -111,8 +123,8 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             AriaRole.DIALOG,
             Page.GetByRoleOptions().setName("Delete “Monthly review”?"),
         ).getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Delete chat")).click()
-        assertThat(conversationSelector(page)).containsText("New chat")
-        assertConversationOptions(page, listOf("New chat"))
+        assertThat(conversationSelector(page)).containsText("Spending review")
+        assertConversationOptions(page, listOf("Spending review", "New chat"))
     }
 
     @Test
@@ -297,10 +309,13 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     private fun assertConversationOptions(page: Page, expected: List<String>) {
         page.shouldEventually {
             conversationSelector(page).click()
-            page.getByRole(AriaRole.MENUITEMRADIO)
+            page.locator("[data-chat-conversation-title]")
                 .allTextContents()
                 .map(String::trim)
                 .shouldContainExactly(expected)
+        }
+        page.locator(".ai-chat-conversation-option-time").allTextContents().forEach { updatedAt ->
+            updatedAt.trim().startsWith("Updated ").shouldBe(true)
         }
         page.keyboard().press("Escape")
     }

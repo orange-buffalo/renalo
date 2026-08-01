@@ -2638,6 +2638,26 @@ input {
   white-space: nowrap;
 }
 
+.ai-chat-conversation-option {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+.ai-chat-conversation-option > [data-chat-conversation-title] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-chat-conversation-option-time {
+  color: #8b919c;
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
 .ai-chat-new-conversation-button {
   flex-shrink: 0;
 }

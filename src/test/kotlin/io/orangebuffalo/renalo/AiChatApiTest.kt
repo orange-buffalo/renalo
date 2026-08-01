@@ -1,5 +1,6 @@
 package io.orangebuffalo.renalo
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.assertions.json.shouldEqualJson
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -15,11 +16,14 @@ import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Test
+import java.time.Instant
 
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
 @Property(name = "renalo.ai-chat.enabled", value = "true")
 class AiChatApiTest : IntegrationTestSupport() {
+    private val objectMapper = ObjectMapper()
+
     @Inject
     lateinit var userRepository: UserRepository
 
@@ -45,30 +49,35 @@ class AiChatApiTest : IntegrationTestSupport() {
         val actualEvents = response.body().lineSequence().filter(String::isNotBlank).toList()
         val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(userRepository.findByUsername("alice")!!.id!!)
             .single()
+        val createdUpdatedAt = eventUpdatedAt(actualEvents[0])
+        val titleUpdatedAt = eventUpdatedAt(actualEvents[1])
         val expectedEvents = listOf(
-            """{"v":1,"seq":1,"type":"conversation.created","conversation":${conversationJson(conversation)}}""",
-            """{"v":1,"seq":2,"type":"turn.started"}""",
-            """{"v":1,"seq":3,"type":"tool.started","activityId":"activity-1","label":"Reviewing expense totals"}""",
-            """{"v":1,"seq":4,"type":"tool.completed","activityId":"activity-1","label":"Reviewed expense totals","status":"COMPLETED"}""",
-            """{"v":1,"seq":5,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
-            """{"v":1,"seq":6,"type":"assistant.delta","text":"You asked: **How was this month?**\n\n"}""",
-            """{"v":1,"seq":7,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
-            """{"v":1,"seq":8,"type":"assistant.delta","text":"| Category | Amount | Share |\n| --- | ---: | ---: |\n"}""",
-            """{"v":1,"seq":9,"type":"assistant.delta","text":"| Groceries | ${'$'}428.30 | 42% |\n"}""",
-            """{"v":1,"seq":10,"type":"assistant.delta","text":"| Transport | ${'$'}186.75 | 18% |\n"}""",
-            """{"v":1,"seq":11,"type":"assistant.delta","text":"| Dining out | ${'$'}142.10 | 14% |\n\n"}""",
-            """{"v":1,"seq":12,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
-            """{"v":1,"seq":13,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
-            """{"v":1,"seq":14,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
-            """{"v":1,"seq":15,"type":"assistant.delta","text":"> This is placeholder data from the Chat preview. It is not calculated from your Renalo records yet."}""",
-            """{"v":1,"seq":16,"type":"turn.completed"}""",
+            """{"v":1,"seq":1,"type":"conversation.created","conversation":${conversationJson(conversation, "New chat", createdUpdatedAt)}}""",
+            """{"v":1,"seq":2,"type":"conversation.updated","conversation":${conversationJson(conversation, "Monthly spending review", titleUpdatedAt)}}""",
+            """{"v":1,"seq":3,"type":"turn.started"}""",
+            """{"v":1,"seq":4,"type":"tool.started","activityId":"activity-1","label":"Reviewing expense totals"}""",
+            """{"v":1,"seq":5,"type":"tool.completed","activityId":"activity-1","label":"Reviewed expense totals","status":"COMPLETED"}""",
+            """{"v":1,"seq":6,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
+            """{"v":1,"seq":7,"type":"assistant.delta","text":"You asked: **How was this month?**\n\n"}""",
+            """{"v":1,"seq":8,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
+            """{"v":1,"seq":9,"type":"assistant.delta","text":"| Category | Amount | Share |\n| --- | ---: | ---: |\n"}""",
+            """{"v":1,"seq":10,"type":"assistant.delta","text":"| Groceries | ${'$'}428.30 | 42% |\n"}""",
+            """{"v":1,"seq":11,"type":"assistant.delta","text":"| Transport | ${'$'}186.75 | 18% |\n"}""",
+            """{"v":1,"seq":12,"type":"assistant.delta","text":"| Dining out | ${'$'}142.10 | 14% |\n\n"}""",
+            """{"v":1,"seq":13,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
+            """{"v":1,"seq":14,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
+            """{"v":1,"seq":15,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
+            """{"v":1,"seq":16,"type":"assistant.delta","text":"> This is placeholder data from the Chat preview. It is not calculated from your Renalo records yet."}""",
+            """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
         )
         actualEvents.shouldHaveSize(expectedEvents.size)
         actualEvents.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
-        conversation.title.shouldBe("New chat")
+        conversation.title.shouldBe("Monthly spending review")
         conversation.externalResponseId.shouldBe(null)
         conversation.modelAlias.shouldBe(null)
-        conversation.version.shouldBe(0)
+        conversation.version.shouldBe(2)
+        (createdUpdatedAt < titleUpdatedAt).shouldBe(true)
+        (titleUpdatedAt < conversation.updatedAt).shouldBe(true)
     }
 
     @Test
@@ -111,6 +120,38 @@ class AiChatApiTest : IntegrationTestSupport() {
 
         api().delete("/api/ai-chat/conversations/${created.id}", token).statusCode().shouldBe(204)
         api().get("/api/ai-chat/conversations", token).body().shouldEqualJson("""{"conversations":[]}""")
+    }
+
+    @Test
+    fun touchesAndReordersConversationsWhenTurnsStartAndComplete() {
+        val user = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        api().postJson("/api/ai-chat/messages", """{"content":"First question"}""", token).statusCode().shouldBe(200)
+        val firstBefore = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
+        api().postJson("/api/ai-chat/messages", """{"content":"Second question"}""", token).statusCode().shouldBe(200)
+        val second = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).first()
+
+        val response = api().postJson(
+            "/api/ai-chat/messages",
+            """{"conversationId":${firstBefore.id},"content":"Continue the first chat"}""",
+            token,
+        )
+        val events = response.body().lineSequence().filter(String::isNotBlank).toList()
+        val acceptedAt = eventUpdatedAt(events.first())
+        val firstAfter = conversationRepository.findByIdAndUserId(firstBefore.id!!, user.id!!)!!
+
+        events.first().shouldEqualJson(
+            """{"v":1,"seq":1,"type":"conversation.updated","conversation":${conversationJson(firstAfter, updatedAt = acceptedAt)}}""",
+        )
+        events.last().shouldEqualJson(
+            """{"v":1,"seq":16,"type":"turn.completed","conversation":${conversationJson(firstAfter)}}""",
+        )
+        (firstBefore.updatedAt!! < acceptedAt).shouldBe(true)
+        (acceptedAt < firstAfter.updatedAt).shouldBe(true)
+        api().get("/api/ai-chat/conversations", token).body().shouldEqualJson(
+            """{"conversations":[${conversationJson(firstAfter)},${conversationJson(second)}]}""",
+        )
     }
 
     @Test
@@ -187,6 +228,14 @@ class AiChatApiTest : IntegrationTestSupport() {
         ),
     )
 
-    private fun conversationJson(conversation: AiChatConversation): String =
-        """{"id":${conversation.id},"title":"${conversation.title}","createdAt":"${conversation.createdAt}","updatedAt":"${conversation.updatedAt}"}"""
+    private fun conversationJson(
+        conversation: AiChatConversation,
+        title: String = conversation.title,
+        updatedAt: Instant? = conversation.updatedAt,
+    ): String =
+        """{"id":${conversation.id},"title":"$title","createdAt":"${conversation.createdAt}","updatedAt":"$updatedAt"}"""
+
+    private fun eventUpdatedAt(event: String): Instant = Instant.parse(
+        objectMapper.readTree(event).path("conversation").path("updatedAt").asText(),
+    )
 }
