@@ -1,3 +1,6 @@
 renalo:
+  ai-chat:
+    litellm:
+      model: renalo-chat
   recurring-expense-generation-job:
     enabled: false

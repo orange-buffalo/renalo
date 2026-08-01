@@ -424,7 +424,7 @@ export function AiChatPage() {
   return (
     <PageLayout
       title="Chat"
-      description="Start a conversation and explore the shape of the chat experience."
+      description="Ask questions about your accounts, transactions, spending, and net worth."
       className="ai-chat-page-surface"
     >
       <section className="standard-page-panel ai-chat-panel">
@@ -577,7 +577,7 @@ export function AiChatPage() {
               <p>
                 {activeConversation?.id === undefined
                   ? "Send a message to begin this chat. It will be saved when the message is accepted."
-                  : "This chat is saved, but previous preview messages are not stored and cannot be displayed yet."}
+                  : "This chat has no externally retained message history to display."}
               </p>
             </div>
           )}
@@ -699,7 +699,7 @@ export function AiChatPage() {
       <ConfirmationDialog
         isOpen={Boolean(conversationToDelete)}
         title={`Delete “${conversationToDelete?.title ?? ""}”?`}
-        description="This removes the saved chat from Renalo. Externally retained AI history is not deleted by this preview."
+        description="This removes the saved chat from Renalo. Externally retained AI history is not deleted from LiteLLM."
         confirmLabel="Delete chat"
         isConfirming={isDeleting}
         onCancel={() => setConversationToDelete(undefined)}

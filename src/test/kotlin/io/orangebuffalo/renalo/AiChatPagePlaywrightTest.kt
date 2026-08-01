@@ -66,8 +66,8 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ChatMessage("You", "How was this month?", emptyList()),
                 ChatMessage(
                     "Renalo",
-                    "Spending snapshot\n\nYou asked: How was this month?\n\nHere is an example of how an AI-generated answer could present your results:\n\nCategory\tAmount\tShare\nGroceries\t${'$'}428.30\t42%\nTransport\t${'$'}186.75\t18%\nDining out\t${'$'}142.10\t14%\nGroceries were the largest expense category.\nDining out was lower than groceries by ${'$'}286.20.\nThe remaining categories accounted for 26% of the sample total.\n\nThis is placeholder data from the Chat preview. It is not calculated from your Renalo records yet.",
-                    listOf(ToolActivity("Reviewed expense totals", "COMPLETED")),
+                    "Spending snapshot\n\nYou asked: How was this month?\n\nHere is an example of how an AI-generated answer could present your results:\n\nCategory\tAmount\tShare\nGroceries\t${'$'}428.30\t42%\nTransport\t${'$'}186.75\t18%\nDining out\t${'$'}142.10\t14%\nGroceries were the largest expense category.\nDining out was lower than groceries by ${'$'}286.20.\nThe remaining categories accounted for 26% of the sample total.\n\nThis response was generated from Renalo's read-only financial tools.",
+                    listOf(ToolActivity("Calculated category totals", "COMPLETED")),
                 ),
             )
         }
@@ -244,7 +244,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         page.getByLabel("Send message").click()
 
         assertThat(page.getByLabel("Stop response")).isVisible()
-        assertThat(page.getByText("Reviewing expense totals")).isVisible()
+        assertThat(page.getByText("Calculating category totals")).isVisible()
         page.getByLabel("Stop response").click()
 
         page.shouldEventually {
@@ -253,7 +253,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ChatMessage(
                     "Renalo",
                     "",
-                    listOf(ToolActivity("Reviewing expense totals · Stopped", "CANCELLED")),
+                    listOf(ToolActivity("Calculating category totals · Stopped", "CANCELLED")),
                 ),
             )
         }
@@ -276,7 +276,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(page.getByRole(AriaRole.STATUS, Page.GetByRoleOptions().setName("Thinking..."))).isVisible()
         assertThat(page.getByLabel("Stop response")).isVisible()
         assertThat(page.getByRole(AriaRole.STATUS, Page.GetByRoleOptions().setName("Thinking..."))).not().isVisible()
-        assertThat(page.getByText("Reviewing expense totals")).isVisible()
+        assertThat(page.getByText("Calculating category totals")).isVisible()
     }
 
     @Test

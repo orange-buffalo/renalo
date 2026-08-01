@@ -36,7 +36,7 @@ openssl rand -base64 64
 
 Do not regenerate it at every container start. Rotating it signs users out, while persisted remembered sessions must be revoked separately if the rotation responds to a compromise.
 
-The Chat preview is disabled unless `RENALO_AI_CHAT_ENABLED=true` is set on the Renalo container. An enabled deployment must also configure the three `RENALO_AI_CHAT_LITELLM_*` variables. Renalo currently uses the model only to generate the title of a new chat from its first prompt; chat answers and history remain simulated preview content.
+AI Chat is disabled unless `RENALO_AI_CHAT_ENABLED=true` is set on the Renalo container. An enabled deployment must also configure the three `RENALO_AI_CHAT_LITELLM_*` variables. The configured LiteLLM model route must support the Responses API, stored response retrieval, `previous_response_id`, and input-item retrieval so Renalo can continue and restore conversations without storing transcripts locally.
 
 The base URL normally looks like `http://litellm:4000/v1`. Keep LiteLLM on a private network, configure the model name as a stable LiteLLM alias rather than a provider-specific model ID, and do not expose the API key to browsers or user accounts.
 

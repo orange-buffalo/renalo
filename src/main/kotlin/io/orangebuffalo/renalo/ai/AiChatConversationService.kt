@@ -62,6 +62,29 @@ open class AiChatConversationService(
     }
 
     @Transactional
+    open fun updateExternalState(
+        userId: Long,
+        conversationId: Long,
+        expectedExternalResponseId: String?,
+        newExternalResponseId: String,
+        modelAlias: String,
+    ): AiChatConversation {
+        require(newExternalResponseId.isNotBlank())
+        require(modelAlias.isNotBlank())
+        check(
+            conversationRepository.updateExternalState(
+                userId,
+                conversationId,
+                expectedExternalResponseId,
+                newExternalResponseId,
+                modelAlias,
+            ) == 1L,
+        ) { "AI chat external response state changed concurrently" }
+        return conversationRepository.findByIdAndUserId(conversationId, userId)
+            ?: error("AI chat conversation disappeared while its external state was being updated")
+    }
+
+    @Transactional
     open fun deleteConversation(userId: Long, conversationId: Long): DeleteAiChatConversationResult {
         val conversation = conversationRepository.findByIdAndUserId(conversationId, userId)
             ?: return DeleteAiChatConversationResult.NotFound

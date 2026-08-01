@@ -21,8 +21,23 @@ import java.time.Duration
 @Requires(property = "renalo.ai-chat.litellm.base-url", notEquals = "")
 class AiChatModelFactory {
     @Singleton
+    @Named(CHAT_MODEL_NAME)
+    fun chatModel(configuration: AiChatLiteLlmConfiguration): StreamingChatModel =
+        baseModel(configuration, CHAT_READ_TIMEOUT)
+            .store(true)
+            .strictTools(true)
+            .parallelToolCalls(false)
+            .build()
+
+    @Singleton
     @Named(TITLE_MODEL_NAME)
     fun titleModel(configuration: AiChatLiteLlmConfiguration): StreamingChatModel =
+        baseModel(configuration, TITLE_READ_TIMEOUT)
+            .store(false)
+            .maxOutputTokens(50)
+            .build()
+
+    private fun baseModel(configuration: AiChatLiteLlmConfiguration, readTimeout: Duration) =
         OpenAiResponsesStreamingChatModel.builder()
             .baseUrl(configuration.baseUrl.required("base URL").removeSuffix("/"))
             .apiKey(configuration.apiKey.required("API key"))
@@ -31,24 +46,23 @@ class AiChatModelFactory {
                 LiteLlmResponsesStreamingHttpClientBuilder(
                     JdkHttpClient.builder()
                         .connectTimeout(CONNECT_TIMEOUT)
-                        .readTimeout(READ_TIMEOUT)
+                        .readTimeout(readTimeout)
                         .httpClientBuilder(
                             java.net.http.HttpClient.newBuilder()
                                 .version(HTTP_1_1),
                         ),
                 ),
             )
-            .store(false)
-            .maxOutputTokens(50)
-            .build()
 
     private fun String.required(name: String): String = trim().takeIf(String::isNotEmpty)
         ?: error("AI chat LiteLLM $name must be configured")
 
     companion object {
+        const val CHAT_MODEL_NAME = "aiChatModel"
         const val TITLE_MODEL_NAME = "aiChatTitleModel"
         private val CONNECT_TIMEOUT = Duration.ofSeconds(5)
-        private val READ_TIMEOUT = Duration.ofSeconds(20)
+        private val CHAT_READ_TIMEOUT = Duration.ofSeconds(90)
+        private val TITLE_READ_TIMEOUT = Duration.ofSeconds(20)
     }
 }
 

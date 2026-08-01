@@ -8,12 +8,16 @@ import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Delete
 import io.micronaut.http.annotation.Get
+import io.micronaut.http.annotation.Header
 import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
 import io.micronaut.json.JsonMapper
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.orangebuffalo.renalo.auth.UserRoles
+import io.orangebuffalo.renalo.time.CLIENT_TIME_ZONE_HEADER
+import io.orangebuffalo.renalo.time.TimeProvider
+import io.orangebuffalo.renalo.time.parseClientTimeZone
 import io.orangebuffalo.renalo.user.UserRepository
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -29,6 +33,7 @@ class AiChatController(
     private val conversationService: AiChatConversationService,
     private val userRepository: UserRepository,
     private val jsonMapper: JsonMapper,
+    private val timeProvider: TimeProvider,
 ) {
     private val logger = LoggerFactory.getLogger(AiChatController::class.java)
 
@@ -80,11 +85,14 @@ class AiChatController(
     fun sendMessage(
         @Body request: AiChatMessageRequest,
         authentication: Authentication,
+        @Header(CLIENT_TIME_ZONE_HEADER) timeZone: String?,
     ): HttpResponse<*> {
         if (request.content.isBlank()) {
             return HttpResponse.badRequest<Any>()
         }
 
+        val clientTimeZone = parseClientTimeZone(timeZone) ?: return HttpResponse.badRequest<Any>()
+        val currentDate = timeProvider.today(clientTimeZone)
         return withUser(authentication) { userId ->
             when (val result = conversationService.prepareConversation(userId, request.conversationId)) {
                 PrepareAiChatConversationResult.NotFound -> HttpResponse.notFound<Any>()
@@ -129,11 +137,18 @@ class AiChatController(
                         Flux.empty()
                     }
                     val firstTurnSequence = if (result.wasCreated) 3 else 2
-                    val turnEvents = aiChatService.streamMessage(request.content, firstTurnSequence)
+                    val turnEvents = aiChatService.streamMessage(
+                        userId,
+                        conversationId,
+                        request.content,
+                        currentDate,
+                        firstTurnSequence,
+                    )
                         .concatMap { event ->
                             if (event is AiChatTurnCompleted) {
                                 Mono.fromCallable {
-                                    val conversation = conversationService.completeTurn(userId, conversationId)
+                                    val conversation = conversationService.findConversation(userId, conversationId)
+                                        ?: error("AI chat conversation disappeared while its turn was completing")
                                     event.copy(conversation = conversation.toResponse())
                                 }.subscribeOn(Schedulers.boundedElastic())
                             } else {
@@ -260,4 +275,12 @@ data class AiChatTurnCompleted(
     override val seq: Int,
     val conversation: AiChatConversationResponse? = null,
     override val type: String = "turn.completed",
+) : AiChatStreamEvent
+
+data class AiChatTurnError(
+    override val seq: Int,
+    val code: String,
+    val message: String,
+    val recoverable: Boolean = true,
+    override val type: String = "turn.error",
 ) : AiChatStreamEvent

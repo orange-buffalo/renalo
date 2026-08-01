@@ -55,8 +55,8 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"v":1,"seq":1,"type":"conversation.created","conversation":${conversationJson(conversation, "New chat", createdUpdatedAt)}}""",
             """{"v":1,"seq":2,"type":"conversation.updated","conversation":${conversationJson(conversation, "Monthly spending review", titleUpdatedAt)}}""",
             """{"v":1,"seq":3,"type":"turn.started"}""",
-            """{"v":1,"seq":4,"type":"tool.started","activityId":"activity-1","label":"Reviewing expense totals"}""",
-            """{"v":1,"seq":5,"type":"tool.completed","activityId":"activity-1","label":"Reviewed expense totals","status":"COMPLETED"}""",
+            """{"v":1,"seq":4,"type":"tool.started","activityId":"call_category_totals","label":"Calculating category totals"}""",
+            """{"v":1,"seq":5,"type":"tool.completed","activityId":"call_category_totals","label":"Calculated category totals","status":"COMPLETED"}""",
             """{"v":1,"seq":6,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
             """{"v":1,"seq":7,"type":"assistant.delta","text":"You asked: **How was this month?**\n\n"}""",
             """{"v":1,"seq":8,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
@@ -67,15 +67,15 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"v":1,"seq":13,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
             """{"v":1,"seq":14,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
             """{"v":1,"seq":15,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
-            """{"v":1,"seq":16,"type":"assistant.delta","text":"> This is placeholder data from the Chat preview. It is not calculated from your Renalo records yet."}""",
+            """{"v":1,"seq":16,"type":"assistant.delta","text":"> This response was generated from Renalo's read-only financial tools."}""",
             """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
         )
         actualEvents.shouldHaveSize(expectedEvents.size)
         actualEvents.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
         conversation.title.shouldBe("Monthly spending review")
-        conversation.externalResponseId.shouldBe(null)
-        conversation.modelAlias.shouldBe(null)
-        conversation.version.shouldBe(2)
+        conversation.externalResponseId.shouldStartWith("resp_test_")
+        conversation.modelAlias.shouldBe("renalo-chat")
+        conversation.version.shouldBe(3)
         (createdUpdatedAt < titleUpdatedAt).shouldBe(true)
         (titleUpdatedAt < conversation.updatedAt).shouldBe(true)
     }
@@ -98,8 +98,8 @@ class AiChatApiTest : IntegrationTestSupport() {
         val expectedEvents = listOf(
             """{"v":1,"seq":1,"type":"conversation.created","conversation":${conversationJson(conversation, "New chat", createdAt)}}""",
             """{"v":1,"seq":3,"type":"turn.started"}""",
-            """{"v":1,"seq":4,"type":"tool.started","activityId":"activity-1","label":"Reviewing expense totals"}""",
-            """{"v":1,"seq":5,"type":"tool.completed","activityId":"activity-1","label":"Reviewed expense totals","status":"COMPLETED"}""",
+            """{"v":1,"seq":4,"type":"tool.started","activityId":"call_category_totals","label":"Calculating category totals"}""",
+            """{"v":1,"seq":5,"type":"tool.completed","activityId":"call_category_totals","label":"Calculated category totals","status":"COMPLETED"}""",
             """{"v":1,"seq":6,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
             """{"v":1,"seq":7,"type":"assistant.delta","text":"You asked: **Please fail title generation**\n\n"}""",
             """{"v":1,"seq":8,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
@@ -110,12 +110,42 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"v":1,"seq":13,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
             """{"v":1,"seq":14,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
             """{"v":1,"seq":15,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
-            """{"v":1,"seq":16,"type":"assistant.delta","text":"> This is placeholder data from the Chat preview. It is not calculated from your Renalo records yet."}""",
+            """{"v":1,"seq":16,"type":"assistant.delta","text":"> This response was generated from Renalo's read-only financial tools."}""",
             """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
         )
         events.shouldHaveSize(expectedEvents.size)
         events.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
         conversation.title.shouldBe("New chat")
+    }
+
+    @Test
+    fun returnsARecoverableEventWhenTheModelIsUnavailable() {
+        val user = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        val response = api().postJson(
+            "/api/ai-chat/messages",
+            """{ "content": "Please fail model processing" }""",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        val events = response.body().lineSequence().filter(String::isNotBlank).toList()
+        events.last().shouldEqualJson(
+            """
+                {
+                  "v": 1,
+                  "seq": 4,
+                  "type": "turn.error",
+                  "code": "AI_UNAVAILABLE",
+                  "message": "The AI response is temporarily unavailable. Please try again.",
+                  "recoverable": true
+                }
+            """.trimIndent(),
+        )
+        val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
+        conversation.externalResponseId.shouldBe(null)
+        conversation.modelAlias.shouldBe(null)
     }
 
     @Test
@@ -291,6 +321,21 @@ class AiChatApiTest : IntegrationTestSupport() {
         val token = api().login("alice", "password")
 
         api().postJson("/api/ai-chat/messages", """{ "content": "   " }""", token).statusCode().shouldBe(400)
+    }
+
+    @Test
+    fun rejectsInvalidBrowserTimeZones() {
+        saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+
+        api().postJson(
+            "/api/ai-chat/messages",
+            """{ "content": "What is my balance?" }""",
+            token,
+            "not-a-time-zone",
+        ).statusCode().shouldBe(400)
+        conversationRepository.findByUserIdOrderByUpdatedAtDesc(userRepository.findByUsername("alice")!!.id!!)
+            .shouldHaveSize(0)
     }
 
     @Test
