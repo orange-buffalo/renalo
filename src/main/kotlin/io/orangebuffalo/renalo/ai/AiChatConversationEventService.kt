@@ -14,6 +14,7 @@ open class AiChatConversationEventService(
     private val conversationRepository: AiChatConversationRepository,
     private val charts: AiChatCharts,
     private val tools: AiChatTools,
+    private val liteLlmConfiguration: AiChatLiteLlmConfiguration,
 ) {
     private val objectMapper = ObjectMapper()
 
@@ -31,7 +32,7 @@ open class AiChatConversationEventService(
     open fun beginTurn(userId: Long, conversationId: Long, content: String): List<String>? {
         if (conversationRepository.findByIdAndUserId(conversationId, userId) == null) return null
         val connection = dataSource.connection
-        val existingItems = selectItems(connection, conversationId)
+        val existingItems = selectItems(connection, conversationId, includeInternalItems = false)
         val pendingCallIds = linkedSetOf<String>()
         existingItems.forEach { itemJson ->
             val item = objectMapper.readTree(itemJson)
@@ -82,15 +83,20 @@ open class AiChatConversationEventService(
     @Transactional(readOnly = true)
     open fun loadItems(userId: Long, conversationId: Long): List<String>? {
         if (conversationRepository.findByIdAndUserId(conversationId, userId) == null) return null
-        return selectItems(dataSource.connection, conversationId)
+        return selectItems(dataSource.connection, conversationId, includeInternalItems = false)
     }
 
-    private fun selectItems(connection: Connection, conversationId: Long): List<String> =
+    private fun selectItems(
+        connection: Connection,
+        conversationId: Long,
+        includeInternalItems: Boolean,
+    ): List<String> =
         connection.prepareStatement(
             """
                 SELECT item::text
                 FROM ai_chat_conversation_events
                 WHERE conversation_id = ?
+                ${if (includeInternalItems) "" else "AND item_type <> '$TURN_METRICS_TYPE'"}
                 ORDER BY sequence
             """.trimIndent(),
         ).use { statement ->
@@ -102,13 +108,49 @@ open class AiChatConversationEventService(
             }
         }
 
-    fun loadHistory(userId: Long, conversationId: Long): AiChatConversationHistoryResponse? {
-        val items = loadItems(userId, conversationId) ?: return null
+    @Transactional(readOnly = true)
+    open fun loadHistory(userId: Long, conversationId: Long): AiChatConversationHistoryResponse? {
+        if (conversationRepository.findByIdAndUserId(conversationId, userId) == null) return null
+        val items = selectItems(dataSource.connection, conversationId, includeInternalItems = true)
+            .map(objectMapper::readTree)
+        val currentContextTokens = items.lastOrNull { it.path("type").asText() == TURN_METRICS_TYPE }
+            ?.path("contextTokens")
+            ?.takeIf(JsonNode::isIntegralNumber)
+            ?.longValue()
         return AiChatConversationHistoryResponse(
             status = AiChatConversationHistoryStatus.AVAILABLE,
-            messages = projectHistory(items.map(objectMapper::readTree)),
+            messages = projectHistory(items),
+            contextUsage = currentContextTokens?.let(::contextUsage),
         )
     }
+
+    @Transactional
+    open fun appendTurnMetrics(
+        userId: Long,
+        conversationId: Long,
+        metrics: AiChatTurnMetricsResponse,
+        contextTokens: Long?,
+    ) {
+        appendItems(
+            userId,
+            conversationId,
+            listOf(
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "type" to TURN_METRICS_TYPE,
+                        "durationMillis" to metrics.durationMillis,
+                        "tokensConsumed" to metrics.tokensConsumed,
+                        "contextTokens" to contextTokens,
+                    ),
+                ),
+            ),
+        )
+    }
+
+    fun contextUsage(currentTokens: Long): AiChatContextUsageResponse = AiChatContextUsageResponse(
+        currentTokens = currentTokens,
+        maxTokens = liteLlmConfiguration.maxContextTokens.takeIf { it > 0 },
+    )
 
     fun userMessage(content: String): String = objectMapper.writeValueAsString(
         mapOf(
@@ -140,6 +182,7 @@ open class AiChatConversationEventService(
         val assistantContent = StringBuilder()
         val assistantCharts = mutableListOf<AiChatChartResponse>()
         val assistantItems = mutableListOf<AiChatHistoryItemResponse>()
+        var assistantMetrics: AiChatTurnMetricsResponse? = null
 
         fun flushAssistant() {
             if (assistantContent.isEmpty() && assistantCharts.isEmpty() && assistantItems.isEmpty()) return
@@ -148,10 +191,12 @@ open class AiChatConversationEventService(
                 content = assistantContent.toString(),
                 charts = assistantCharts.toList(),
                 items = assistantItems.toList(),
+                metrics = assistantMetrics,
             )
             assistantContent.clear()
             assistantCharts.clear()
             assistantItems.clear()
+            assistantMetrics = null
         }
 
         items.forEach { item ->
@@ -186,6 +231,14 @@ open class AiChatConversationEventService(
                         assistantItems += AiChatHistoryContentResponse(content)
                     }
                 }
+                TURN_METRICS_TYPE -> {
+                    assistantMetrics = AiChatTurnMetricsResponse(
+                        durationMillis = item.path("durationMillis").longValue(),
+                        tokensConsumed = item.path("tokensConsumed")
+                            .takeIf(JsonNode::isIntegralNumber)
+                            ?.longValue(),
+                    )
+                }
             }
         }
         flushAssistant()
@@ -215,5 +268,6 @@ open class AiChatConversationEventService(
     companion object {
         private const val INTERRUPTED_TOOL_RESULT =
             "{\"error\":\"The tool execution was interrupted before a result was available. Fetch fresh data if needed.\"}"
+        private const val TURN_METRICS_TYPE = "renalo_turn_metrics"
     }
 }

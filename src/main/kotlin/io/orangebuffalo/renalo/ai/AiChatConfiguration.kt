@@ -12,4 +12,5 @@ class AiChatLiteLlmConfiguration {
     var baseUrl: String = ""
     var apiKey: String = ""
     var model: String = ""
+    var maxContextTokens: Long = 0
 }

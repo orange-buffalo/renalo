@@ -18,10 +18,12 @@ import {
 } from "react";
 import type {
   AiChatChart,
+  AiChatContextUsage,
   AiChatConversation,
   AiChatHistoryItem,
   AiChatStreamEvent,
   AiChatToolActivity,
+  AiChatTurnMetrics,
 } from "@/api/aiChat";
 import {
   deleteAiChatConversation,
@@ -43,6 +45,10 @@ import { Button } from "@/components/untitled/base/buttons/button";
 import { Dropdown } from "@/components/untitled/base/dropdown/dropdown";
 import { Input } from "@/components/untitled/base/input/input";
 import { TextArea } from "@/components/untitled/base/textarea/textarea";
+import {
+  Tooltip,
+  TooltipTrigger,
+} from "@/components/untitled/base/tooltip/tooltip";
 
 type ChatMessage = {
   id: number;
@@ -52,6 +58,7 @@ type ChatMessage = {
   streamItems?: AssistantStreamItem[];
   isStreaming?: boolean;
   thinkingLabel?: string;
+  metrics?: AiChatTurnMetrics;
 };
 
 type AssistantStreamItem =
@@ -71,6 +78,7 @@ type Conversation = {
     | "LOADING"
     | "AVAILABLE"
     | "TEMPORARILY_UNAVAILABLE";
+  contextUsage?: AiChatContextUsage;
 };
 
 const AiMarkdown = lazy(async () => ({
@@ -222,8 +230,10 @@ export function AiChatPage() {
                 message.role === "ASSISTANT"
                   ? historyAssistantItems(message.items)
                   : undefined,
+              metrics: message.metrics,
             })),
             historyStatus: "AVAILABLE",
+            contextUsage: history.contextUsage,
           };
         }),
       );
@@ -339,6 +349,10 @@ export function AiChatPage() {
             : conversation;
           return {
             ...withMetadata,
+            contextUsage:
+              event.type === "turn.completed" || event.type === "turn.error"
+                ? (event.contextUsage ?? conversation.contextUsage)
+                : conversation.contextUsage,
             messages: withMetadata.messages.map((message) =>
               message.id === messageId
                 ? applyEventToMessage(message, event)
@@ -620,6 +634,9 @@ export function AiChatPage() {
                 }
               }}
             />
+            {activeConversation?.contextUsage && (
+              <ContextUsageIndicator usage={activeConversation.contextUsage} />
+            )}
             <Button
               aria-label={isSending ? "Stop response" : "Send message"}
               className="ai-chat-send-button"
@@ -767,8 +784,77 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
             message.content
           )}
         </div>
+        {message.author === "Renalo" && message.metrics && (
+          <p className="ai-chat-turn-metrics">
+            {formatDuration(message.metrics.durationMillis)}
+            {" · "}
+            {message.metrics.tokensConsumed === undefined
+              ? "Token usage unavailable"
+              : `${formatTokenCount(message.metrics.tokensConsumed)} tokens`}
+          </p>
+        )}
       </div>
     </article>
+  );
+}
+
+function ContextUsageIndicator({ usage }: { usage: AiChatContextUsage }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const percentage = usage.maxTokens
+    ? Math.min(100, Math.max(0, (usage.currentTokens / usage.maxTokens) * 100))
+    : undefined;
+  const isWarning = percentage !== undefined && percentage >= 75;
+  const title =
+    percentage === undefined
+      ? "Context usage"
+      : `Context ${Math.round(percentage)}% full`;
+  const maximumDescription = usage.maxTokens
+    ? `${formatTokenCount(usage.maxTokens)} tokens.`
+    : "Unavailable.";
+  const warningDescription = isWarning
+    ? " Context is filling up. Start a new chat soon, as this chat might fail once the context is full."
+    : "";
+  const description = `Current size: ${formatTokenCount(usage.currentTokens)} tokens. Maximum size: ${maximumDescription}${warningDescription}`;
+  return (
+    <Tooltip
+      title={title}
+      description={description}
+      placement="left"
+      delay={150}
+      isOpen={isOpen}
+      onOpenChange={setIsOpen}
+    >
+      <TooltipTrigger
+        aria-label={`${title}. ${description}`}
+        className="ai-chat-context-trigger"
+        onPress={() => setIsOpen(true)}
+      >
+        <svg
+          aria-hidden="true"
+          className="ai-chat-context-progress"
+          data-warning={isWarning || undefined}
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="ai-chat-context-progress-track"
+            cx="12"
+            cy="12"
+            r="9"
+          />
+          {percentage !== undefined && (
+            <circle
+              className="ai-chat-context-progress-value"
+              cx="12"
+              cy="12"
+              r="9"
+              pathLength="100"
+              strokeDasharray="100"
+              strokeDashoffset={100 - percentage}
+            />
+          )}
+        </svg>
+      </TooltipTrigger>
+    </Tooltip>
   );
 }
 
@@ -968,7 +1054,12 @@ function applyEventToMessage(
       };
     case "turn.completed":
     case "turn.error":
-      return { ...message, isStreaming: false, thinkingLabel: undefined };
+      return {
+        ...message,
+        isStreaming: false,
+        thinkingLabel: undefined,
+        metrics: event.metrics,
+      };
     case "conversation.created":
     case "conversation.updated":
     case "turn.started":
@@ -1105,4 +1196,18 @@ const conversationTimeFormatter = new Intl.DateTimeFormat(undefined, {
 
 function formatConversationUpdatedAt(updatedAt: string) {
   return `Updated ${conversationTimeFormatter.format(new Date(updatedAt))}`;
+}
+
+function formatDuration(durationMillis: number) {
+  if (durationMillis < 1_000) {
+    return `${Math.max(0.1, durationMillis / 1_000).toFixed(1)}s`;
+  }
+  const totalSeconds = Math.round(durationMillis / 1_000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes ? `${minutes}m ${seconds}s` : `${totalSeconds}s`;
+}
+
+function formatTokenCount(tokens: number) {
+  return Math.max(0, tokens).toLocaleString();
 }

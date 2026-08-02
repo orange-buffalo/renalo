@@ -45,8 +45,15 @@ sealed interface AiChatModelStepEvent {
         val modelAlias: String,
         val toolCalls: List<AiChatModelToolCall>,
         val outputItems: List<String> = emptyList(),
+        val tokenUsage: AiChatModelTokenUsage? = null,
     ) : AiChatModelStepEvent
 }
+
+data class AiChatModelTokenUsage(
+    val inputTokens: Long?,
+    val outputTokens: Long?,
+    val totalTokens: Long?,
+)
 
 data class AiChatModelToolCall(
     val id: String,
@@ -118,7 +125,14 @@ class LangChain4jAiChatModelGateway(
                                 ?.takeUnless { it.isMissingNode }
                                 ?.let(OBJECT_MAPPER::writeValueAsString)
                         }
-                    sink.next(AiChatModelStepEvent.Completed(responseId, modelAlias, toolCalls, outputItems))
+                    val tokenUsage = completeResponse.tokenUsage()?.let { usage ->
+                        AiChatModelTokenUsage(
+                            inputTokens = usage.inputTokenCount()?.toLong(),
+                            outputTokens = usage.outputTokenCount()?.toLong(),
+                            totalTokens = usage.totalTokenCount()?.toLong(),
+                        )
+                    }
+                    sink.next(AiChatModelStepEvent.Completed(responseId, modelAlias, toolCalls, outputItems, tokenUsage))
                     sink.complete()
                 }
 

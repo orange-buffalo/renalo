@@ -202,6 +202,7 @@ data class AiChatConversationHistoryResponse(
     val status: AiChatConversationHistoryStatus,
     @field:JsonInclude(JsonInclude.Include.ALWAYS)
     val messages: List<AiChatHistoryMessageResponse>,
+    val contextUsage: AiChatContextUsageResponse? = null,
 )
 
 enum class AiChatConversationHistoryStatus {
@@ -216,6 +217,17 @@ data class AiChatHistoryMessageResponse(
     val charts: List<AiChatChartResponse> = emptyList(),
     @field:JsonInclude(JsonInclude.Include.ALWAYS)
     val items: List<AiChatHistoryItemResponse> = emptyList(),
+    val metrics: AiChatTurnMetricsResponse? = null,
+)
+
+data class AiChatTurnMetricsResponse(
+    val durationMillis: Long,
+    val tokensConsumed: Long?,
+)
+
+data class AiChatContextUsageResponse(
+    val currentTokens: Long,
+    val maxTokens: Long?,
 )
 
 sealed interface AiChatHistoryItemResponse {
@@ -309,6 +321,8 @@ data class AiChatAssistantThinking(
 data class AiChatTurnCompleted(
     override val seq: Int,
     val conversation: AiChatConversationResponse? = null,
+    val metrics: AiChatTurnMetricsResponse? = null,
+    val contextUsage: AiChatContextUsageResponse? = null,
     override val type: String = "turn.completed",
 ) : AiChatStreamEvent
 
@@ -317,5 +331,7 @@ data class AiChatTurnError(
     val code: String,
     val message: String,
     val recoverable: Boolean = true,
+    val metrics: AiChatTurnMetricsResponse? = null,
+    val contextUsage: AiChatContextUsageResponse? = null,
     override val type: String = "turn.error",
 ) : AiChatStreamEvent

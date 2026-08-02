@@ -9,12 +9,24 @@ export type AiChatConversation = {
 
 export type AiChatConversationHistory = {
   status: "AVAILABLE" | "TEMPORARILY_UNAVAILABLE";
+  contextUsage?: AiChatContextUsage;
   messages: Array<{
     role: "USER" | "ASSISTANT";
     content: string;
     charts: AiChatChart[];
     items: AiChatHistoryItem[];
+    metrics?: AiChatTurnMetrics;
   }>;
+};
+
+export type AiChatTurnMetrics = {
+  durationMillis: number;
+  tokensConsumed?: number;
+};
+
+export type AiChatContextUsage = {
+  currentTokens: number;
+  maxTokens?: number;
 };
 
 export type AiChatHistoryItem =
@@ -86,6 +98,8 @@ export type AiChatStreamEvent =
       seq: number;
       type: "turn.completed";
       conversation?: AiChatConversation;
+      metrics?: AiChatTurnMetrics;
+      contextUsage?: AiChatContextUsage;
     }
   | {
       v: 1;
@@ -94,6 +108,8 @@ export type AiChatStreamEvent =
       code: string;
       message: string;
       recoverable: boolean;
+      metrics?: AiChatTurnMetrics;
+      contextUsage?: AiChatContextUsage;
     };
 
 export async function streamAiChatMessage(

@@ -2801,6 +2801,13 @@ input {
   white-space: pre-wrap;
 }
 
+.ai-chat-turn-metrics {
+  margin: 8px 0 0;
+  color: #858c96;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .ai-chat-tool-activity {
   display: flex;
   align-items: center;
@@ -3141,6 +3148,54 @@ input {
   right: 12px;
   bottom: 8px;
   color: #667085;
+}
+
+.ai-chat-context-trigger {
+  position: absolute;
+  right: 17px;
+  bottom: 47px;
+  z-index: 1;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  color: #697386;
+}
+
+.ai-chat-context-trigger:hover,
+.ai-chat-context-trigger:focus-visible {
+  color: #4f5b96;
+  background: #f2f3f8;
+}
+
+.ai-chat-context-progress {
+  width: 20px;
+  height: 20px;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+
+.ai-chat-context-progress circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.ai-chat-context-progress-track {
+  stroke: #d8dce3;
+}
+
+.ai-chat-context-progress-value {
+  stroke: #6976ae;
+  stroke-linecap: round;
+}
+
+.ai-chat-context-progress[data-warning="true"] .ai-chat-context-progress-track {
+  stroke: #f2d6b8;
+}
+
+.ai-chat-context-progress[data-warning="true"] .ai-chat-context-progress-value {
+  stroke: #d97706;
 }
 
 .ai-chat-panel .ai-chat-error {

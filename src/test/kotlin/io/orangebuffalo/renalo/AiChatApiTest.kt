@@ -29,6 +29,7 @@ import java.time.Instant
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
 @Property(name = "renalo.ai-chat.enabled", value = "true")
+@Property(name = "renalo.ai-chat.litellm.max-context-tokens", value = "1000")
 class AiChatApiTest : IntegrationTestSupport() {
     private val objectMapper = ObjectMapper()
 
@@ -66,6 +67,7 @@ class AiChatApiTest : IntegrationTestSupport() {
             .single()
         val createdUpdatedAt = eventUpdatedAt(actualEvents[0])
         val titleUpdatedAt = eventUpdatedAt(actualEvents[1])
+        val durationMillis = eventDurationMillis(actualEvents.last())
         val expectedEvents = listOf(
             """{"v":1,"seq":1,"type":"conversation.created","conversation":${conversationJson(conversation, "New chat", createdUpdatedAt)}}""",
             """{"v":1,"seq":2,"type":"conversation.updated","conversation":${conversationJson(conversation, "Monthly spending review", titleUpdatedAt)}}""",
@@ -84,7 +86,7 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"v":1,"seq":15,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
             """{"v":1,"seq":16,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
             """{"v":1,"seq":17,"type":"assistant.delta","text":"> This response was generated from Renalo's read-only financial tools."}""",
-            """{"v":1,"seq":18,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
+            """{"v":1,"seq":18,"type":"turn.completed","conversation":${conversationJson(conversation)},"metrics":{"durationMillis":$durationMillis,"tokensConsumed":240},"contextUsage":{"currentTokens":120,"maxTokens":1000}}""",
         )
         actualEvents.shouldHaveSize(expectedEvents.size)
         actualEvents.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
@@ -126,6 +128,7 @@ class AiChatApiTest : IntegrationTestSupport() {
         val events = response.body().lineSequence().filter(String::isNotBlank).toList()
         val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
         val chartId = objectMapper.readTree(events[8]).path("chart").path("id").asText()
+        val durationMillis = eventDurationMillis(events.last())
         events.map { objectMapper.readTree(it).path("type").asText() }.shouldBe(
             listOf(
                 "conversation.created",
@@ -176,11 +179,13 @@ class AiChatApiTest : IntegrationTestSupport() {
             """
                 {
                   "status":"AVAILABLE",
+                  "contextUsage":{"currentTokens":120,"maxTokens":1000},
                   "messages":[
                     {"role":"USER","content":"Show a chart of spending","charts":[],"items":[]},
                     {
                       "role":"ASSISTANT",
                       "content":"## Spending snapshot\n\nYou asked: **Show a chart of spending**\n\nHere is an example of how an AI-generated answer could present your results:\n\n| Category | Amount | Share |\n| --- | ---: | ---: |\n| Groceries | ${'$'}428.30 | 42% |\n| Transport | ${'$'}186.75 | 18% |\n| Dining out | ${'$'}142.10 | 14% |\n\n- **Groceries** were the largest expense category.\n- Dining out was lower than groceries by `${'$'}286.20`.\n- The remaining categories accounted for 26% of the sample total.\n\n> This response was generated from Renalo's read-only financial tools.",
+                      "metrics":{"durationMillis":$durationMillis,"tokensConsumed":360},
                       "charts":[{
                         "id":"$chartId",
                         "kind":"DONUT",
@@ -228,6 +233,7 @@ class AiChatApiTest : IntegrationTestSupport() {
         val events = response.body().lineSequence().filter(String::isNotBlank).toList()
         val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
         val createdAt = eventUpdatedAt(events.first())
+        val durationMillis = eventDurationMillis(events.last())
         val expectedEvents = listOf(
             """{"v":1,"seq":1,"type":"conversation.created","conversation":${conversationJson(conversation, "New chat", createdAt)}}""",
             """{"v":1,"seq":3,"type":"turn.started"}""",
@@ -245,7 +251,7 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"v":1,"seq":15,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
             """{"v":1,"seq":16,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
             """{"v":1,"seq":17,"type":"assistant.delta","text":"> This response was generated from Renalo's read-only financial tools."}""",
-            """{"v":1,"seq":18,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
+            """{"v":1,"seq":18,"type":"turn.completed","conversation":${conversationJson(conversation)},"metrics":{"durationMillis":$durationMillis,"tokensConsumed":240},"contextUsage":{"currentTokens":120,"maxTokens":1000}}""",
         )
         events.shouldHaveSize(expectedEvents.size)
         events.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
@@ -265,6 +271,7 @@ class AiChatApiTest : IntegrationTestSupport() {
 
         response.statusCode().shouldBe(200)
         val events = response.body().lineSequence().filter(String::isNotBlank).toList()
+        val durationMillis = eventDurationMillis(events.last())
         events.last().shouldEqualJson(
             """
                 {
@@ -273,7 +280,8 @@ class AiChatApiTest : IntegrationTestSupport() {
                   "type": "turn.error",
                   "code": "AI_UNAVAILABLE",
                   "message": "The AI response is temporarily unavailable. Please try again.",
-                  "recoverable": true
+                  "recoverable": true,
+                  "metrics": {"durationMillis": $durationMillis}
                 }
             """.trimIndent(),
         )
@@ -441,12 +449,13 @@ class AiChatApiTest : IntegrationTestSupport() {
         val events = response.body().lineSequence().filter(String::isNotBlank).toList()
         val acceptedAt = eventUpdatedAt(events.first())
         val firstAfter = conversationRepository.findByIdAndUserId(firstBefore.id!!, user.id!!)!!
+        val durationMillis = eventDurationMillis(events.last())
 
         events.first().shouldEqualJson(
             """{"v":1,"seq":1,"type":"conversation.updated","conversation":${conversationJson(firstAfter, updatedAt = acceptedAt)}}""",
         )
         events.last().shouldEqualJson(
-            """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(firstAfter)}}""",
+            """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(firstAfter)},"metrics":{"durationMillis":$durationMillis,"tokensConsumed":240},"contextUsage":{"currentTokens":120,"maxTokens":1000}}""",
         )
         (firstBefore.updatedAt!! < acceptedAt).shouldBe(true)
         (acceptedAt < firstAfter.updatedAt).shouldBe(true)
@@ -557,4 +566,9 @@ class AiChatApiTest : IntegrationTestSupport() {
     private fun eventUpdatedAt(event: String): Instant = Instant.parse(
         objectMapper.readTree(event).path("conversation").path("updatedAt").asText(),
     )
+
+    private fun eventDurationMillis(event: String): Long = objectMapper.readTree(event)
+        .path("metrics")
+        .path("durationMillis")
+        .longValue()
 }

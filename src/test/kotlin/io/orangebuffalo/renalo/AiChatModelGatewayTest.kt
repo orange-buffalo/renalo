@@ -82,6 +82,9 @@ data: [DONE]
             completed.responseId.shouldBe("resp_tool")
             completed.toolCalls.single().name.shouldBe("get_account_balances")
             completed.outputItems.shouldHaveSize(1)
+            completed.tokenUsage?.inputTokens.shouldBe(1)
+            completed.tokenUsage?.outputTokens.shouldBe(1)
+            completed.tokenUsage?.totalTokens.shouldBe(2)
 
             val secondEvents = gateway.streamStep(
                 AiChatModelStepRequest(
@@ -96,8 +99,10 @@ data: [DONE]
                 ),
             ).collectList().block()!!
             (secondEvents.first() as AiChatModelStepEvent.TextDelta).text.shouldBe("Your balance is AUD 123.45")
-            (secondEvents.last() as AiChatModelStepEvent.Completed).responseId.shouldBe("resp_answer")
-            (secondEvents.last() as AiChatModelStepEvent.Completed).outputItems.shouldHaveSize(1)
+            val secondCompleted = secondEvents.last() as AiChatModelStepEvent.Completed
+            secondCompleted.responseId.shouldBe("resp_answer")
+            secondCompleted.outputItems.shouldHaveSize(1)
+            secondCompleted.tokenUsage?.totalTokens.shouldBe(2)
 
             requestBodies.shouldHaveSize(2)
             val firstRequest = objectMapper.readTree(requestBodies.first())

@@ -9,6 +9,7 @@ import io.orangebuffalo.renalo.ai.AiChatTitleGenerator;
 import io.orangebuffalo.renalo.ai.AiChatModelGateway;
 import io.orangebuffalo.renalo.ai.AiChatModelInput;
 import io.orangebuffalo.renalo.ai.AiChatModelStepEvent;
+import io.orangebuffalo.renalo.ai.AiChatModelTokenUsage;
 import io.orangebuffalo.renalo.ai.AiChatModelToolCall;
 import io.orangebuffalo.renalo.ai.LangChain4jAiChatTitleGenerator;
 import jakarta.inject.Singleton;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @Factory
 class TestAiChatTitleGeneratorFactory {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final AiChatModelTokenUsage TOKEN_USAGE = new AiChatModelTokenUsage(100L, 20L, 120L);
 
     @Singleton
     @Replaces(LangChain4jAiChatTitleGenerator.class)
@@ -76,7 +78,8 @@ class TestAiChatTitleGeneratorFactory {
                         )),
                         List.of(
                                 "{\"type\":\"function_call\",\"id\":\"fc_category_totals\",\"call_id\":\"call_category_totals\",\"name\":\"get_category_totals\",\"arguments\":\"{\\\"type\\\":\\\"EXPENSE\\\",\\\"from\\\":\\\"2026-08-01\\\",\\\"to\\\":\\\"2026-08-01\\\"}\",\"status\":\"completed\"}"
-                        )
+                        ),
+                        TOKEN_USAGE
                 ));
             }
             var prompt = request.getConversationItems().stream()
@@ -104,7 +107,8 @@ class TestAiChatTitleGeneratorFactory {
                         List.of(new AiChatModelToolCall("call_chart", "present_chart", arguments)),
                         List.of(
                                 "{\"type\":\"function_call\",\"id\":\"fc_chart\",\"call_id\":\"call_chart\",\"name\":\"present_chart\",\"arguments\":\"" + serializedArguments + "\",\"status\":\"completed\"}"
-                        )
+                        ),
+                        TOKEN_USAGE
                 ));
             }
             return Flux.fromIterable(List.of(
@@ -123,10 +127,11 @@ class TestAiChatTitleGeneratorFactory {
                             responseId,
                             "renalo-chat",
                             List.of(),
-                            List.of(
-                                    "{\"type\":\"message\",\"id\":\"msg_" + responseId + "\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"## Spending snapshot\\n\\nYou asked: **" + prompt.replace("\\", "\\\\").replace("\"", "\\\"") + "**\\n\\nHere is an example of how an AI-generated answer could present your results:\\n\\n| Category | Amount | Share |\\n| --- | ---: | ---: |\\n| Groceries | $428.30 | 42% |\\n| Transport | $186.75 | 18% |\\n| Dining out | $142.10 | 14% |\\n\\n- **Groceries** were the largest expense category.\\n- Dining out was lower than groceries by `$286.20`.\\n- The remaining categories accounted for 26% of the sample total.\\n\\n> This response was generated from Renalo's read-only financial tools.\"}]}"
-                            )
-                    )
+                             List.of(
+                                     "{\"type\":\"message\",\"id\":\"msg_" + responseId + "\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"## Spending snapshot\\n\\nYou asked: **" + prompt.replace("\\", "\\\\").replace("\"", "\\\"") + "**\\n\\nHere is an example of how an AI-generated answer could present your results:\\n\\n| Category | Amount | Share |\\n| --- | ---: | ---: |\\n| Groceries | $428.30 | 42% |\\n| Transport | $186.75 | 18% |\\n| Dining out | $142.10 | 14% |\\n\\n- **Groceries** were the largest expense category.\\n- Dining out was lower than groceries by `$286.20`.\\n- The remaining categories accounted for 26% of the sample total.\\n\\n> This response was generated from Renalo's read-only financial tools.\"}]}"
+                             ),
+                             TOKEN_USAGE
+                     )
             ));
         };
     }

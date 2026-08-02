@@ -59,6 +59,7 @@ AI configuration is deployment-wide and supplied through environment-backed appl
 - LiteLLM base URL.
 - LiteLLM API key.
 - Stable model alias configured in LiteLLM.
+- Optional maximum context size for that alias, supplied through `RENALO_AI_CHAT_LITELLM_MAX_CONTEXT_TOKENS` when it is known.
 
 Renalo allows three minutes for each model response step and fifteen minutes for a complete turn. The tool-call ceiling remains a secondary runaway-loop guard rather than the normal constraint on a multi-step answer. These are built-in implementation details rather than deployment configuration unless operational experience establishes a concrete need to expose them.
 
@@ -88,6 +89,8 @@ An empty new chat is browser-only. Renalo creates the metadata row when the firs
 Before invoking the model, Renalo appends the accepted user message. Each completed model step contributes its raw ordered `response.output_item.done` items. Tool execution appends the corresponding `function_call_output` before the next model step. A continuation replays all items in sequence as the next Responses API `input`, with `store=false` and no `previous_response_id`.
 
 Cancellation or failure can leave a persisted function call without its output. Before accepting a continuation, Renalo atomically appends a server-owned interrupted `function_call_output` for each unresolved call and then appends the new user message. This preserves the append-only history, satisfies Responses API replay pairing, and directs the model to fetch fresh data instead of treating an interrupted call as successful.
+
+Renalo also appends an internal turn-metrics item after each completed, failed, or cancelled turn when possible. It records wall-clock duration, the exact sum of reported model-step token totals, and the latest step's token total as a best-effort current-context estimate. Internal metrics items are included in browser history projection but excluded from Responses API replay, so telemetry cannot change model input or break a conversation. Missing provider usage remains unavailable rather than failing the turn.
 
 The event log is authoritative and survives both Renalo and LiteLLM restarts. Opaque reasoning items are preserved exactly rather than interpreted by Renalo because some providers require them when subsequent input includes tool calls or prior reasoning.
 
@@ -186,6 +189,8 @@ The UI must distinguish:
 
 Assistant Markdown rendering must not allow raw HTML and must sanitize or constrain links. Tool arguments, raw tool results, gateway identifiers, and hidden reasoning are not rendered as conversation messages. Running tools and model-wait phases render consistently as pulsing in-progress activities. Renalo emits safe phase labels such as “Thinking” and “Reviewing results” between tool batches; these labels are application state, not model-generated summaries of hidden reasoning. The browser collapses contiguous tool calls into one safe activity summary and counts repeated labels; assistant text or a chart closes that group so later calls appear at the correct point in the response. Conversation history projects persisted function calls into the same ordered content, chart, and Renalo-owned activity items, while discarding raw tool names, arguments, and results. Validated chart artifacts render as structured feed content with an exact accessible data table rather than model-authored HTML.
 
+Each assistant turn shows its duration and total consumed tokens when available. The composer shows the latest context estimate as a circular indicator. When a configured maximum is available, the ring reflects the percentage used; at 75% it changes to a warning state and recommends starting a new chat because the current one may fail when full. The tooltip still shows the current estimate when the maximum is unknown. Renalo deliberately leaves conversation replacement to the user and does not compact chat context.
+
 ## Security and Privacy
 
 - Controllers require the regular-user role and derive user identity from the authenticated principal.
@@ -207,7 +212,7 @@ Renalo's private-deployment positioning reduces the need for SaaS billing and te
 - Missing conversion evidence stays explicitly unavailable.
 - Gateway authentication and configuration failures are operator-actionable and do not delete persisted events.
 - Rate limits and transient provider failures preserve the event log and permit retry.
-- Context-window exhaustion produces an explicit error until a tested external compaction strategy is available.
+- Context-window exhaustion produces an explicit error. Renalo warns users as a configured context limit approaches but does not compact or automatically replace conversations.
 - Switching a LiteLLM alias to an incompatible model must not silently reinterpret an existing conversation. The conversation retains its model alias, and route compatibility is validated before continuation.
 
 ## Testing Contract

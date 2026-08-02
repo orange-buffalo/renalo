@@ -36,6 +36,7 @@ import java.time.LocalDate
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
 @Property(name = "renalo.ai-chat.enabled", value = "true")
+@Property(name = "renalo.ai-chat.litellm.max-context-tokens", value = "150")
 class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     private val objectMapper = ObjectMapper()
 
@@ -96,6 +97,22 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         }
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
         assertThat(page.getByText("Calculated category totals, Prepared chart")).isVisible()
+        val turnMetrics = page.locator(".ai-chat-turn-metrics").innerText()
+        Regex("(?:\\d+\\.\\d+s|\\d+s|\\d+m \\d+s) · 360 tokens").matches(turnMetrics).shouldBe(true)
+        val contextIndicator = page.getByRole(
+            AriaRole.BUTTON,
+            Page.GetByRoleOptions().setName(
+                "Context 80% full. Current size: 120 tokens. Maximum size: 150 tokens. Context is filling up. Start a new chat soon, as this chat might fail once the context is full.",
+            ),
+        )
+        assertThat(contextIndicator).isVisible()
+        contextIndicator.click()
+        assertThat(page.getByText("Context 80% full")).isVisible()
+        assertThat(
+            page.getByText(
+                "Current size: 120 tokens. Maximum size: 150 tokens. Context is filling up. Start a new chat soon, as this chat might fail once the context is full.",
+            ),
+        ).isVisible()
 
         page.reload()
         page.shouldEventually {
@@ -108,6 +125,8 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             )
         }
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+        page.locator(".ai-chat-turn-metrics").innerText().shouldBe(turnMetrics)
+        assertThat(contextIndicator).isVisible()
         val historicalActivity = page.getByText("Calculated category totals, Prepared chart")
         assertThat(historicalActivity).isVisible()
         historicalActivity.click()
@@ -558,6 +577,46 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             )
         }
         page.getByText("Leisure spending increased overall.").click()
+    }
+
+    @Test
+    fun showsContextSizeWithoutAConfiguredMaximum(page: Page) {
+        saveUser("alice", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.route("**/api/ai-chat/messages") { route ->
+            route.fulfill(
+                Route.FulfillOptions()
+                    .setContentType("application/x-ndjson")
+                    .setBody(
+                        """
+                            {"v":1,"seq":1,"type":"turn.started"}
+                            {"v":1,"seq":2,"type":"assistant.delta","text":"Context is available."}
+                            {"v":1,"seq":3,"type":"turn.completed","metrics":{"durationMillis":1500},"contextUsage":{"currentTokens":120}}
+                        """.trimIndent() + "\n",
+                    ),
+            )
+        }
+        page.navigate(server.url.toString() + "/chat")
+
+        page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        ).fill("Show context usage")
+        page.getByLabel("Send message").click()
+
+        assertThat(page.getByText("Context is available.")).isVisible()
+        assertThat(page.getByText("2s · Token usage unavailable")).isVisible()
+        val contextIndicator = page.getByRole(
+            AriaRole.BUTTON,
+            Page.GetByRoleOptions().setName(
+                "Context usage. Current size: 120 tokens. Maximum size: Unavailable.",
+            ),
+        )
+        assertThat(contextIndicator).isVisible()
+        contextIndicator.locator(".ai-chat-context-progress-value").count().shouldBe(0)
+        contextIndicator.click()
+        assertThat(page.getByText("Context usage", Page.GetByTextOptions().setExact(true))).isVisible()
+        assertThat(page.getByText("Current size: 120 tokens. Maximum size: Unavailable.")).isVisible()
     }
 
     @Test

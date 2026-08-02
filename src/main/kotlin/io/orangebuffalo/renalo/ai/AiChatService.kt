@@ -8,7 +8,9 @@ import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.time.LocalDate
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 @Singleton
 class AiChatService(
@@ -48,9 +50,10 @@ class AiChatService(
         content: String,
         currentDate: LocalDate,
         startingSequence: Int = 1,
-    ): Flux<AiChatStreamEvent> {
+    ): Flux<AiChatStreamEvent> = Flux.defer {
         val sequence = AtomicInteger(startingSequence)
-        return turnLock.withLock(conversationId) {
+        val metricsTracker = AiChatTurnMetricsTracker()
+        turnLock.withLock(conversationId) {
             Flux.defer {
                 val conversation = conversationService.findConversation(userId, conversationId)
                     ?: return@defer Flux.error(IllegalStateException("AI chat conversation no longer exists"))
@@ -72,19 +75,27 @@ class AiChatService(
                         conversationItems = conversationItems,
                         sequence = sequence,
                         toolCallCount = 0,
+                        metricsTracker = metricsTracker,
                     ),
                 )
             }.subscribeOn(Schedulers.boundedElastic())
         }.takeUntilOther(
             Mono.delay(MAX_TURN_DURATION)
                 .then(Mono.error(TimeoutException("AI chat turn exceeded its maximum duration"))),
-        ).onErrorResume { error ->
+        ).doOnCancel {
+            Schedulers.boundedElastic().schedule {
+                persistTurnMetrics(userId, conversationId, metricsTracker)
+            }
+        }.onErrorResume { error ->
             logger.warn("AI chat turn failed for conversation {}", conversationId, error)
+            val completedMetrics = persistTurnMetrics(userId, conversationId, metricsTracker)
             Flux.just(
                 AiChatTurnError(
                     seq = sequence.getAndIncrement(),
                     code = "AI_UNAVAILABLE",
                     message = "The AI response is temporarily unavailable. Please try again.",
+                    metrics = completedMetrics?.metrics,
+                    contextUsage = completedMetrics?.contextUsage,
                 ),
             )
         }
@@ -99,6 +110,7 @@ class AiChatService(
         conversationItems: List<String>,
         sequence: AtomicInteger,
         toolCallCount: Int,
+        metricsTracker: AiChatTurnMetricsTracker,
     ): Flux<AiChatStreamEvent> = modelGateway.streamStep(
         AiChatModelStepRequest(
             systemPrompt = systemPrompt(currentDate),
@@ -112,6 +124,7 @@ class AiChatService(
                 AiChatAssistantDelta(seq = sequence.getAndIncrement(), text = event.text),
             )
             is AiChatModelStepEvent.Completed -> {
+                metricsTracker.record(event.tokenUsage)
                 conversationEventService.appendItems(userId, conversationId, event.outputItems)
                 conversationService.setModelAlias(
                     userId,
@@ -119,7 +132,14 @@ class AiChatService(
                     modelAlias,
                 )
                 if (event.toolCalls.isEmpty()) {
-                    Flux.just(AiChatTurnCompleted(seq = sequence.getAndIncrement()))
+                    val completedMetrics = persistTurnMetrics(userId, conversationId, metricsTracker)
+                    Flux.just(
+                        AiChatTurnCompleted(
+                            seq = sequence.getAndIncrement(),
+                            metrics = completedMetrics?.metrics,
+                            contextUsage = completedMetrics?.contextUsage,
+                        ),
+                    )
                 } else {
                     check(toolCallCount + event.toolCalls.size <= MAX_TOOL_CALLS) { "AI chat tool call limit exceeded" }
                     executeTools(
@@ -130,6 +150,7 @@ class AiChatService(
                         event.toolCalls,
                         sequence,
                         toolCallCount + event.toolCalls.size,
+                        metricsTracker,
                     )
                 }
             }
@@ -144,6 +165,7 @@ class AiChatService(
         calls: List<AiChatModelToolCall>,
         sequence: AtomicInteger,
         toolCallCount: Int,
+        metricsTracker: AiChatTurnMetricsTracker,
     ): Flux<AiChatStreamEvent> {
         val results = mutableListOf<AiChatModelInput.ToolResult>()
         return Flux.fromIterable(calls).concatMap { call ->
@@ -187,8 +209,27 @@ class AiChatService(
                     conversationItems,
                     sequence,
                     toolCallCount,
+                    metricsTracker,
                 )
             },
+        )
+    }
+
+    private fun persistTurnMetrics(
+        userId: Long,
+        conversationId: Long,
+        metricsTracker: AiChatTurnMetricsTracker,
+    ): CompletedTurnMetrics? {
+        val snapshot = metricsTracker.finish() ?: return null
+        val metrics = AiChatTurnMetricsResponse(snapshot.durationMillis, snapshot.tokensConsumed)
+        runCatching {
+            conversationEventService.appendTurnMetrics(userId, conversationId, metrics, snapshot.contextTokens)
+        }.onFailure { error ->
+            logger.warn("Failed to persist metrics for AI chat conversation {}", conversationId, error)
+        }
+        return CompletedTurnMetrics(
+            metrics = metrics,
+            contextUsage = snapshot.contextTokens?.let(conversationEventService::contextUsage),
         )
     }
 
@@ -206,5 +247,49 @@ class AiChatService(
         private const val MAX_TOOL_CALLS = 64
         private val MIN_TOOL_ACTIVITY_DURATION = Duration.ofMillis(500)
         private val MAX_TURN_DURATION = Duration.ofMinutes(15)
+    }
+}
+
+private data class CompletedTurnMetrics(
+    val metrics: AiChatTurnMetricsResponse,
+    val contextUsage: AiChatContextUsageResponse?,
+)
+
+private data class AiChatTurnMetricsSnapshot(
+    val durationMillis: Long,
+    val tokensConsumed: Long?,
+    val contextTokens: Long?,
+)
+
+private class AiChatTurnMetricsTracker {
+    private val startedAtNanos = System.nanoTime()
+    private val finished = AtomicBoolean()
+    private val tokensConsumed = AtomicReference<Long?>(0L)
+    private val hasTokenUsage = AtomicBoolean()
+    private val contextTokens = AtomicReference<Long>()
+
+    fun record(usage: AiChatModelTokenUsage?) {
+        if (usage == null) return
+        val stepTotal = usage.totalTokens?.takeIf { it >= 0 } ?: usage.inputTokens?.takeIf { it >= 0 }?.let { input ->
+            usage.outputTokens?.takeIf { it >= 0 }?.let { output ->
+                runCatching { Math.addExact(input, output) }.getOrNull()
+            }
+        }
+        if (stepTotal != null) {
+            tokensConsumed.updateAndGet { current ->
+                current?.let { runCatching { Math.addExact(it, stepTotal) }.getOrNull() }
+            }
+            contextTokens.set(stepTotal)
+            hasTokenUsage.set(true)
+        }
+    }
+
+    fun finish(): AiChatTurnMetricsSnapshot? {
+        if (!finished.compareAndSet(false, true)) return null
+        return AiChatTurnMetricsSnapshot(
+            durationMillis = Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis(),
+            tokensConsumed = tokensConsumed.get()?.takeIf { hasTokenUsage.get() },
+            contextTokens = contextTokens.get(),
+        )
     }
 }
