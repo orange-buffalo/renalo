@@ -2813,6 +2813,16 @@ input {
   line-height: 1.4;
 }
 
+.ai-chat-topic-change {
+  margin-bottom: 14px;
+}
+
+.ai-chat-topic-change-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .ai-chat-tool-activity {
   display: flex;
   align-items: center;

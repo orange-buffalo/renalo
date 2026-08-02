@@ -68,6 +68,20 @@ class TestAiChatTitleGeneratorFactory {
                 if (prompt.toLowerCase(Locale.ROOT).contains("continue interrupted")) {
                     requireCompleteFunctionCalls(request.getConversationItems());
                 }
+                if (prompt.toLowerCase(Locale.ROOT).contains("change topic")
+                        && request.getToolSpecifications().stream()
+                        .anyMatch(tool -> tool.name().equals("recommend_new_chat"))) {
+                    var callId = "call_topic_change_" + responseId;
+                    return Flux.just(new AiChatModelStepEvent.Completed(
+                            responseId,
+                            "renalo-chat",
+                            List.of(new AiChatModelToolCall(callId, "recommend_new_chat", "{}")),
+                            List.of(
+                                    "{\"type\":\"function_call\",\"id\":\"fc_topic_change_" + responseId + "\",\"call_id\":\"" + callId + "\",\"name\":\"recommend_new_chat\",\"arguments\":\"{}\",\"status\":\"completed\"}"
+                            ),
+                            TOKEN_USAGE
+                    ));
+                }
                 return Flux.just(new AiChatModelStepEvent.Completed(
                         responseId,
                         "renalo-chat",
@@ -87,7 +101,7 @@ class TestAiChatTitleGeneratorFactory {
                     .filter(item -> item.path("type").asText().equals("message"))
                     .filter(item -> item.path("role").asText().equals("user"))
                     .map(item -> item.path("content").path(0).path("text").asText())
-                    .findFirst()
+                    .reduce((first, second) -> second)
                     .orElse("your request");
             if (prompt.toLowerCase(Locale.ROOT).contains("slow review")) {
                 try {

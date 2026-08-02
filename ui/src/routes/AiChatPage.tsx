@@ -26,6 +26,8 @@ import type {
   AiChatTurnMetrics,
 } from "@/api/aiChat";
 import {
+  continueAiChatTopicChange,
+  continueAiChatTopicChangeInNewChat,
   deleteAiChatConversation,
   fetchAiChatConversationHistory,
   fetchAiChatConversations,
@@ -35,6 +37,7 @@ import {
 import { AiChatChart as AiChatChartView } from "@/components/ai-chat/AiChatChart";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { PageLayout } from "@/components/PageLayout";
+import { Alert } from "@/components/untitled/application/alerts/alert";
 import { LoadingIndicator } from "@/components/untitled/application/loading-indicator/loading-indicator";
 import {
   Dialog,
@@ -64,7 +67,13 @@ type ChatMessage = {
 type AssistantStreamItem =
   | { type: "content"; id: string; content: string }
   | { type: "chart"; chart: AiChatChart }
-  | { type: "tools"; id: string; activities: AiChatToolActivity[] };
+  | { type: "tools"; id: string; activities: AiChatToolActivity[] }
+  | {
+      type: "topicChange";
+      id: string;
+      topicChangeId: string;
+      resolving?: "NEW_CHAT" | "CONTINUE_HERE";
+    };
 
 type Conversation = {
   clientId: string;
@@ -112,6 +121,11 @@ export function AiChatPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const activeConversation = conversations.find(
     (conversation) => conversation.clientId === activeConversationClientId,
+  );
+  const hasPendingTopicChange = Boolean(
+    activeConversation?.messages.some((message) =>
+      message.streamItems?.some((item) => item.type === "topicChange"),
+    ),
   );
   const loadInitialConversationHistory = useEffectEvent(
     loadConversationHistory,
@@ -319,6 +333,99 @@ export function AiChatPage() {
           conversationClientId,
           assistantMessageId,
           isAbortError(requestError),
+        ),
+      );
+    } finally {
+      if (activeRequestRef.current === abortController) {
+        activeRequestRef.current = null;
+      }
+      setIsSending(false);
+    }
+  }
+
+  async function resolveTopicChange(
+    messageId: number,
+    topicChangeId: string,
+    decision: "NEW_CHAT" | "CONTINUE_HERE",
+  ) {
+    if (isSending || !activeConversation?.id) {
+      return;
+    }
+    const sourceConversation = activeConversation;
+    const assistantIndex = sourceConversation.messages.findIndex(
+      (message) => message.id === messageId,
+    );
+    const sourceUserMessage = sourceConversation.messages[assistantIndex - 1];
+    if (sourceUserMessage?.author !== "You") {
+      setError(
+        "The pending message could not be found. Reload this chat and try again.",
+      );
+      return;
+    }
+
+    setIsSending(true);
+    setError(undefined);
+    setConversations((current) =>
+      updateTopicChangeResolution(
+        current,
+        sourceConversation.clientId,
+        messageId,
+        topicChangeId,
+        decision,
+      ),
+    );
+    const abortController = new AbortController();
+    activeRequestRef.current = abortController;
+
+    try {
+      if (decision === "CONTINUE_HERE") {
+        setConversations((current) =>
+          setMessageStreaming(current, sourceConversation.clientId, messageId),
+        );
+        await continueAiChatTopicChange(
+          sourceConversation.id,
+          topicChangeId,
+          (event) =>
+            applyStreamEvent(sourceConversation.clientId, messageId, event),
+          abortController.signal,
+        );
+      } else {
+        let destinationClientId: string | undefined;
+        await continueAiChatTopicChangeInNewChat(
+          sourceConversation.id,
+          topicChangeId,
+          (event) => {
+            if (event.type === "conversation.created") {
+              destinationClientId = `conversation-${event.conversation.id}`;
+              setConversations((current) =>
+                movePendingTurnToConversation(
+                  current,
+                  sourceConversation.clientId,
+                  messageId,
+                  event.conversation,
+                  sourceUserMessage,
+                ),
+              );
+              setActiveConversationClientId(destinationClientId);
+            } else if (destinationClientId) {
+              applyStreamEvent(destinationClientId, messageId, event);
+            }
+          },
+          abortController.signal,
+        );
+      }
+    } catch (requestError) {
+      if (!isAbortError(requestError)) {
+        setError(
+          "The chat decision could not be completed. Reload this chat and try again.",
+        );
+      }
+      setConversations((current) =>
+        clearTopicChangeResolution(
+          current,
+          sourceConversation.clientId,
+          messageId,
+          topicChangeId,
         ),
       );
     } finally {
@@ -600,7 +707,13 @@ export function AiChatPage() {
             </div>
           ) : activeConversation?.messages.length ? (
             activeConversation.messages.map((message) => (
-              <ChatMessageView message={message} key={message.id} />
+              <ChatMessageView
+                message={message}
+                key={message.id}
+                onResolveTopicChange={(topicChangeId, decision) =>
+                  void resolveTopicChange(message.id, topicChangeId, decision)
+                }
+              />
             ))
           ) : (
             <div className="ai-chat-empty-state">
@@ -624,7 +737,9 @@ export function AiChatPage() {
               textAreaClassName="ai-chat-composer-textarea"
               value={draft}
               isDisabled={
-                isSending || activeConversation?.historyStatus !== "AVAILABLE"
+                isSending ||
+                activeConversation?.historyStatus !== "AVAILABLE" ||
+                hasPendingTopicChange
               }
               onChange={setDraft}
               onKeyDown={(event) => {
@@ -646,7 +761,8 @@ export function AiChatPage() {
               isDisabled={
                 !isSending &&
                 (!draft.trim() ||
-                  activeConversation?.historyStatus !== "AVAILABLE")
+                  activeConversation?.historyStatus !== "AVAILABLE" ||
+                  hasPendingTopicChange)
               }
               onPress={() =>
                 isSending
@@ -743,7 +859,16 @@ export function AiChatPage() {
   );
 }
 
-function ChatMessageView({ message }: { message: ChatMessage }) {
+function ChatMessageView({
+  message,
+  onResolveTopicChange,
+}: {
+  message: ChatMessage;
+  onResolveTopicChange: (
+    topicChangeId: string,
+    decision: "NEW_CHAT" | "CONTINUE_HERE",
+  ) => void;
+}) {
   const items = message.author === "Renalo" ? assistantItems(message) : [];
   const isThinking =
     message.author === "Renalo" &&
@@ -763,6 +888,7 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
                 <AssistantStreamItemView
                   item={item}
                   isStreaming={message.isStreaming}
+                  onResolveTopicChange={onResolveTopicChange}
                   key={assistantItemKey(item)}
                 />
               ))}
@@ -865,9 +991,14 @@ function ContextUsageIndicator({ usage }: { usage: AiChatContextUsage }) {
 function AssistantStreamItemView({
   item,
   isStreaming,
+  onResolveTopicChange,
 }: {
   item: AssistantStreamItem;
   isStreaming?: boolean;
+  onResolveTopicChange: (
+    topicChangeId: string,
+    decision: "NEW_CHAT" | "CONTINUE_HERE",
+  ) => void;
 }) {
   if (item.type === "chart") {
     return <AiChatChartView chart={item.chart} />;
@@ -882,6 +1013,43 @@ function AssistantStreamItemView({
           <span className="ai-chat-tool-activity-status">· Stopped</span>
         )}
       </div>
+    );
+  }
+  if (item.type === "topicChange") {
+    return (
+      <Alert
+        tone="brand"
+        title="This looks like a different topic"
+        className="ai-chat-topic-change"
+      >
+        <p>
+          Focused, shorter chats use less context and are less likely to fail as
+          the conversation grows. Continue this request in a new chat, or keep
+          it here if it belongs with the current discussion.
+        </p>
+        <div className="ai-chat-topic-change-actions">
+          <Button
+            color="primary"
+            size="sm"
+            isLoading={item.resolving === "NEW_CHAT"}
+            isDisabled={Boolean(item.resolving)}
+            onPress={() => onResolveTopicChange(item.topicChangeId, "NEW_CHAT")}
+          >
+            Continue in a new chat
+          </Button>
+          <Button
+            color="secondary"
+            size="sm"
+            isLoading={item.resolving === "CONTINUE_HERE"}
+            isDisabled={Boolean(item.resolving)}
+            onPress={() =>
+              onResolveTopicChange(item.topicChangeId, "CONTINUE_HERE")
+            }
+          >
+            Continue here
+          </Button>
+        </div>
+      </Alert>
     );
   }
   return (
@@ -931,6 +1099,14 @@ function historyAssistantItems(
     }
     if (item.type === "CHART") {
       result.push({ type: "chart", chart: item.chart });
+      return;
+    }
+    if (item.type === "TOPIC_CHANGE") {
+      result.push({
+        type: "topicChange",
+        id: `history-topic-change-${item.topicChangeId}`,
+        topicChangeId: item.topicChangeId,
+      });
       return;
     }
     result = appendToolActivity(result, {
@@ -998,6 +1174,126 @@ function appendMessages(
   );
 }
 
+function updateTopicChangeResolution(
+  conversations: Conversation[],
+  conversationClientId: string,
+  messageId: number,
+  topicChangeId: string,
+  decision: "NEW_CHAT" | "CONTINUE_HERE",
+) {
+  return conversations.map((conversation) =>
+    conversation.clientId === conversationClientId
+      ? {
+          ...conversation,
+          messages: conversation.messages.map((message) =>
+            message.id === messageId
+              ? {
+                  ...message,
+                  streamItems: message.streamItems?.map((item) =>
+                    item.type === "topicChange" &&
+                    item.topicChangeId === topicChangeId
+                      ? { ...item, resolving: decision }
+                      : item,
+                  ),
+                }
+              : message,
+          ),
+        }
+      : conversation,
+  );
+}
+
+function clearTopicChangeResolution(
+  conversations: Conversation[],
+  conversationClientId: string,
+  messageId: number,
+  topicChangeId: string,
+) {
+  return conversations.map((conversation) =>
+    conversation.clientId === conversationClientId
+      ? {
+          ...conversation,
+          messages: conversation.messages.map((message) =>
+            message.id === messageId
+              ? {
+                  ...message,
+                  isStreaming: false,
+                  thinkingLabel: undefined,
+                  streamItems: message.streamItems?.map((item) =>
+                    item.type === "topicChange" &&
+                    item.topicChangeId === topicChangeId
+                      ? { ...item, resolving: undefined }
+                      : item,
+                  ),
+                }
+              : message,
+          ),
+        }
+      : conversation,
+  );
+}
+
+function setMessageStreaming(
+  conversations: Conversation[],
+  conversationClientId: string,
+  messageId: number,
+) {
+  return conversations.map((conversation) =>
+    conversation.clientId === conversationClientId
+      ? {
+          ...conversation,
+          messages: conversation.messages.map((message) =>
+            message.id === messageId
+              ? { ...message, isStreaming: true }
+              : message,
+          ),
+        }
+      : conversation,
+  );
+}
+
+function movePendingTurnToConversation(
+  conversations: Conversation[],
+  sourceClientId: string,
+  assistantMessageId: number,
+  destination: AiChatConversation,
+  userMessage: ChatMessage,
+) {
+  const userMessageId = userMessage.id;
+  const source = conversations.map((conversation) =>
+    conversation.clientId === sourceClientId
+      ? {
+          ...conversation,
+          messages: conversation.messages.filter(
+            (message) =>
+              message.id !== userMessageId && message.id !== assistantMessageId,
+          ),
+        }
+      : conversation,
+  );
+  const destinationConversation: Conversation = {
+    clientId: `conversation-${destination.id}`,
+    ...destination,
+    historyStatus: "AVAILABLE",
+    messages: [
+      userMessage,
+      {
+        id: assistantMessageId,
+        author: "Renalo",
+        content: "",
+        charts: [],
+        streamItems: [],
+        isStreaming: true,
+        thinkingLabel: "Thinking",
+      },
+    ],
+  };
+  return sortConversations([
+    destinationConversation,
+    ...source.filter((conversation) => conversation.id !== destination.id),
+  ]);
+}
+
 function applyEventToMessage(
   message: ChatMessage,
   event: AiChatStreamEvent,
@@ -1026,6 +1322,29 @@ function applyEventToMessage(
       };
     case "assistant.thinking":
       return { ...message, thinkingLabel: event.label };
+    case "topic_change.suggested":
+      return {
+        ...message,
+        isStreaming: false,
+        thinkingLabel: undefined,
+        streamItems: [
+          ...(message.streamItems ?? []),
+          {
+            type: "topicChange",
+            id: `topic-change-${event.topicChangeId}`,
+            topicChangeId: event.topicChangeId,
+          },
+        ],
+      };
+    case "topic_change.resolved":
+      return {
+        ...message,
+        streamItems: message.streamItems?.filter(
+          (item) =>
+            item.type !== "topicChange" ||
+            item.topicChangeId !== event.topicChangeId,
+        ),
+      };
     case "tool.started":
       return {
         ...message,

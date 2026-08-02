@@ -123,7 +123,7 @@ class AiChatToolsTest : IntegrationTestSupport() {
 
     @Test
     fun exposesTheBoundedReadOnlyToolSet() {
-        tools.specifications.map { it.name() }.shouldContainExactly(
+        tools.specifications(false).map { it.name() }.shouldContainExactly(
             "get_account_balances",
             "get_category_totals",
             "search_transactions",

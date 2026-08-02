@@ -31,6 +31,7 @@ import java.time.Instant
 class AiChatController(
     private val aiChatService: AiChatService,
     private val conversationService: AiChatConversationService,
+    private val conversationEventService: AiChatConversationEventService,
     private val userRepository: UserRepository,
     private val jsonMapper: JsonMapper,
     private val timeProvider: TimeProvider,
@@ -96,76 +97,127 @@ class AiChatController(
         return withUser(authentication) { userId ->
             when (val result = conversationService.prepareConversation(userId, request.conversationId)) {
                 PrepareAiChatConversationResult.NotFound -> HttpResponse.notFound<Any>()
-                is PrepareAiChatConversationResult.Prepared -> {
-                    val conversationId = result.conversation.id
-                        ?: error("Prepared AI chat conversation must be persisted")
-                    val initialMetadata = if (result.wasCreated) {
-                        Flux.just(
-                            AiChatConversationCreated(
-                                seq = 1,
-                                conversation = result.conversation.toResponse(),
-                            ),
-                        )
-                    } else {
-                        Flux.just(
-                            AiChatConversationUpdated(
-                                seq = 1,
-                                conversation = result.conversation.toResponse(),
-                            ),
-                        )
-                    }
-                    val generatedTitle = if (result.wasCreated) {
-                        aiChatService.generateTitle(request.content)
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .flatMap { title ->
-                                Mono.fromCallable {
-                                    conversationService.updateGeneratedTitle(userId, conversationId, title)
-                                }.subscribeOn(Schedulers.boundedElastic())
-                            }
-                            .map { conversation ->
-                                AiChatConversationUpdated(
-                                    seq = 2,
-                                    conversation = conversation.toResponse(),
-                                )
-                            }
-                            .doOnError { error ->
-                                logger.warn("Failed to generate title for AI chat conversation {}", conversationId, error)
-                            }
-                            .onErrorResume { Mono.empty() }
-                            .flux()
-                    } else {
-                        Flux.empty()
-                    }
-                    val firstTurnSequence = if (result.wasCreated) 3 else 2
-                    val turnEvents = aiChatService.streamMessage(
-                        userId,
-                        conversationId,
-                        request.content,
-                        currentDate,
-                        firstTurnSequence,
-                    )
-                        .concatMap { event ->
-                            if (event is AiChatTurnCompleted) {
-                                Mono.fromCallable {
-                                    val conversation = conversationService.findConversation(userId, conversationId)
-                                        ?: error("AI chat conversation disappeared while its turn was completing")
-                                    event.copy(conversation = conversation.toResponse())
-                                }.subscribeOn(Schedulers.boundedElastic())
-                            } else {
-                                Mono.just(event)
-                            }
-                        }
-                    val stream = Flux.concat(
-                        initialMetadata,
-                        generatedTitle,
-                        turnEvents,
-                    ).map { event ->
-                        jsonMapper.writeValueAsBytes(event) + '\n'.code.toByte()
-                    }
-                    HttpResponse.ok(stream).contentType(MediaType.of(NDJSON_MEDIA_TYPE))
-                }
+                is PrepareAiChatConversationResult.Prepared -> streamResponse(
+                    prepared = result,
+                    userId = userId,
+                    content = request.content,
+                    currentDate = currentDate,
+                )
             }
         }
+    }
+
+    @Post(
+        value = "/conversations/{conversationId}/topic-changes/{topicChangeId}/continue",
+        produces = [NDJSON_MEDIA_TYPE],
+    )
+    fun continueTopicChange(
+        conversationId: Long,
+        topicChangeId: String,
+        authentication: Authentication,
+        @Header(CLIENT_TIME_ZONE_HEADER) timeZone: String?,
+    ): HttpResponse<*> {
+        val clientTimeZone = parseClientTimeZone(timeZone) ?: return HttpResponse.badRequest<Any>()
+        val currentDate = timeProvider.today(clientTimeZone)
+        return withUser(authentication) { userId ->
+            if (!conversationEventService.hasPendingTopicChange(userId, conversationId, topicChangeId)) {
+                HttpResponse.notFound<Any>()
+            } else {
+                val events = aiChatService.continueTopicChange(userId, conversationId, topicChangeId, currentDate)
+                    .withCompletedConversation(userId, conversationId)
+                ndjsonResponse(events)
+            }
+        }
+    }
+
+    @Post(
+        value = "/conversations/{conversationId}/topic-changes/{topicChangeId}/new-chat",
+        produces = [NDJSON_MEDIA_TYPE],
+    )
+    fun continueTopicChangeInNewChat(
+        conversationId: Long,
+        topicChangeId: String,
+        authentication: Authentication,
+        @Header(CLIENT_TIME_ZONE_HEADER) timeZone: String?,
+    ): HttpResponse<*> {
+        val clientTimeZone = parseClientTimeZone(timeZone) ?: return HttpResponse.badRequest<Any>()
+        val currentDate = timeProvider.today(clientTimeZone)
+        return withUser(authentication) { userId ->
+            val redirected = conversationEventService.redirectTopicChangeToNewConversation(
+                userId,
+                conversationId,
+                topicChangeId,
+            ) ?: return@withUser HttpResponse.notFound<Any>()
+            streamResponse(
+                prepared = PrepareAiChatConversationResult.Prepared(redirected.conversation, wasCreated = true),
+                userId = userId,
+                content = redirected.content,
+                currentDate = currentDate,
+            )
+        }
+    }
+
+    private fun streamResponse(
+        prepared: PrepareAiChatConversationResult.Prepared,
+        userId: Long,
+        content: String,
+        currentDate: java.time.LocalDate,
+    ): HttpResponse<*> {
+        val conversationId = prepared.conversation.id
+            ?: error("Prepared AI chat conversation must be persisted")
+        val initialMetadata: Flux<AiChatStreamEvent> = if (prepared.wasCreated) {
+            Flux.just(AiChatConversationCreated(seq = 1, conversation = prepared.conversation.toResponse()))
+        } else {
+            Flux.just(AiChatConversationUpdated(seq = 1, conversation = prepared.conversation.toResponse()))
+        }
+        val generatedTitle: Flux<AiChatStreamEvent> = if (prepared.wasCreated) {
+            aiChatService.generateTitle(content)
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap { title ->
+                    Mono.fromCallable {
+                        conversationService.updateGeneratedTitle(userId, conversationId, title)
+                    }.subscribeOn(Schedulers.boundedElastic())
+                }
+                .map<AiChatStreamEvent> { conversation ->
+                    AiChatConversationUpdated(seq = 2, conversation = conversation.toResponse())
+                }
+                .doOnError { error ->
+                    logger.warn("Failed to generate title for AI chat conversation {}", conversationId, error)
+                }
+                .onErrorResume { Mono.empty() }
+                .flux()
+        } else {
+            Flux.empty()
+        }
+        val firstTurnSequence = if (prepared.wasCreated) 3 else 2
+        val turnEvents = aiChatService.streamMessage(
+            userId,
+            conversationId,
+            content,
+            currentDate,
+            firstTurnSequence,
+        ).withCompletedConversation(userId, conversationId)
+        return ndjsonResponse(Flux.concat(initialMetadata, generatedTitle, turnEvents))
+    }
+
+    private fun Flux<AiChatStreamEvent>.withCompletedConversation(
+        userId: Long,
+        conversationId: Long,
+    ): Flux<AiChatStreamEvent> = concatMap { event ->
+        if (event is AiChatTurnCompleted) {
+            Mono.fromCallable {
+                val conversation = conversationService.findConversation(userId, conversationId)
+                    ?: error("AI chat conversation disappeared while its turn was completing")
+                event.copy(conversation = conversation.toResponse())
+            }.subscribeOn(Schedulers.boundedElastic())
+        } else {
+            Mono.just(event)
+        }
+    }
+
+    private fun ndjsonResponse(events: Flux<AiChatStreamEvent>): HttpResponse<*> {
+        val stream = events.map { event -> jsonMapper.writeValueAsBytes(event) + '\n'.code.toByte() }
+        return HttpResponse.ok(stream).contentType(MediaType.of(NDJSON_MEDIA_TYPE))
     }
 
     private fun withUser(authentication: Authentication, action: (Long) -> HttpResponse<*>): HttpResponse<*> {
@@ -249,6 +301,11 @@ data class AiChatHistoryToolActivityResponse(
     override val type: String = "TOOL_ACTIVITY",
 ) : AiChatHistoryItemResponse
 
+data class AiChatHistoryTopicChangeResponse(
+    val topicChangeId: String,
+    override val type: String = "TOPIC_CHANGE",
+) : AiChatHistoryItemResponse
+
 enum class AiChatHistoryMessageRole {
     USER,
     ASSISTANT,
@@ -316,6 +373,18 @@ data class AiChatAssistantThinking(
     override val seq: Int,
     val label: String,
     override val type: String = "assistant.thinking",
+) : AiChatStreamEvent
+
+data class AiChatTopicChangeSuggested(
+    override val seq: Int,
+    val topicChangeId: String,
+    override val type: String = "topic_change.suggested",
+) : AiChatStreamEvent
+
+data class AiChatTopicChangeResolved(
+    override val seq: Int,
+    val topicChangeId: String,
+    override val type: String = "topic_change.resolved",
 ) : AiChatStreamEvent
 
 data class AiChatTurnCompleted(

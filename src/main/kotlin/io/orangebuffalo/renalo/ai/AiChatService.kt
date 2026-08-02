@@ -62,7 +62,7 @@ class AiChatService(
                 check(conversation.modelAlias == null || conversation.modelAlias == configuredModel) {
                     "AI chat conversation model no longer matches the configured model alias"
                 }
-                val conversationItems = conversationEventService.beginTurn(userId, conversationId, content)
+                val begunTurn = conversationEventService.beginTurn(userId, conversationId, content)
                     ?: return@defer Flux.error(IllegalStateException("AI chat conversation no longer exists"))
                 Flux.concat(
                     Flux.just(AiChatTurnStarted(seq = sequence.getAndIncrement())),
@@ -72,10 +72,13 @@ class AiChatService(
                         modelAlias = configuredModel,
                         currentDate = currentDate,
                         input = listOf(AiChatModelInput.User(content)),
-                        conversationItems = conversationItems,
+                        conversationItems = begunTurn.conversationItems,
                         sequence = sequence,
                         toolCallCount = 0,
                         metricsTracker = metricsTracker,
+                        turnId = begunTurn.turnId,
+                        userContent = content,
+                        allowTopicChangeRecommendation = begunTurn.allowTopicChangeRecommendation,
                     ),
                 )
             }.subscribeOn(Schedulers.boundedElastic())
@@ -101,6 +104,74 @@ class AiChatService(
         }
     }
 
+    fun continueTopicChange(
+        userId: Long,
+        conversationId: Long,
+        topicChangeId: String,
+        currentDate: LocalDate,
+    ): Flux<AiChatStreamEvent> = Flux.defer {
+        val sequence = AtomicInteger(1)
+        val trackerReference = AtomicReference<AiChatTurnMetricsTracker>()
+        turnLock.withLock(conversationId) {
+            Flux.defer {
+                val conversation = conversationService.findConversation(userId, conversationId)
+                    ?: return@defer Flux.error(IllegalStateException("AI chat conversation no longer exists"))
+                val configuredModel = liteLlmConfiguration.model.trim()
+                check(conversation.modelAlias == null || conversation.modelAlias == configuredModel) {
+                    "AI chat conversation model no longer matches the configured model alias"
+                }
+                val continuation = conversationEventService.continueTopicChange(userId, conversationId, topicChangeId)
+                    ?: return@defer Flux.error(IllegalStateException("AI chat topic change is no longer pending"))
+                val metricsTracker = AiChatTurnMetricsTracker(continuation.metrics)
+                trackerReference.set(metricsTracker)
+                val remainingDuration = Duration.ofMillis(
+                    (MAX_TURN_DURATION.toMillis() - continuation.metrics.durationMillis)
+                        .coerceAtLeast(0),
+                )
+                Flux.concat(
+                    Flux.just(AiChatTopicChangeResolved(sequence.getAndIncrement(), topicChangeId)),
+                    Flux.just(AiChatTurnStarted(sequence.getAndIncrement())),
+                    Flux.just(AiChatAssistantThinking(sequence.getAndIncrement(), "Thinking")),
+                    streamModelStep(
+                        userId = userId,
+                        conversationId = conversationId,
+                        modelAlias = configuredModel,
+                        currentDate = currentDate,
+                        input = listOf(continuation.toolResult),
+                        conversationItems = continuation.conversationItems,
+                        sequence = sequence,
+                        toolCallCount = 1,
+                        metricsTracker = metricsTracker,
+                        turnId = continuation.turnId,
+                        userContent = continuation.content,
+                        allowTopicChangeRecommendation = false,
+                    ),
+                ).takeUntilOther(
+                    Mono.delay(remainingDuration)
+                        .then(Mono.error(TimeoutException("AI chat turn exceeded its maximum duration"))),
+                )
+            }.subscribeOn(Schedulers.boundedElastic())
+        }.doOnCancel {
+            trackerReference.get()?.let { metricsTracker ->
+                Schedulers.boundedElastic().schedule {
+                    persistTurnMetrics(userId, conversationId, metricsTracker)
+                }
+            }
+        }.onErrorResume { error ->
+            logger.warn("AI chat topic-change continuation failed for conversation {}", conversationId, error)
+            val completedMetrics = trackerReference.get()?.let { persistTurnMetrics(userId, conversationId, it) }
+            Flux.just(
+                AiChatTurnError(
+                    seq = sequence.getAndIncrement(),
+                    code = "AI_UNAVAILABLE",
+                    message = "The AI response is temporarily unavailable. Please try again.",
+                    metrics = completedMetrics?.metrics,
+                    contextUsage = completedMetrics?.contextUsage,
+                ),
+            )
+        }
+    }
+
     private fun streamModelStep(
         userId: Long,
         conversationId: Long,
@@ -111,11 +182,14 @@ class AiChatService(
         sequence: AtomicInteger,
         toolCallCount: Int,
         metricsTracker: AiChatTurnMetricsTracker,
+        turnId: String,
+        userContent: String,
+        allowTopicChangeRecommendation: Boolean,
     ): Flux<AiChatStreamEvent> = modelGateway.streamStep(
         AiChatModelStepRequest(
             systemPrompt = systemPrompt(currentDate),
             input = input,
-            toolSpecifications = tools.specifications,
+            toolSpecifications = tools.specifications(allowTopicChangeRecommendation),
             conversationItems = conversationItems,
         ),
     ).concatMap { event ->
@@ -131,7 +205,26 @@ class AiChatService(
                     conversationId,
                     modelAlias,
                 )
-                if (event.toolCalls.isEmpty()) {
+                val topicChangeCall = event.toolCalls.singleOrNull { it.name == AiChatTools.RECOMMEND_NEW_CHAT }
+                if (topicChangeCall != null) {
+                    check(allowTopicChangeRecommendation && event.toolCalls.size == 1) {
+                        "AI chat topic change recommendation must be the only first-step tool call"
+                    }
+                    val snapshot = metricsTracker.snapshot()
+                    val topicChangeId = conversationEventService.registerTopicChange(
+                        userId = userId,
+                        conversationId = conversationId,
+                        turnId = turnId,
+                        callId = topicChangeCall.id,
+                        content = userContent,
+                        metrics = AiChatTopicChangeMetrics(
+                            snapshot.durationMillis,
+                            snapshot.tokensConsumed,
+                            snapshot.contextTokens,
+                        ),
+                    )
+                    Flux.just(AiChatTopicChangeSuggested(sequence.getAndIncrement(), topicChangeId))
+                } else if (event.toolCalls.isEmpty()) {
                     val completedMetrics = persistTurnMetrics(userId, conversationId, metricsTracker)
                     Flux.just(
                         AiChatTurnCompleted(
@@ -151,6 +244,8 @@ class AiChatService(
                         sequence,
                         toolCallCount + event.toolCalls.size,
                         metricsTracker,
+                        turnId,
+                        userContent,
                     )
                 }
             }
@@ -166,6 +261,8 @@ class AiChatService(
         sequence: AtomicInteger,
         toolCallCount: Int,
         metricsTracker: AiChatTurnMetricsTracker,
+        turnId: String,
+        userContent: String,
     ): Flux<AiChatStreamEvent> {
         val results = mutableListOf<AiChatModelInput.ToolResult>()
         return Flux.fromIterable(calls).concatMap { call ->
@@ -210,6 +307,9 @@ class AiChatService(
                     sequence,
                     toolCallCount,
                     metricsTracker,
+                    turnId,
+                    userContent,
+                    false,
                 )
             },
         )
@@ -240,6 +340,7 @@ class AiChatService(
         Use transaction query summaries for complete-set analytics and explicit ordering for rankings. Paginate when the answer requires individual rows beyond one result page.
         Prefer presenting a chart whenever one can answer or materially clarify the user's question. First obtain authoritative data, then choose the most useful grouping, series, axes, and chart style. Pass only exact values from successful tools to the chart tool; never invent or estimate chart data.
         State when search results are truncated or currency conversion data is unavailable.
+        Keep each conversation focused. If, and only if, a new user request significantly changes to an unrelated topic, call the new-chat recommendation tool alone before writing prose or calling any other tool. Do not recommend a new chat for a clarification, correction, follow-up, refinement, or adjacent financial question.
         Answer concisely in Markdown. Do not reveal tool names, arguments, raw JSON, internal IDs, or hidden reasoning.
     """.trimIndent()
 
@@ -261,12 +362,15 @@ private data class AiChatTurnMetricsSnapshot(
     val contextTokens: Long?,
 )
 
-private class AiChatTurnMetricsTracker {
+private class AiChatTurnMetricsTracker(
+    priorMetrics: AiChatTopicChangeMetrics? = null,
+) {
     private val startedAtNanos = System.nanoTime()
+    private val priorDurationMillis = priorMetrics?.durationMillis ?: 0
     private val finished = AtomicBoolean()
-    private val tokensConsumed = AtomicReference<Long?>(0L)
-    private val hasTokenUsage = AtomicBoolean()
-    private val contextTokens = AtomicReference<Long>()
+    private val tokensConsumed = AtomicReference<Long?>(priorMetrics?.tokensConsumed ?: 0L)
+    private val hasTokenUsage = AtomicBoolean(priorMetrics?.tokensConsumed != null)
+    private val contextTokens = AtomicReference<Long>(priorMetrics?.contextTokens)
 
     fun record(usage: AiChatModelTokenUsage?) {
         if (usage == null) return
@@ -286,8 +390,13 @@ private class AiChatTurnMetricsTracker {
 
     fun finish(): AiChatTurnMetricsSnapshot? {
         if (!finished.compareAndSet(false, true)) return null
+        return snapshot()
+    }
+
+    fun snapshot(): AiChatTurnMetricsSnapshot {
+        val elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis()
         return AiChatTurnMetricsSnapshot(
-            durationMillis = Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis(),
+            durationMillis = runCatching { Math.addExact(priorDurationMillis, elapsedMillis) }.getOrElse { Long.MAX_VALUE },
             tokensConsumed = tokensConsumed.get()?.takeIf { hasTokenUsage.get() },
             contextTokens = contextTokens.get(),
         )

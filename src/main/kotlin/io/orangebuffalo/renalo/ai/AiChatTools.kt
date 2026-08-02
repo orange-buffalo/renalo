@@ -32,7 +32,7 @@ class AiChatTools(
     private val objectMapper = ObjectMapper().findAndRegisterModules()
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
-    val specifications: List<ToolSpecification> = listOf(
+    private val financialSpecifications: List<ToolSpecification> = listOf(
         tool(
             name = ACCOUNT_BALANCES,
             description = "Get current balances and current-month inflow/outflow for all active accounts. Amounts are exact minor units in each account currency.",
@@ -113,6 +113,15 @@ class AiChatTools(
             parameters = chartParameters(),
         ),
     )
+
+    private val topicChangeSpecification = tool(
+        name = RECOMMEND_NEW_CHAT,
+        description = "Pause before answering when the latest user request is a significant change from the established chat topic. Call this alone, before any prose or other tools. Do not call it for follow-ups, clarifications, corrections, or closely related questions.",
+        parameters = parameters(),
+    )
+
+    fun specifications(allowTopicChangeRecommendation: Boolean): List<ToolSpecification> =
+        if (allowTopicChangeRecommendation) financialSpecifications + topicChangeSpecification else financialSpecifications
 
     fun activity(call: AiChatModelToolCall): Pair<String, String> = activity(call.name)
 
@@ -381,6 +390,7 @@ class AiChatTools(
     }
 
     companion object {
+        const val RECOMMEND_NEW_CHAT = "recommend_new_chat"
         private const val ACCOUNT_BALANCES = "get_account_balances"
         private const val CATEGORY_TOTALS = "get_category_totals"
         private const val TRANSACTION_SEARCH = "search_transactions"

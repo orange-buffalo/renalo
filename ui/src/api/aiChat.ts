@@ -32,7 +32,8 @@ export type AiChatContextUsage = {
 export type AiChatHistoryItem =
   | { type: "CONTENT"; content: string }
   | { type: "CHART"; chart: AiChatChart }
-  | { type: "TOOL_ACTIVITY"; label: string };
+  | { type: "TOOL_ACTIVITY"; label: string }
+  | { type: "TOPIC_CHANGE"; topicChangeId: string };
 
 export type AiChatChart = {
   id: string;
@@ -96,6 +97,18 @@ export type AiChatStreamEvent =
   | {
       v: 1;
       seq: number;
+      type: "topic_change.suggested";
+      topicChangeId: string;
+    }
+  | {
+      v: 1;
+      seq: number;
+      type: "topic_change.resolved";
+      topicChangeId: string;
+    }
+  | {
+      v: 1;
+      seq: number;
       type: "turn.completed";
       conversation?: AiChatConversation;
       metrics?: AiChatTurnMetrics;
@@ -124,6 +137,39 @@ export async function streamAiChatMessage(
     body: JSON.stringify({ content, conversationId }),
     signal,
   });
+  await readAiChatStream(response, onEvent);
+}
+
+export async function continueAiChatTopicChange(
+  conversationId: number,
+  topicChangeId: string,
+  onEvent: (event: AiChatStreamEvent) => void,
+  signal: AbortSignal,
+) {
+  const response = await apiStreamingRequest(
+    `/api/ai-chat/conversations/${conversationId}/topic-changes/${topicChangeId}/continue`,
+    { method: "POST", signal },
+  );
+  await readAiChatStream(response, onEvent);
+}
+
+export async function continueAiChatTopicChangeInNewChat(
+  conversationId: number,
+  topicChangeId: string,
+  onEvent: (event: AiChatStreamEvent) => void,
+  signal: AbortSignal,
+) {
+  const response = await apiStreamingRequest(
+    `/api/ai-chat/conversations/${conversationId}/topic-changes/${topicChangeId}/new-chat`,
+    { method: "POST", signal },
+  );
+  await readAiChatStream(response, onEvent);
+}
+
+async function readAiChatStream(
+  response: Response,
+  onEvent: (event: AiChatStreamEvent) => void,
+) {
   if (!response.body) {
     throw new Error("The streaming response did not include a body");
   }
@@ -151,7 +197,9 @@ export async function streamAiChatMessage(
       lastSequence = event.seq;
       onEvent(event);
       receivedTerminalEvent =
-        event.type === "turn.completed" || event.type === "turn.error";
+        event.type === "turn.completed" ||
+        event.type === "turn.error" ||
+        event.type === "topic_change.suggested";
     }
 
     if (done) {
@@ -223,6 +271,8 @@ const streamEventTypes = new Set([
   "assistant.delta",
   "assistant.chart",
   "assistant.thinking",
+  "topic_change.suggested",
+  "topic_change.resolved",
   "turn.completed",
   "turn.error",
 ]);

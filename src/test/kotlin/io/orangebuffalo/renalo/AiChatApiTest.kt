@@ -329,6 +329,156 @@ class AiChatApiTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun pausesAndContinuesASignificantTopicChangeInTheSameConversation() {
+        val user = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+        val conversation = saveEstablishedConversation(user.id!!, "Focused chat")
+        val prompt = "Change topic to retirement planning"
+
+        val suggestionResponse = api().postJson(
+            "/api/ai-chat/messages",
+            """{"conversationId":${conversation.id},"content":"$prompt"}""",
+            token,
+        )
+
+        suggestionResponse.statusCode().shouldBe(200)
+        val suggestionEvents = suggestionResponse.body().lineSequence().filter(String::isNotBlank).toList()
+        val topicChangeId = objectMapper.readTree(suggestionEvents.last()).path("topicChangeId").asText()
+        val acceptedAt = eventUpdatedAt(suggestionEvents.first())
+        val suggestedConversation = conversationRepository.findByIdAndUserId(conversation.id!!, user.id!!)!!
+        suggestionEvents.shouldHaveSize(3)
+        suggestionEvents[0].shouldEqualJson(
+            """{"v":1,"seq":1,"type":"conversation.updated","conversation":${conversationJson(suggestedConversation, updatedAt = acceptedAt)}}""",
+        )
+        suggestionEvents[1].shouldEqualJson("""{"v":1,"seq":2,"type":"turn.started"}""")
+        suggestionEvents[2].shouldEqualJson(
+            """{"v":1,"seq":3,"type":"topic_change.suggested","topicChangeId":"$topicChangeId"}""",
+        )
+        api().get("/api/ai-chat/conversations/${conversation.id}/history", token).body().shouldEqualJson(
+            """
+                {
+                  "status":"AVAILABLE",
+                  "messages":[
+                    {"role":"USER","content":"Original focused question","charts":[],"items":[]},
+                    {"role":"ASSISTANT","content":"Original focused answer","charts":[],"items":[{"type":"CONTENT","content":"Original focused answer"}]},
+                    {"role":"USER","content":"$prompt","charts":[],"items":[]},
+                    {"role":"ASSISTANT","charts":[],"items":[{"type":"TOPIC_CHANGE","topicChangeId":"$topicChangeId"}]}
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        val continuationResponse = api().postJson(
+            "/api/ai-chat/conversations/${conversation.id}/topic-changes/$topicChangeId/continue",
+            "{}",
+            token,
+        )
+
+        continuationResponse.statusCode().shouldBe(200)
+        val continuationEvents = continuationResponse.body().lineSequence().filter(String::isNotBlank).toList()
+        continuationEvents.map { objectMapper.readTree(it).path("type").asText() }.shouldBe(
+            listOf(
+                "topic_change.resolved",
+                "turn.started",
+                "assistant.thinking",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "turn.completed",
+            ),
+        )
+        continuationEvents.first().shouldEqualJson(
+            """{"v":1,"seq":1,"type":"topic_change.resolved","topicChangeId":"$topicChangeId"}""",
+        )
+        val completedConversation = conversationRepository.findByIdAndUserId(conversation.id!!, user.id!!)!!
+        val durationMillis = eventDurationMillis(continuationEvents.last())
+        continuationEvents.last().shouldEqualJson(
+            """{"v":1,"seq":15,"type":"turn.completed","conversation":${conversationJson(completedConversation)},"metrics":{"durationMillis":$durationMillis,"tokensConsumed":240},"contextUsage":{"currentTokens":120,"maxTokens":1000}}""",
+        )
+        api().get("/api/ai-chat/conversations/${conversation.id}/history", token).body().shouldEqualJson(
+            expectedContinuedTopicHistory(prompt, durationMillis),
+        )
+        api().postJson(
+            "/api/ai-chat/conversations/${conversation.id}/topic-changes/$topicChangeId/continue",
+            "{}",
+            token,
+        ).statusCode().shouldBe(404)
+    }
+
+    @Test
+    fun movesASignificantTopicChangeToANewConversationWithoutChangingOldHistory() {
+        val user = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+        val conversation = saveEstablishedConversation(user.id!!, "Focused chat")
+        val prompt = "Change topic to retirement planning"
+        val suggestion = api().postJson(
+            "/api/ai-chat/messages",
+            """{"conversationId":${conversation.id},"content":"$prompt"}""",
+            token,
+        )
+        val topicChangeId = objectMapper.readTree(
+            suggestion.body().lineSequence().filter(String::isNotBlank).last(),
+        ).path("topicChangeId").asText()
+
+        val redirectResponse = api().postJson(
+            "/api/ai-chat/conversations/${conversation.id}/topic-changes/$topicChangeId/new-chat",
+            "{}",
+            token,
+        )
+
+        redirectResponse.statusCode().shouldBe(200)
+        val redirectEvents = redirectResponse.body().lineSequence().filter(String::isNotBlank).toList()
+        redirectEvents.map { objectMapper.readTree(it).path("type").asText() }.shouldBe(
+            listOf(
+                "conversation.created",
+                "conversation.updated",
+                "turn.started",
+                "tool.started",
+                "tool.completed",
+                "assistant.thinking",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "assistant.delta",
+                "turn.completed",
+            ),
+        )
+        val destinationId = objectMapper.readTree(redirectEvents.first()).path("conversation").path("id").longValue()
+        val destination = conversationRepository.findByIdAndUserId(destinationId, user.id!!)!!
+        val durationMillis = eventDurationMillis(redirectEvents.last())
+        redirectEvents.last().shouldEqualJson(
+            """{"v":1,"seq":18,"type":"turn.completed","conversation":${conversationJson(destination)},"metrics":{"durationMillis":$durationMillis,"tokensConsumed":240},"contextUsage":{"currentTokens":120,"maxTokens":1000}}""",
+        )
+        api().get("/api/ai-chat/conversations/${conversation.id}/history", token).body().shouldEqualJson(
+            """
+                {"status":"AVAILABLE","messages":[
+                  {"role":"USER","content":"Original focused question","charts":[],"items":[]},
+                  {"role":"ASSISTANT","content":"Original focused answer","charts":[],"items":[{"type":"CONTENT","content":"Original focused answer"}]}
+                ]}
+            """.trimIndent(),
+        )
+        conversationEventService.loadItems(user.id!!, conversation.id!!)!!.none { it.contains(prompt) }.shouldBe(true)
+        api().get("/api/ai-chat/conversations/$destinationId/history", token).body().shouldEqualJson(
+            expectedNewTopicHistory(prompt, durationMillis),
+        )
+    }
+
+    @Test
     fun listsRenamesAndDeletesConversations() {
         val user = saveUser("alice", UserType.USER)
         val token = api().login("alice", "password")
@@ -487,6 +637,16 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"conversationId":${bobConversation.id},"content":"Hello"}""",
             aliceToken,
         ).statusCode().shouldBe(404)
+        api().postJson(
+            "/api/ai-chat/conversations/${bobConversation.id}/topic-changes/not-alices/continue",
+            "{}",
+            aliceToken,
+        ).statusCode().shouldBe(404)
+        api().postJson(
+            "/api/ai-chat/conversations/${bobConversation.id}/topic-changes/not-alices/new-chat",
+            "{}",
+            aliceToken,
+        ).statusCode().shouldBe(404)
 
         conversationRepository.findByIdAndUserId(bobConversation.id!!, bob.id!!)?.title.shouldBe("Bob's chat")
         conversationRepository.findByUserIdOrderByUpdatedAtDesc(alice.id!!).shouldHaveSize(0)
@@ -505,6 +665,14 @@ class AiChatApiTest : IntegrationTestSupport() {
         api().get("/api/ai-chat/conversations", adminToken).statusCode().shouldBe(403)
         api().get("/api/ai-chat/conversations/1/history", null).statusCode().shouldBe(401)
         api().get("/api/ai-chat/conversations/1/history", adminToken).statusCode().shouldBe(403)
+        api().postJson("/api/ai-chat/conversations/1/topic-changes/pending/continue", "{}", null)
+            .statusCode().shouldBe(401)
+        api().postJson("/api/ai-chat/conversations/1/topic-changes/pending/continue", "{}", adminToken)
+            .statusCode().shouldBe(403)
+        api().postJson("/api/ai-chat/conversations/1/topic-changes/pending/new-chat", "{}", null)
+            .statusCode().shouldBe(401)
+        api().postJson("/api/ai-chat/conversations/1/topic-changes/pending/new-chat", "{}", adminToken)
+            .statusCode().shouldBe(403)
     }
 
     @Test
@@ -523,6 +691,18 @@ class AiChatApiTest : IntegrationTestSupport() {
         api().postJson(
             "/api/ai-chat/messages",
             """{ "content": "What is my balance?" }""",
+            token,
+            "not-a-time-zone",
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/ai-chat/conversations/1/topic-changes/pending/continue",
+            "{}",
+            token,
+            "not-a-time-zone",
+        ).statusCode().shouldBe(400)
+        api().postJson(
+            "/api/ai-chat/conversations/1/topic-changes/pending/new-chat",
+            "{}",
             token,
             "not-a-time-zone",
         ).statusCode().shouldBe(400)
@@ -555,6 +735,76 @@ class AiChatApiTest : IntegrationTestSupport() {
             type = type,
         ),
     )
+
+    private fun saveEstablishedConversation(userId: Long, title: String): AiChatConversation {
+        val conversation = conversationRepository.save(AiChatConversation(userId = userId, title = title))
+        conversationEventService.appendItems(
+            userId,
+            conversation.id!!,
+            listOf(
+                conversationEventService.userMessage("Original focused question"),
+                """{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Original focused answer"}]}""",
+            ),
+        )
+        return conversation
+    }
+
+    private fun expectedContinuedTopicHistory(prompt: String, durationMillis: Long): String = """
+        {
+          "status":"AVAILABLE",
+          "contextUsage":{"currentTokens":120,"maxTokens":1000},
+          "messages":[
+            {"role":"USER","content":"Original focused question","charts":[],"items":[]},
+            {"role":"ASSISTANT","content":"Original focused answer","charts":[],"items":[{"type":"CONTENT","content":"Original focused answer"}]},
+            {"role":"USER","content":"$prompt","charts":[],"items":[]},
+            {
+              "role":"ASSISTANT",
+              "content":${objectMapper.writeValueAsString(testAssistantContent(prompt))},
+              "charts":[],
+              "items":[{"type":"CONTENT","content":${objectMapper.writeValueAsString(testAssistantContent(prompt))}}],
+              "metrics":{"durationMillis":$durationMillis,"tokensConsumed":240}
+            }
+          ]
+        }
+    """.trimIndent()
+
+    private fun expectedNewTopicHistory(prompt: String, durationMillis: Long): String = """
+        {
+          "status":"AVAILABLE",
+          "contextUsage":{"currentTokens":120,"maxTokens":1000},
+          "messages":[
+            {"role":"USER","content":"$prompt","charts":[],"items":[]},
+            {
+              "role":"ASSISTANT",
+              "content":${objectMapper.writeValueAsString(testAssistantContent(prompt))},
+              "charts":[],
+              "items":[
+                {"type":"TOOL_ACTIVITY","label":"Calculated category totals"},
+                {"type":"CONTENT","content":${objectMapper.writeValueAsString(testAssistantContent(prompt))}}
+              ],
+              "metrics":{"durationMillis":$durationMillis,"tokensConsumed":240}
+            }
+          ]
+        }
+    """.trimIndent()
+
+    private fun testAssistantContent(prompt: String): String = """## Spending snapshot
+
+You asked: **$prompt**
+
+Here is an example of how an AI-generated answer could present your results:
+
+| Category | Amount | Share |
+| --- | ---: | ---: |
+| Groceries | ${'$'}428.30 | 42% |
+| Transport | ${'$'}186.75 | 18% |
+| Dining out | ${'$'}142.10 | 14% |
+
+- **Groceries** were the largest expense category.
+- Dining out was lower than groceries by `${'$'}286.20`.
+- The remaining categories accounted for 26% of the sample total.
+
+> This response was generated from Renalo's read-only financial tools."""
 
     private fun conversationJson(
         conversation: AiChatConversation,

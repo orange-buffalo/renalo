@@ -95,7 +95,7 @@ open class AiChatConversationService(
 
     companion object {
         const val TITLE_MAX_LENGTH = 100
-        private const val DEFAULT_TITLE = "New chat"
+        const val DEFAULT_TITLE = "New chat"
     }
 }
 

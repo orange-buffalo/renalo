@@ -399,6 +399,91 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun persistsATopicChangeRecommendationAndContinuesInTheSameChat(page: Page) {
+        val user = saveUser("alice", UserType.USER)
+        saveEstablishedConversation(user.id!!, "Focused chat")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.navigate(server.url.toString() + "/chat")
+        assertThat(page.getByText("Original focused answer", Page.GetByTextOptions().setExact(true))).isVisible()
+
+        val messageInput = page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        )
+        messageInput.fill("Change topic to retirement planning")
+        page.getByLabel("Send message").click()
+
+        val recommendation = page.getByRole(AriaRole.ALERT)
+        assertThat(recommendation).containsText("This looks like a different topic")
+        assertThat(recommendation).containsText(
+            "Focused, shorter chats use less context and are less likely to fail as the conversation grows.",
+        )
+        assertThat(recommendation.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Continue in a new chat")))
+            .isVisible()
+        assertThat(recommendation.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Continue here")))
+            .isVisible()
+        assertThat(messageInput).isDisabled()
+
+        page.reload()
+        assertThat(page.getByText("Original focused answer", Page.GetByTextOptions().setExact(true))).isVisible()
+        assertThat(recommendation).isVisible()
+        recommendation.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Continue here")).click()
+
+        assertThat(recommendation).not().isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+        assertThat(page.getByText("You asked: Change topic to retirement planning", Page.GetByTextOptions().setExact(true)))
+            .isVisible()
+        page.reload()
+        assertThat(recommendation).not().isVisible()
+        assertThat(page.locator("[data-chat-author='You']").getByText("Change topic to retirement planning", Locator.GetByTextOptions().setExact(true)))
+            .isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+    }
+
+    @Test
+    fun movesATopicChangeToANewChatAndKeepsTheOldChatFocused(page: Page) {
+        val user = saveUser("alice", UserType.USER)
+        saveEstablishedConversation(user.id!!, "Focused chat")
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.navigate(server.url.toString() + "/chat")
+        assertThat(page.getByText("Original focused answer", Page.GetByTextOptions().setExact(true))).isVisible()
+
+        val prompt = "Change topic and show my spend by month"
+        val messageInput = page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        )
+        messageInput.fill(prompt)
+        page.getByLabel("Send message").click()
+        val recommendation = page.getByRole(AriaRole.ALERT)
+        assertThat(recommendation).isVisible()
+        recommendation.getByRole(
+            AriaRole.BUTTON,
+            Locator.GetByRoleOptions().setName("Continue in a new chat"),
+        ).click()
+
+        page.shouldEventually {
+            conversationSelector(page).textContent().shouldBe("Monthly spending review")
+        }
+        assertThat(page.locator("[data-chat-author='You']").getByText(prompt, Locator.GetByTextOptions().setExact(true)))
+            .isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+        assertConversationOptions(page, listOf("Monthly spending review", "Focused chat", "New chat"))
+
+        conversationSelector(page).click()
+        page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Focused chat")).click()
+        page.shouldEventually {
+            extractMessages().shouldContainExactly(
+                ChatMessage("You", "Original focused question", emptyList()),
+                ChatMessage("Renalo", "Original focused answer", emptyList()),
+            )
+        }
+        assertThat(page.locator("[data-chat-author='You']").getByText(prompt, Locator.GetByTextOptions().setExact(true)))
+            .not().isVisible()
+        assertThat(messageInput).isEnabled()
+    }
+
+    @Test
     fun loadsSavedHistoryFromThePersistedEventLog(page: Page) {
         val user = saveUser("alice", UserType.USER)
         val available = conversationRepository.save(
@@ -834,6 +919,18 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             type = type,
         ),
     )
+
+    private fun saveEstablishedConversation(userId: Long, title: String) {
+        val conversation = conversationRepository.save(AiChatConversation(userId = userId, title = title))
+        conversationEventService.appendItems(
+            userId,
+            conversation.id!!,
+            listOf(
+                conversationEventService.userMessage("Original focused question"),
+                """{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Original focused answer"}]}""",
+            ),
+        )
+    }
 
     private data class ChatMessage(
         val author: String,
