@@ -152,8 +152,8 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 objectMapper.readTree(
                     """
                         {"kind":"BAR","title":"Spending by account and category","xAxisLabel":"Account","xAxisType":"CATEGORY","yAxisLabel":"Expenses","yAxisType":"MONEY_MINOR","currency":"AUD","stacked":true,"orientation":"HORIZONTAL","series":[
-                          {"name":"Food","points":[{"x":"Daily","y":"1200"},{"x":"Savings","y":"300"}]},
-                          {"name":"Rent","points":[{"x":"Daily","y":"8800"},{"x":"Savings","y":"0"}]}
+                          {"name":"Food","points":[{"x":"Account 1","y":"100"},{"x":"Account 2","y":"200"},{"x":"Account 3","y":"300"},{"x":"Account 4","y":"400"},{"x":"Account 5","y":"500"},{"x":"Account 6","y":"600"},{"x":"Account 7","y":"700"},{"x":"Account 8","y":"800"},{"x":"Account 9","y":"900"},{"x":"Account 10","y":"1000"}]},
+                          {"name":"Rent","points":[{"x":"Account 1","y":"1000"},{"x":"Account 2","y":"2000"},{"x":"Account 3","y":"3000"},{"x":"Account 4","y":"4000"},{"x":"Account 5","y":"5000"},{"x":"Account 6","y":"6000"},{"x":"Account 7","y":"7000"},{"x":"Account 8","y":"8000"},{"x":"Account 9","y":"9000"},{"x":"Account 10","y":"10000"}]}
                         ]}
                     """.trimIndent(),
                 ),
@@ -227,12 +227,8 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ChartData(
                     "Spending by account and category",
                     "BAR",
-                    listOf(
-                        ChartRow("Food", "Daily", "A${'$'}12.00"),
-                        ChartRow("Food", "Savings", "A${'$'}3.00"),
-                        ChartRow("Rent", "Daily", "A${'$'}88.00"),
-                        ChartRow("Rent", "Savings", "A${'$'}0.00"),
-                    ),
+                    (1..10).map { ChartRow("Food", "Account $it", "A${'$'}${it}.00") } +
+                        (1..10).map { ChartRow("Rent", "Account $it", "A${'$'}${it * 10}.00") },
                 ),
                 ChartData(
                     "Income share",
@@ -270,6 +266,37 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             chart.scrollIntoViewIfNeeded()
             assertThat(chart).isVisible()
         }
+        val lineHeight = page.getByTestId("ai-chat-line-chart").boundingBox().height
+        val barHeight = page.getByTestId("ai-chat-bar-chart").boundingBox().height
+        (barHeight > lineHeight).shouldBe(true)
+
+        page.getByLabel("Maximize Balance trend chart").click()
+        val chartDialog = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("Balance trend chart"))
+        assertThat(chartDialog).isVisible()
+        chartDialog.locator("[data-testid='ai-chat-chart']").extractChartData().shouldBe(
+            ChartData(
+                "Balance trend",
+                "LINE",
+                listOf(
+                    ChartRow("Daily", "2026-01-01", "A${'$'}10.00"),
+                    ChartRow("Daily", "2026-02-01", "A${'$'}25.00"),
+                    ChartRow("Savings", "2026-01-01", "A${'$'}50.00"),
+                    ChartRow("Savings", "2026-02-01", "A${'$'}62.00"),
+                ),
+            ),
+        )
+        chartDialog.getByLabel("Close Balance trend chart").click()
+        assertThat(chartDialog).not().isVisible()
+
+        page.setViewportSize(390, 844)
+        val chartMessage = page.locator(".ai-chat-message--has-chart")
+        val feed = page.locator(".ai-chat-feed")
+        val feedContentWidth = (feed.evaluate(
+            "feed => feed.clientWidth - parseFloat(getComputedStyle(feed).paddingLeft) - parseFloat(getComputedStyle(feed).paddingRight)",
+        ) as Number).toDouble()
+        val widthDifference = feedContentWidth - chartMessage.boundingBox().width
+        (kotlin.math.abs(widthDifference) < 1).shouldBe(true)
+        page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Balance trend")).click()
     }
 
     @Test
@@ -609,14 +636,18 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         val contextIndicator = page.getByRole(
             AriaRole.BUTTON,
             Page.GetByRoleOptions().setName(
-                "Context usage. Current size: 120 tokens. Maximum size: Unavailable.",
+                "Context usage. Current size: 120 tokens. Maximum size: Unavailable. The context limit is unknown, so this chat could fail unexpectedly if it overflows. Keep this chat focused and short.",
             ),
         )
         assertThat(contextIndicator).isVisible()
         contextIndicator.locator(".ai-chat-context-progress-value").count().shouldBe(0)
         contextIndicator.click()
         assertThat(page.getByText("Context usage", Page.GetByTextOptions().setExact(true))).isVisible()
-        assertThat(page.getByText("Current size: 120 tokens. Maximum size: Unavailable.")).isVisible()
+        assertThat(
+            page.getByText(
+                "Current size: 120 tokens. Maximum size: Unavailable. The context limit is unknown, so this chat could fail unexpectedly if it overflows. Keep this chat focused and short.",
+            ),
+        ).isVisible()
     }
 
     @Test
@@ -786,6 +817,15 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             },
         )
     }
+
+    private fun Locator.extractChartData(): ChartData = ChartData(
+        title = getByRole(AriaRole.HEADING).innerText(),
+        kind = getAttribute("data-chart-kind"),
+        rows = locator("tbody tr").all().map { row ->
+            val cells = row.locator("td").allTextContents()
+            ChartRow(cells[0], cells[1], cells[2])
+        },
+    )
 
     private fun saveUser(username: String, type: UserType): User = userRepository.save(
         User(

@@ -744,6 +744,7 @@ export function AiChatPage() {
 }
 
 function ChatMessageView({ message }: { message: ChatMessage }) {
+  const items = message.author === "Renalo" ? assistantItems(message) : [];
   const isThinking =
     message.author === "Renalo" &&
     message.isStreaming &&
@@ -751,14 +752,14 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
 
   return (
     <article
-      className={`ai-chat-message ai-chat-message--${message.author === "You" ? "user" : "assistant"}`}
+      className={`ai-chat-message ai-chat-message--${message.author === "You" ? "user" : "assistant"}${items.some((item) => item.type === "chart") ? " ai-chat-message--has-chart" : ""}`}
       data-chat-author={message.author}
     >
       <div className="ai-chat-message-body">
         <div className="ai-chat-message-content">
           {message.author === "Renalo" ? (
             <>
-              {assistantItems(message).map((item) => (
+              {items.map((item) => (
                 <AssistantStreamItemView
                   item={item}
                   isStreaming={message.isStreaming}
@@ -814,7 +815,10 @@ function ContextUsageIndicator({ usage }: { usage: AiChatContextUsage }) {
   const warningDescription = isWarning
     ? " Context is filling up. Start a new chat soon, as this chat might fail once the context is full."
     : "";
-  const description = `Current size: ${formatTokenCount(usage.currentTokens)} tokens. Maximum size: ${maximumDescription}${warningDescription}`;
+  const unavailableDescription = usage.maxTokens
+    ? ""
+    : " The context limit is unknown, so this chat could fail unexpectedly if it overflows. Keep this chat focused and short.";
+  const description = `Current size: ${formatTokenCount(usage.currentTokens)} tokens. Maximum size: ${maximumDescription}${warningDescription}${unavailableDescription}`;
   return (
     <Tooltip
       title={title}

@@ -2780,6 +2780,11 @@ input {
   max-width: min(100%, 760px);
 }
 
+.ai-chat-message--has-chart {
+  width: 100%;
+  align-self: center;
+}
+
 .ai-chat-message-body {
   width: 100%;
   min-width: 0;
@@ -2871,31 +2876,45 @@ input {
   box-shadow: 0 1px 2px rgb(16 24 40 / 0.04);
 }
 
+.ai-chat-chart--maximized {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .ai-chat-chart + .ai-chat-chart,
 .ai-chat-chart + .ai-chat-markdown {
   margin-top: 18px;
 }
 
 .ai-chat-chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 14px;
 }
 
 .ai-chat-chart-header h3 {
   margin: 0;
-  color: #252932;
+  color: #343841;
   font-size: 1rem;
+  font-weight: 600;
   line-height: 1.35;
 }
 
 .ai-chat-chart-header p {
   margin: 3px 0 0;
-  color: #69707b;
-  font-size: 0.75rem;
+  color: #838b95;
+  font-size: 0.8125rem;
 }
 
 .ai-chat-chart-canvas {
   width: 100%;
-  height: 230px;
+  height: var(--ai-chat-chart-height, 230px);
   min-width: 0;
 }
 
@@ -2909,6 +2928,21 @@ input {
   grid-template-columns: minmax(210px, 0.9fr) minmax(190px, 1.1fr);
   align-items: center;
   gap: 20px;
+}
+
+.ai-chat-slice-chart--maximized .ai-chat-chart-canvas--slice {
+  height: 100%;
+}
+
+.ai-chat-chart-canvas--maximized,
+.ai-chat-slice-chart--maximized {
+  min-height: 0;
+  flex: 1;
+}
+
+.ai-chat-chart-legend-label {
+  color: #626872;
+  font-size: 0.75rem;
 }
 
 .ai-chat-chart-total {
@@ -2966,7 +3000,7 @@ input {
   }
 
   .ai-chat-chart-canvas {
-    height: 210px;
+    height: var(--ai-chat-chart-height, 210px);
   }
 
   .ai-chat-slice-chart {
@@ -3152,7 +3186,7 @@ input {
 
 .ai-chat-context-trigger {
   position: absolute;
-  right: 17px;
+  right: 19px;
   bottom: 47px;
   z-index: 1;
   display: grid;
@@ -3165,8 +3199,7 @@ input {
 
 .ai-chat-context-trigger:hover,
 .ai-chat-context-trigger:focus-visible {
-  color: #4f5b96;
-  background: #f2f3f8;
+  color: #59649a;
 }
 
 .ai-chat-context-progress {
@@ -3585,6 +3618,11 @@ input {
 
   .ai-chat-message {
     max-width: 94%;
+  }
+
+  .ai-chat-message--has-chart {
+    width: 100%;
+    max-width: 100%;
   }
 
   .ai-chat-composer {

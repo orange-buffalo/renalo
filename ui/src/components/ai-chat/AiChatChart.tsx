@@ -1,4 +1,6 @@
-import { useId } from "react";
+import { Maximize01, XClose } from "@untitledui/icons";
+import type { CSSProperties } from "react";
+import { useId, useState } from "react";
 import type { TooltipContentProps } from "recharts";
 import {
   Area,
@@ -20,41 +22,112 @@ import {
   YAxis,
 } from "recharts";
 import type { AiChatChart as AiChatChartData } from "@/api/aiChat";
-import { transactionCategoryColors } from "@/components/charts/TransactionByCategoryChart";
+import { chartSeriesColors } from "@/components/charts/chartPalette";
+import { selectEvenlySpacedItems } from "@/components/untitled/application/charts/charts-base";
+import {
+  Dialog,
+  Modal,
+  ModalOverlay,
+} from "@/components/untitled/application/modals/modal";
+import { Button } from "@/components/untitled/base/buttons/button";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { cx } from "@/utils/cx";
 import { formatMoneyFromMinorUnits } from "@/utils/money";
 
 export function AiChatChart({ chart }: { chart: AiChatChartData }) {
   const titleId = useId();
+  const modalTitleId = useId();
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  function renderChartPanel(maximized: boolean) {
+    const panelTitleId = maximized ? modalTitleId : titleId;
+    return (
+      <section
+        className={cx("ai-chat-chart", maximized && "ai-chat-chart--maximized")}
+        aria-labelledby={panelTitleId}
+        data-chart-kind={chart.kind}
+        data-testid="ai-chat-chart"
+      >
+        <header className="ai-chat-chart-header">
+          <div>
+            <h3 id={panelTitleId}>{chart.title}</h3>
+            <p>
+              {chart.yAxis.label}
+              {chart.yAxis.currency ? ` in ${chart.yAxis.currency}` : ""}
+            </p>
+          </div>
+          <Button
+            aria-label={`${maximized ? "Close" : "Maximize"} ${chart.title} chart`}
+            color="tertiary"
+            size="sm"
+            iconLeading={maximized ? XClose : Maximize01}
+            onPress={() => setIsMaximized(!maximized)}
+          />
+        </header>
+        {chart.kind === "PIE" || chart.kind === "DONUT" ? (
+          <SliceChartView chart={chart} maximized={maximized} />
+        ) : chart.kind === "SCATTER" ? (
+          <ScatterChartView chart={chart} />
+        ) : (
+          <CartesianChartView chart={chart} maximized={maximized} />
+        )}
+        <ChartDataTable chart={chart} />
+      </section>
+    );
+  }
+
   return (
-    <section
-      className="ai-chat-chart"
-      aria-labelledby={titleId}
-      data-chart-kind={chart.kind}
-      data-testid="ai-chat-chart"
-    >
-      <header className="ai-chat-chart-header">
-        <h3 id={titleId}>{chart.title}</h3>
-        <p>
-          {chart.yAxis.label}
-          {chart.yAxis.currency ? ` in ${chart.yAxis.currency}` : ""}
-        </p>
-      </header>
-      {chart.kind === "PIE" || chart.kind === "DONUT" ? (
-        <SliceChartView chart={chart} />
-      ) : chart.kind === "SCATTER" ? (
-        <ScatterChartView chart={chart} />
-      ) : (
-        <CartesianChartView chart={chart} />
-      )}
-      <ChartDataTable chart={chart} />
-    </section>
+    <>
+      {renderChartPanel(false)}
+      <ModalOverlay
+        isOpen={isMaximized}
+        onOpenChange={setIsMaximized}
+        isDismissable
+        className="transaction-chart-modal-overlay"
+      >
+        <Modal className="transaction-chart-modal">
+          <Dialog
+            aria-label={`${chart.title} chart`}
+            className="transaction-chart-modal-dialog"
+          >
+            {renderChartPanel(true)}
+          </Dialog>
+        </Modal>
+      </ModalOverlay>
+    </>
   );
 }
 
-function CartesianChartView({ chart }: { chart: AiChatChartData }) {
+function CartesianChartView({
+  chart,
+  maximized,
+}: {
+  chart: AiChatChartData;
+  maximized: boolean;
+}) {
+  const isDesktop = useBreakpoint("md");
   const data = cartesianData(chart);
   const isHorizontal =
     chart.kind === "BAR" && chart.orientation === "HORIZONTAL";
+  const axisTicks = selectEvenlySpacedItems(data, isDesktop ? 6 : 4).map(
+    (row) => row.x,
+  );
+  const categoryAxisWidth = Math.min(
+    180,
+    Math.max(90, ...data.map((row) => formatXValue(row.x, chart).length * 7)),
+  );
+  const canvasHeight = isHorizontal
+    ? Math.min(620, Math.max(230, data.length * 32 + 52))
+    : 230;
+  const canvasStyle = maximized
+    ? undefined
+    : ({ "--ai-chat-chart-height": `${canvasHeight}px` } as CSSProperties);
+  const chartMargin = {
+    top: isDesktop ? 8 : 16,
+    right: 20,
+    bottom: 0,
+    left: isDesktop ? 4 : 8,
+  };
   const common = (
     <>
       <CartesianGrid
@@ -70,7 +143,9 @@ function CartesianChartView({ chart }: { chart: AiChatChartData }) {
             type="category"
             tickLine={false}
             axisLine={false}
-            width={80}
+            width={categoryAxisWidth}
+            tick={{ fill: "#626872", fontSize: 11 }}
+            tickFormatter={(value) => formatXValue(String(value), chart)}
           />
         </>
       ) : (
@@ -79,19 +154,38 @@ function CartesianChartView({ chart }: { chart: AiChatChartData }) {
             dataKey="x"
             tickLine={false}
             axisLine={false}
-            minTickGap={28}
+            ticks={axisTicks}
+            tick={{ fill: "#626872", fontSize: 11 }}
+            padding={{ left: 12, right: 12 }}
+            minTickGap={24}
             tickFormatter={(value) => formatXValue(String(value), chart)}
           />
-          <YAxis hide domain={["auto", "auto"]} />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "#626872", fontSize: 11 }}
+            tickFormatter={(value) => formatAxisValue(value, chart)}
+            width={isDesktop ? 82 : 64}
+            domain={["auto", "auto"]}
+          />
         </>
       )}
-      <Tooltip content={<ChartTooltip chart={chart} />} />
-      {chart.series.length > 1 && <Legend />}
+      <Tooltip
+        cursor={{ stroke: "#d1d7e0", strokeWidth: 1 }}
+        wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
+        content={<ChartTooltip chart={chart} />}
+      />
+      {chart.series.length > 1 && (
+        <Legend
+          formatter={(value) => (
+            <span className="ai-chat-chart-legend-label">{value}</span>
+          )}
+        />
+      )}
     </>
   );
   const series = chart.series.map((item, index) => {
-    const color =
-      transactionCategoryColors[index % transactionCategoryColors.length];
+    const color = chartSeriesColors[index % chartSeriesColors.length];
     const dataKey = `series-${index}`;
     if (chart.kind === "AREA") {
       return (
@@ -139,15 +233,17 @@ function CartesianChartView({ chart }: { chart: AiChatChartData }) {
 
   return (
     <div
-      className="ai-chat-chart-canvas"
+      className={cx(
+        "ai-chat-chart-canvas",
+        maximized && "ai-chat-chart-canvas--maximized",
+      )}
+      style={canvasStyle}
+      data-chart-tick-count={data.length}
       data-testid={`ai-chat-${chart.kind.toLowerCase()}-chart`}
     >
       <ResponsiveContainer width="100%" height="100%">
         {chart.kind === "AREA" ? (
-          <AreaChart
-            data={data}
-            margin={{ top: 8, right: 12, bottom: 4, left: 0 }}
-          >
+          <AreaChart data={data} margin={chartMargin} accessibilityLayer>
             {common}
             {series}
           </AreaChart>
@@ -156,20 +252,16 @@ function CartesianChartView({ chart }: { chart: AiChatChartData }) {
             data={data}
             layout={isHorizontal ? "vertical" : "horizontal"}
             margin={{
-              top: 8,
-              right: 12,
-              bottom: 4,
-              left: isHorizontal ? 12 : 0,
+              ...chartMargin,
+              left: isHorizontal ? 8 : chartMargin.left,
             }}
+            accessibilityLayer
           >
             {common}
             {series}
           </BarChart>
         ) : (
-          <LineChart
-            data={data}
-            margin={{ top: 8, right: 12, bottom: 4, left: 0 }}
-          >
+          <LineChart data={data} margin={chartMargin} accessibilityLayer>
             {common}
             {series}
           </LineChart>
@@ -180,24 +272,50 @@ function CartesianChartView({ chart }: { chart: AiChatChartData }) {
 }
 
 function ScatterChartView({ chart }: { chart: AiChatChartData }) {
+  const isDesktop = useBreakpoint("md");
   return (
     <div className="ai-chat-chart-canvas" data-testid="ai-chat-scatter-chart">
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+        <ScatterChart
+          margin={{ top: 8, right: 20, bottom: 0, left: isDesktop ? 4 : 8 }}
+          accessibilityLayer
+        >
           <CartesianGrid stroke="var(--border-color-secondary)" />
-          <XAxis type="number" dataKey="xValue" name={chart.xAxis.label} />
-          <YAxis type="number" dataKey="yValue" name={chart.yAxis.label} hide />
-          <Tooltip content={<ChartTooltip chart={chart} />} />
-          {chart.series.length > 1 && <Legend />}
+          <XAxis
+            type="number"
+            dataKey="xValue"
+            name={chart.xAxis.label}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "#626872", fontSize: 11 }}
+          />
+          <YAxis
+            type="number"
+            dataKey="yValue"
+            name={chart.yAxis.label}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "#626872", fontSize: 11 }}
+            tickFormatter={(value) => formatAxisValue(value, chart)}
+            width={isDesktop ? 82 : 64}
+          />
+          <Tooltip
+            cursor={{ stroke: "#d1d7e0", strokeWidth: 1 }}
+            wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
+            content={<ChartTooltip chart={chart} />}
+          />
+          {chart.series.length > 1 && (
+            <Legend
+              formatter={(value) => (
+                <span className="ai-chat-chart-legend-label">{value}</span>
+              )}
+            />
+          )}
           {chart.series.map((series, index) => (
             <Scatter
               key={series.name}
               name={series.name}
-              fill={
-                transactionCategoryColors[
-                  index % transactionCategoryColors.length
-                ]
-              }
+              fill={chartSeriesColors[index % chartSeriesColors.length]}
               data={series.points.map((point) => ({
                 xValue: Number(point.x),
                 yValue: Number(point.y),
@@ -214,7 +332,13 @@ function ScatterChartView({ chart }: { chart: AiChatChartData }) {
   );
 }
 
-function SliceChartView({ chart }: { chart: AiChatChartData }) {
+function SliceChartView({
+  chart,
+  maximized,
+}: {
+  chart: AiChatChartData;
+  maximized: boolean;
+}) {
   const points = chart.series[0]?.points ?? [];
   const segments = points.map((point) => ({
     ...point,
@@ -226,13 +350,21 @@ function SliceChartView({ chart }: { chart: AiChatChartData }) {
       ? points.reduce((sum, point) => sum + BigInt(point.y), 0n).toString()
       : undefined;
   return (
-    <div className="ai-chat-slice-chart">
+    <div
+      className={cx(
+        "ai-chat-slice-chart",
+        maximized && "ai-chat-slice-chart--maximized",
+      )}
+    >
       <div
-        className="ai-chat-chart-canvas ai-chat-chart-canvas--slice"
+        className={cx(
+          "ai-chat-chart-canvas ai-chat-chart-canvas--slice",
+          maximized && "ai-chat-chart-canvas--maximized",
+        )}
         data-testid={`ai-chat-${chart.kind.toLowerCase()}-chart`}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+          <PieChart accessibilityLayer>
             <Pie
               data={segments}
               dataKey="value"
@@ -247,15 +379,14 @@ function SliceChartView({ chart }: { chart: AiChatChartData }) {
               {segments.map((segment, index) => (
                 <Cell
                   key={segment.x}
-                  fill={
-                    transactionCategoryColors[
-                      index % transactionCategoryColors.length
-                    ]
-                  }
+                  fill={chartSeriesColors[index % chartSeriesColors.length]}
                 />
               ))}
             </Pie>
-            <Tooltip content={<ChartTooltip chart={chart} />} />
+            <Tooltip
+              wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
+              content={<ChartTooltip chart={chart} />}
+            />
           </PieChart>
         </ResponsiveContainer>
         {chart.kind === "DONUT" && moneyTotal && (
@@ -271,9 +402,7 @@ function SliceChartView({ chart }: { chart: AiChatChartData }) {
               aria-hidden="true"
               style={{
                 backgroundColor:
-                  transactionCategoryColors[
-                    index % transactionCategoryColors.length
-                  ],
+                  chartSeriesColors[index % chartSeriesColors.length],
               }}
             />
             <strong>{formatXValue(point.x, chart)}</strong>
@@ -383,6 +512,16 @@ function formatXValue(value: string, chart: AiChatChartData) {
         month: "short",
         day: "numeric",
       });
+}
+
+function formatAxisValue(value: number | string, chart: AiChatChartData) {
+  const numericValue = typeof value === "number" ? Math.round(value) : value;
+  return chart.yAxis.type === "MONEY_MINOR"
+    ? formatMoneyFromMinorUnits(
+        String(numericValue),
+        chart.yAxis.currency ?? "USD",
+      )
+    : formatDecimal(String(value));
 }
 
 function formatDecimal(value: string) {
