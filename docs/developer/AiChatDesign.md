@@ -60,7 +60,7 @@ AI configuration is deployment-wide and supplied through environment-backed appl
 - LiteLLM API key.
 - Stable model alias configured in LiteLLM.
 
-Renalo uses sensible built-in defaults for timeouts and safety limits. These are implementation details rather than deployment configuration unless operational experience establishes a concrete need to expose them.
+Renalo allows three minutes for each model response step and fifteen minutes for a complete turn. The tool-call ceiling remains a secondary runaway-loop guard rather than the normal constraint on a multi-step answer. These are built-in implementation details rather than deployment configuration unless operational experience establishes a concrete need to expose them.
 
 The LiteLLM key is never returned to the browser or stored in reversible form in Renalo's database. Private-network LiteLLM URLs are valid and expected for self-hosted deployments.
 
@@ -86,6 +86,8 @@ An empty new chat is browser-only. Renalo creates the metadata row when the firs
 ### Append-only conversation state
 
 Before invoking the model, Renalo appends the accepted user message. Each completed model step contributes its raw ordered `response.output_item.done` items. Tool execution appends the corresponding `function_call_output` before the next model step. A continuation replays all items in sequence as the next Responses API `input`, with `store=false` and no `previous_response_id`.
+
+Cancellation or failure can leave a persisted function call without its output. Before accepting a continuation, Renalo atomically appends a server-owned interrupted `function_call_output` for each unresolved call and then appends the new user message. This preserves the append-only history, satisfies Responses API replay pairing, and directs the model to fetch fresh data instead of treating an interrupted call as successful.
 
 The event log is authoritative and survives both Renalo and LiteLLM restarts. Opaque reasoning items are preserved exactly rather than interpreted by Renalo because some providers require them when subsequent input includes tool calls or prior reasoning.
 
@@ -140,7 +142,17 @@ The model receives a small fixed allowlist of typed, read-only tools. Initial ca
 
 Tools never accept `userId`. Renalo injects authenticated user context outside model-visible arguments, using controlled invocation context rather than prompt text. Every tool still validates nullable or malformed arguments, ownership of referenced account/category IDs, date ranges, result limits, and enum values.
 
-Tools return typed values with monetary amounts in exact `Long` minor units plus their ISO currency. Renalo remains authoritative for conversion, overflow behavior, recurrence, future-date exclusion, browser-local today, filtering, and aggregation. The model formats and explains results; it does not recompute authoritative totals from raw rows.
+Tools return typed values with monetary amounts in exact `Long` minor units plus their ISO currency. Renalo remains authoritative for conversion, overflow behavior, recurrence, future-date exclusion, browser-local today, filtering, and tool-provided aggregation. The model formats and explains results and can reorganize successful tool results into a chart-ready dataset. Model-derived grouping or aggregation is an AI interpretation rather than a new authoritative Renalo calculation.
+
+### Chart presentation
+
+User-guide content and documentation screenshots for charts are intentionally deferred until the chart design is explicitly approved. Do not update them as part of ongoing chart implementation work.
+
+`present_chart` is a general presentation tool rather than a set of source-specific chart commands. After obtaining financial data, the model chooses the grouping, X-axis type, value type, named series, and presentation that best answer the user's question. The supported presentations are line, area, vertical or horizontal bar, pie, donut, and scatter charts; bar and area series can be stacked.
+
+The model supplies a normalized dataset with arbitrary category, ISO date, or numeric X values and exact string Y values. Monetary values remain signed integer minor units with one ISO currency for the chart, while non-monetary values use bounded decimals. This allows data to be grouped by any useful field exposed by a read-only tool and allows multiple measures or groups to be rendered as independent series.
+
+Renalo does not accept executable expressions, SQL, user IDs, provider identifiers, or tool-call identifiers in chart arguments. It validates titles and labels, UUIDs, chart compatibility, decimal and `Long` syntax, currency, series and point uniqueness, nonnegative pie/donut values, and payload cardinality. The chart-ready artifact is persisted in the append-only event log before it is streamed, so the same chart survives history reload without rerunning the model or financial query.
 
 The tool set excludes repositories, `DataSource`, SQL, arbitrary HTTP, filesystem, shell, settings mutation, transaction mutation, and unrestricted history export. Tool output is bounded by date span, rows, buckets, and payload size. The orchestration loop also limits prompt length, output tokens, tool calls, and elapsed time.
 
@@ -172,7 +184,7 @@ The UI must distinguish:
 - Interrupted but retryable turn.
 - Temporarily unavailable gateway or model.
 
-Assistant Markdown rendering must not allow raw HTML and must sanitize or constrain links. Tool arguments, raw tool results, gateway identifiers, and hidden reasoning are not rendered as conversation messages. User-visible tool activity can use safe summaries such as “Reviewing expense totals.”
+Assistant Markdown rendering must not allow raw HTML and must sanitize or constrain links. Tool arguments, raw tool results, gateway identifiers, and hidden reasoning are not rendered as conversation messages. Running tools and model-wait phases render consistently as pulsing in-progress activities. Renalo emits safe phase labels such as “Thinking” and “Reviewing results” between tool batches; these labels are application state, not model-generated summaries of hidden reasoning. The browser collapses contiguous tool calls into one safe activity summary and counts repeated labels; assistant text or a chart closes that group so later calls appear at the correct point in the response. Conversation history projects persisted function calls into the same ordered content, chart, and Renalo-owned activity items, while discarding raw tool names, arguments, and results. Validated chart artifacts render as structured feed content with an exact accessible data table rather than model-authored HTML.
 
 ## Security and Privacy
 

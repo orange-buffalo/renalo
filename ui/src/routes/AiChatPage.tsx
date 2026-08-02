@@ -19,6 +19,7 @@ import {
 import type {
   AiChatChart,
   AiChatConversation,
+  AiChatHistoryItem,
   AiChatStreamEvent,
   AiChatToolActivity,
 } from "@/api/aiChat";
@@ -48,9 +49,15 @@ type ChatMessage = {
   author: "You" | "Renalo";
   content: string;
   charts?: AiChatChart[];
-  toolActivities?: AiChatToolActivity[];
+  streamItems?: AssistantStreamItem[];
   isStreaming?: boolean;
+  thinkingLabel?: string;
 };
+
+type AssistantStreamItem =
+  | { type: "content"; id: string; content: string }
+  | { type: "chart"; chart: AiChatChart }
+  | { type: "tools"; id: string; activities: AiChatToolActivity[] };
 
 type Conversation = {
   clientId: string;
@@ -211,6 +218,10 @@ export function AiChatPage() {
               author: message.role === "USER" ? "You" : "Renalo",
               content: message.content,
               charts: message.charts,
+              streamItems:
+                message.role === "ASSISTANT"
+                  ? historyAssistantItems(message.items)
+                  : undefined,
             })),
             historyStatus: "AVAILABLE",
           };
@@ -260,8 +271,9 @@ export function AiChatPage() {
       author: "Renalo",
       content: "",
       charts: [],
-      toolActivities: [],
+      streamItems: [],
       isStreaming: true,
+      thinkingLabel: "Thinking",
     };
     setNextMessageId((current) => current + 2);
     setConversations((current) =>
@@ -718,9 +730,7 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
   const isThinking =
     message.author === "Renalo" &&
     message.isStreaming &&
-    !message.content &&
-    !message.charts?.length &&
-    !message.toolActivities?.length;
+    Boolean(message.thinkingLabel);
 
   return (
     <article
@@ -728,51 +738,29 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
       data-chat-author={message.author}
     >
       <div className="ai-chat-message-body">
-        {message.author === "Renalo" &&
-          message.toolActivities?.map((activity) => (
-            <div
-              className="ai-chat-tool-activity"
-              data-tool-status={activity.status}
-              key={activity.id}
-            >
-              <span className="ai-chat-tool-activity-dot" aria-hidden="true" />
-              {activity.label}
-              {activity.status === "CANCELLED" && (
-                <span className="ai-chat-tool-activity-status">· Stopped</span>
-              )}
-            </div>
-          ))}
         <div className="ai-chat-message-content">
-          {isThinking ? (
-            <div
-              className="ai-chat-thinking"
-              role="status"
-              aria-label="Thinking..."
-            >
-              <span>Thinking</span>
-              <span className="ai-chat-thinking-dots" aria-hidden="true">
-                <span>.</span>
-                <span>.</span>
-                <span>.</span>
-              </span>
-            </div>
-          ) : message.author === "Renalo" ? (
+          {message.author === "Renalo" ? (
             <>
-              {message.charts?.map((chart) => (
-                <AiChatChartView chart={chart} key={chart.id} />
+              {assistantItems(message).map((item) => (
+                <AssistantStreamItemView
+                  item={item}
+                  isStreaming={message.isStreaming}
+                  key={assistantItemKey(item)}
+                />
               ))}
-              {message.content && (
-                <Suspense
-                  fallback={
-                    <div className="ai-chat-markdown-loading">
-                      Formatting response...
-                    </div>
-                  }
+              {isThinking && (
+                <div
+                  className="ai-chat-tool-activity"
+                  data-tool-status="IN_PROGRESS"
+                  role="status"
+                  aria-label={`${message.thinkingLabel}...`}
                 >
-                  <AiMarkdown isStreaming={message.isStreaming}>
-                    {message.content}
-                  </AiMarkdown>
-                </Suspense>
+                  <span
+                    className="ai-chat-tool-activity-dot"
+                    aria-hidden="true"
+                  />
+                  {message.thinkingLabel}
+                </div>
               )}
             </>
           ) : (
@@ -782,6 +770,110 @@ function ChatMessageView({ message }: { message: ChatMessage }) {
       </div>
     </article>
   );
+}
+
+function AssistantStreamItemView({
+  item,
+  isStreaming,
+}: {
+  item: AssistantStreamItem;
+  isStreaming?: boolean;
+}) {
+  if (item.type === "chart") {
+    return <AiChatChartView chart={item.chart} />;
+  }
+  if (item.type === "tools") {
+    const summary = summarizeToolActivities(item.activities);
+    return (
+      <div className="ai-chat-tool-activity" data-tool-status={summary.status}>
+        <span className="ai-chat-tool-activity-dot" aria-hidden="true" />
+        {summary.label}
+        {summary.status === "CANCELLED" && (
+          <span className="ai-chat-tool-activity-status">· Stopped</span>
+        )}
+      </div>
+    );
+  }
+  return (
+    <Suspense
+      fallback={
+        <div className="ai-chat-markdown-loading">Formatting response...</div>
+      }
+    >
+      <AiMarkdown isStreaming={isStreaming}>{item.content}</AiMarkdown>
+    </Suspense>
+  );
+}
+
+function assistantItems(message: ChatMessage): AssistantStreamItem[] {
+  if (message.streamItems) {
+    return message.streamItems;
+  }
+  return [
+    ...(message.charts ?? []).map((chart) => ({
+      type: "chart" as const,
+      chart,
+    })),
+    ...(message.content
+      ? [
+          {
+            type: "content" as const,
+            id: "history-content",
+            content: message.content,
+          },
+        ]
+      : []),
+  ];
+}
+
+function historyAssistantItems(
+  items: AiChatHistoryItem[],
+): AssistantStreamItem[] {
+  let result: AssistantStreamItem[] = [];
+  items.forEach((item, index) => {
+    if (item.type === "CONTENT") {
+      result.push({
+        type: "content",
+        id: `history-content-${index}`,
+        content: item.content,
+      });
+      return;
+    }
+    if (item.type === "CHART") {
+      result.push({ type: "chart", chart: item.chart });
+      return;
+    }
+    result = appendToolActivity(result, {
+      id: `history-tool-${index}`,
+      label: item.label,
+      status: "COMPLETED",
+    });
+  });
+  return result;
+}
+
+function assistantItemKey(item: AssistantStreamItem) {
+  return item.type === "chart" ? `chart-${item.chart.id}` : item.id;
+}
+
+function summarizeToolActivities(activities: AiChatToolActivity[]) {
+  const counts = new Map<string, number>();
+  for (const activity of activities) {
+    counts.set(activity.label, (counts.get(activity.label) ?? 0) + 1);
+  }
+  const label = [...counts]
+    .map(([activityLabel, count]) =>
+      count > 1 ? `${activityLabel} (${count})` : activityLabel,
+    )
+    .join(", ");
+  const status = activities.some(
+    (activity) => activity.status === "IN_PROGRESS",
+  )
+    ? "IN_PROGRESS"
+    : activities.some((activity) => activity.status === "CANCELLED")
+      ? "CANCELLED"
+      : "COMPLETED";
+  return { label, status };
 }
 
 function createDraftConversation(clientId: string): Conversation {
@@ -822,33 +914,61 @@ function applyEventToMessage(
 ): ChatMessage {
   switch (event.type) {
     case "assistant.delta":
-      return { ...message, content: message.content + event.text };
+      return {
+        ...message,
+        content: message.content + event.text,
+        streamItems: appendAssistantContent(
+          message.streamItems,
+          event.text,
+          event.seq,
+        ),
+        thinkingLabel: undefined,
+      };
     case "assistant.chart":
-      return { ...message, charts: [...(message.charts ?? []), event.chart] };
+      return {
+        ...message,
+        charts: [...(message.charts ?? []), event.chart],
+        streamItems: [
+          ...(message.streamItems ?? []),
+          { type: "chart", chart: event.chart },
+        ],
+        thinkingLabel: undefined,
+      };
+    case "assistant.thinking":
+      return { ...message, thinkingLabel: event.label };
     case "tool.started":
       return {
         ...message,
-        toolActivities: [
-          ...(message.toolActivities ?? []),
-          {
-            id: event.activityId,
-            label: event.label,
-            status: "IN_PROGRESS",
-          },
-        ],
+        thinkingLabel: undefined,
+        streamItems: appendToolActivity(message.streamItems, {
+          id: event.activityId,
+          label: event.label,
+          status: "IN_PROGRESS",
+        }),
       };
     case "tool.completed":
       return {
         ...message,
-        toolActivities: (message.toolActivities ?? []).map((activity) =>
-          activity.id === event.activityId
-            ? { ...activity, label: event.label, status: event.status }
-            : activity,
+        streamItems: message.streamItems?.map((item) =>
+          item.type === "tools"
+            ? {
+                ...item,
+                activities: item.activities.map((activity) =>
+                  activity.id === event.activityId
+                    ? {
+                        ...activity,
+                        label: event.label,
+                        status: event.status,
+                      }
+                    : activity,
+                ),
+              }
+            : item,
         ),
       };
     case "turn.completed":
     case "turn.error":
-      return { ...message, isStreaming: false };
+      return { ...message, isStreaming: false, thinkingLabel: undefined };
     case "conversation.created":
     case "conversation.updated":
     case "turn.started":
@@ -872,7 +992,7 @@ function finishStreamingMessage(
       message &&
       !message.content &&
       !message.charts?.length &&
-      !message.toolActivities?.length
+      !message.streamItems?.length
     ) {
       return {
         ...conversation,
@@ -886,16 +1006,58 @@ function finishStreamingMessage(
           ? {
               ...item,
               isStreaming: false,
-              toolActivities: item.toolActivities?.map((activity) =>
-                activity.status === "IN_PROGRESS"
-                  ? { ...activity, status: "CANCELLED" as const }
-                  : activity,
+              thinkingLabel: undefined,
+              streamItems: item.streamItems?.map((streamItem) =>
+                streamItem.type === "tools"
+                  ? {
+                      ...streamItem,
+                      activities: streamItem.activities.map((activity) =>
+                        activity.status === "IN_PROGRESS"
+                          ? { ...activity, status: "CANCELLED" as const }
+                          : activity,
+                      ),
+                    }
+                  : streamItem,
               ),
             }
           : item,
       ),
     };
   });
+}
+
+function appendAssistantContent(
+  items: AssistantStreamItem[] | undefined,
+  text: string,
+  sequence: number,
+): AssistantStreamItem[] {
+  const current = items ?? [];
+  const last = current.at(-1);
+  if (last?.type === "content") {
+    return [...current.slice(0, -1), { ...last, content: last.content + text }];
+  }
+  return [
+    ...current,
+    { type: "content", id: `content-${sequence}`, content: text },
+  ];
+}
+
+function appendToolActivity(
+  items: AssistantStreamItem[] | undefined,
+  activity: AiChatToolActivity,
+): AssistantStreamItem[] {
+  const current = items ?? [];
+  const last = current.at(-1);
+  if (last?.type === "tools") {
+    return [
+      ...current.slice(0, -1),
+      { ...last, activities: [...last.activities, activity] },
+    ];
+  }
+  return [
+    ...current,
+    { type: "tools", id: `tools-${activity.id}`, activities: [activity] },
+  ];
 }
 
 function isAbortError(error: unknown) {

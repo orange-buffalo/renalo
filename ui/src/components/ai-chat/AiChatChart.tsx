@@ -1,13 +1,20 @@
 import { useId } from "react";
 import type { TooltipContentProps } from "recharts";
 import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Line,
   LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -27,78 +34,209 @@ export function AiChatChart({ chart }: { chart: AiChatChartData }) {
     >
       <header className="ai-chat-chart-header">
         <h3 id={titleId}>{chart.title}</h3>
-        <p>Values in {chart.currency}</p>
+        <p>
+          {chart.yAxis.label}
+          {chart.yAxis.currency ? ` in ${chart.yAxis.currency}` : ""}
+        </p>
       </header>
-      {chart.kind === "LINE" ? (
-        <LineChartView chart={chart} />
-      ) : (
+      {chart.kind === "PIE" || chart.kind === "DONUT" ? (
         <SliceChartView chart={chart} />
+      ) : chart.kind === "SCATTER" ? (
+        <ScatterChartView chart={chart} />
+      ) : (
+        <CartesianChartView chart={chart} />
       )}
       <ChartDataTable chart={chart} />
     </section>
   );
 }
 
-function LineChartView({ chart }: { chart: AiChatChartData }) {
-  const series = chart.series[0];
-  const points = (series?.points ?? []).map((point) => ({
-    ...point,
-    value: Number(BigInt(point.amountMinor)),
-  }));
-  return (
-    <div className="ai-chat-chart-canvas" data-testid="ai-chat-line-chart">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={points}
-          margin={{ top: 8, right: 12, bottom: 4, left: 0 }}
-        >
-          <CartesianGrid
-            vertical={false}
-            stroke="var(--border-color-secondary)"
+function CartesianChartView({ chart }: { chart: AiChatChartData }) {
+  const data = cartesianData(chart);
+  const isHorizontal =
+    chart.kind === "BAR" && chart.orientation === "HORIZONTAL";
+  const common = (
+    <>
+      <CartesianGrid
+        vertical={isHorizontal}
+        horizontal={!isHorizontal}
+        stroke="var(--border-color-secondary)"
+      />
+      {isHorizontal ? (
+        <>
+          <XAxis type="number" hide />
+          <YAxis
+            dataKey="x"
+            type="category"
+            tickLine={false}
+            axisLine={false}
+            width={80}
           />
+        </>
+      ) : (
+        <>
           <XAxis
-            dataKey="label"
+            dataKey="x"
             tickLine={false}
             axisLine={false}
             minTickGap={28}
-            tickFormatter={formatDateLabel}
+            tickFormatter={(value) => formatXValue(String(value), chart)}
           />
           <YAxis hide domain={["auto", "auto"]} />
-          <Tooltip content={<ChartTooltip currency={chart.currency} />} />
-          <Line
-            type="monotone"
-            dataKey="value"
-            name={series?.name ?? chart.title}
-            stroke="#626da5"
-            strokeWidth={2.5}
-            dot={{ r: 2.5, fill: "#626da5" }}
-            activeDot={{ r: 5 }}
-            isAnimationActive={false}
-          />
-        </LineChart>
+        </>
+      )}
+      <Tooltip content={<ChartTooltip chart={chart} />} />
+      {chart.series.length > 1 && <Legend />}
+    </>
+  );
+  const series = chart.series.map((item, index) => {
+    const color =
+      transactionCategoryColors[index % transactionCategoryColors.length];
+    const dataKey = `series-${index}`;
+    if (chart.kind === "AREA") {
+      return (
+        <Area
+          key={item.name}
+          type="monotone"
+          dataKey={dataKey}
+          name={item.name}
+          stroke={color}
+          fill={color}
+          fillOpacity={0.18}
+          strokeWidth={2.5}
+          stackId={chart.stacked ? "chart" : undefined}
+          isAnimationActive={false}
+        />
+      );
+    }
+    if (chart.kind === "BAR") {
+      return (
+        <Bar
+          key={item.name}
+          dataKey={dataKey}
+          name={item.name}
+          fill={color}
+          radius={chart.stacked ? 0 : 3}
+          stackId={chart.stacked ? "chart" : undefined}
+          isAnimationActive={false}
+        />
+      );
+    }
+    return (
+      <Line
+        key={item.name}
+        type="monotone"
+        dataKey={dataKey}
+        name={item.name}
+        stroke={color}
+        strokeWidth={2.5}
+        dot={{ r: 2.5, fill: color }}
+        activeDot={{ r: 5 }}
+        isAnimationActive={false}
+      />
+    );
+  });
+
+  return (
+    <div
+      className="ai-chat-chart-canvas"
+      data-testid={`ai-chat-${chart.kind.toLowerCase()}-chart`}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        {chart.kind === "AREA" ? (
+          <AreaChart
+            data={data}
+            margin={{ top: 8, right: 12, bottom: 4, left: 0 }}
+          >
+            {common}
+            {series}
+          </AreaChart>
+        ) : chart.kind === "BAR" ? (
+          <BarChart
+            data={data}
+            layout={isHorizontal ? "vertical" : "horizontal"}
+            margin={{
+              top: 8,
+              right: 12,
+              bottom: 4,
+              left: isHorizontal ? 12 : 0,
+            }}
+          >
+            {common}
+            {series}
+          </BarChart>
+        ) : (
+          <LineChart
+            data={data}
+            margin={{ top: 8, right: 12, bottom: 4, left: 0 }}
+          >
+            {common}
+            {series}
+          </LineChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ScatterChartView({ chart }: { chart: AiChatChartData }) {
+  return (
+    <div className="ai-chat-chart-canvas" data-testid="ai-chat-scatter-chart">
+      <ResponsiveContainer width="100%" height="100%">
+        <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+          <CartesianGrid stroke="var(--border-color-secondary)" />
+          <XAxis type="number" dataKey="xValue" name={chart.xAxis.label} />
+          <YAxis type="number" dataKey="yValue" name={chart.yAxis.label} hide />
+          <Tooltip content={<ChartTooltip chart={chart} />} />
+          {chart.series.length > 1 && <Legend />}
+          {chart.series.map((series, index) => (
+            <Scatter
+              key={series.name}
+              name={series.name}
+              fill={
+                transactionCategoryColors[
+                  index % transactionCategoryColors.length
+                ]
+              }
+              data={series.points.map((point) => ({
+                xValue: Number(point.x),
+                yValue: Number(point.y),
+                x: point.x,
+                exactValue: point.y,
+                series: series.name,
+              }))}
+              isAnimationActive={false}
+            />
+          ))}
+        </ScatterChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
 function SliceChartView({ chart }: { chart: AiChatChartData }) {
-  const segments = chart.segments.map((segment) => ({
-    ...segment,
-    value: Number(BigInt(segment.amountMinor)),
+  const points = chart.series[0]?.points ?? [];
+  const segments = points.map((point) => ({
+    ...point,
+    value: Number(point.y),
+    exactValue: point.y,
   }));
-  const total = chart.segments.reduce(
-    (sum, segment) => sum + BigInt(segment.amountMinor),
-    0n,
-  );
+  const moneyTotal =
+    chart.yAxis.type === "MONEY_MINOR"
+      ? points.reduce((sum, point) => sum + BigInt(point.y), 0n).toString()
+      : undefined;
   return (
     <div className="ai-chat-slice-chart">
-      <div className="ai-chat-chart-canvas ai-chat-chart-canvas--slice">
+      <div
+        className="ai-chat-chart-canvas ai-chat-chart-canvas--slice"
+        data-testid={`ai-chat-${chart.kind.toLowerCase()}-chart`}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={segments}
               dataKey="value"
-              nameKey="label"
+              nameKey="x"
               innerRadius={chart.kind === "DONUT" ? "58%" : 0}
               outerRadius="91%"
               paddingAngle={1.5}
@@ -108,7 +246,7 @@ function SliceChartView({ chart }: { chart: AiChatChartData }) {
             >
               {segments.map((segment, index) => (
                 <Cell
-                  key={segment.label}
+                  key={segment.x}
                   fill={
                     transactionCategoryColors[
                       index % transactionCategoryColors.length
@@ -117,18 +255,18 @@ function SliceChartView({ chart }: { chart: AiChatChartData }) {
                 />
               ))}
             </Pie>
-            <Tooltip content={<ChartTooltip currency={chart.currency} />} />
+            <Tooltip content={<ChartTooltip chart={chart} />} />
           </PieChart>
         </ResponsiveContainer>
-        {chart.kind === "DONUT" && (
+        {chart.kind === "DONUT" && moneyTotal && (
           <strong className="ai-chat-chart-total">
-            {formatMoneyFromMinorUnits(total.toString(), chart.currency)}
+            {formatChartValue(moneyTotal, chart)}
           </strong>
         )}
       </div>
       <ul className="ai-chat-chart-legend" aria-label={`${chart.title} legend`}>
-        {chart.segments.map((segment, index) => (
-          <li className="ai-chat-chart-legend-item" key={segment.label}>
+        {points.map((point, index) => (
+          <li className="ai-chat-chart-legend-item" key={point.x}>
             <span
               aria-hidden="true"
               style={{
@@ -138,10 +276,8 @@ function SliceChartView({ chart }: { chart: AiChatChartData }) {
                   ],
               }}
             />
-            <strong>{segment.label}</strong>
-            <small>
-              {formatMoneyFromMinorUnits(segment.amountMinor, chart.currency)}
-            </small>
+            <strong>{formatXValue(point.x, chart)}</strong>
+            <small>{formatChartValue(point.y, chart)}</small>
           </li>
         ))}
       </ul>
@@ -153,63 +289,104 @@ function ChartTooltip({
   active,
   payload,
   label,
-  currency,
-}: TooltipContentProps<number, string> & { currency: string }) {
-  const point = payload?.[0]?.payload as
-    | { label?: string; amountMinor?: string }
+  chart,
+}: TooltipContentProps<number, string> & { chart: AiChatChartData }) {
+  if (!active || !payload?.length) return null;
+  const source = payload[0]?.payload as
+    | {
+        x?: string;
+        exactValue?: string;
+        exactValues?: Record<string, string>;
+      }
     | undefined;
-  if (!active || !point?.amountMinor) return null;
+  const items = payload.flatMap((item) => {
+    const dataKey = String(item.dataKey ?? "");
+    const exactValue = source?.exactValue ?? source?.exactValues?.[dataKey];
+    return exactValue
+      ? [{ name: String(item.name ?? chart.yAxis.label), value: exactValue }]
+      : [];
+  });
+  if (!source || items.length === 0) return null;
   return (
     <div className="transaction-chart-tooltip">
-      <p>{point.label ?? String(label ?? "")}</p>
-      <strong>{formatMoneyFromMinorUnits(point.amountMinor, currency)}</strong>
+      <p>{formatXValue(source.x ?? String(label ?? ""), chart)}</p>
+      {items.map((item) => (
+        <strong key={item.name}>
+          {items.length > 1 ? `${item.name}: ` : ""}
+          {formatChartValue(item.value, chart)}
+        </strong>
+      ))}
     </div>
   );
 }
 
 function ChartDataTable({ chart }: { chart: AiChatChartData }) {
-  const rows =
-    chart.kind === "LINE"
-      ? chart.series.flatMap((series) =>
-          series.points.map((point) => ({
-            label: point.label,
-            series: series.name,
-            amountMinor: point.amountMinor,
-          })),
-        )
-      : chart.segments.map((segment) => ({
-          label: segment.label,
-          series: chart.kind === "PIE" ? "Pie segment" : "Donut segment",
-          amountMinor: segment.amountMinor,
-        }));
   return (
     <table className="sr-only" data-testid="ai-chat-chart-data">
       <caption>{chart.title}</caption>
       <thead>
         <tr>
           <th>Series</th>
-          <th>Label</th>
-          <th>Value</th>
+          <th>{chart.xAxis.label}</th>
+          <th>{chart.yAxis.label}</th>
         </tr>
       </thead>
       <tbody>
-        {rows.map((row) => (
-          <tr key={`${row.series}-${row.label}`}>
-            <td>{row.series}</td>
-            <td>{row.label}</td>
-            <td>
-              {formatMoneyFromMinorUnits(row.amountMinor, chart.currency)}
-            </td>
-          </tr>
-        ))}
+        {chart.series.flatMap((series) =>
+          series.points.map((point) => (
+            <tr key={`${series.name}-${point.x}`}>
+              <td>{series.name}</td>
+              <td>{point.x}</td>
+              <td>{formatChartValue(point.y, chart)}</td>
+            </tr>
+          )),
+        )}
       </tbody>
     </table>
   );
 }
 
-function formatDateLabel(value: string) {
+function cartesianData(chart: AiChatChartData) {
+  const rows = new Map<
+    string,
+    {
+      x: string;
+      exactValues: Record<string, string>;
+      [key: string]: string | number | Record<string, string>;
+    }
+  >();
+  chart.series.forEach((series, seriesIndex) => {
+    series.points.forEach((point) => {
+      const row = rows.get(point.x) ?? { x: point.x, exactValues: {} };
+      const dataKey = `series-${seriesIndex}`;
+      row[dataKey] = Number(point.y);
+      row.exactValues[dataKey] = point.y;
+      rows.set(point.x, row);
+    });
+  });
+  return [...rows.values()];
+}
+
+function formatChartValue(value: string, chart: AiChatChartData) {
+  return chart.yAxis.type === "MONEY_MINOR"
+    ? formatMoneyFromMinorUnits(value, chart.yAxis.currency ?? "USD")
+    : formatDecimal(value);
+}
+
+function formatXValue(value: string, chart: AiChatChartData) {
+  if (chart.xAxis.type !== "DATE") return value;
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    : date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+}
+
+function formatDecimal(value: string) {
+  const [integer, fraction] = value.split(".");
+  const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fraction ? `${formattedInteger}.${fraction}` : formattedInteger;
 }

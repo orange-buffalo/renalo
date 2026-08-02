@@ -214,7 +214,28 @@ data class AiChatHistoryMessageResponse(
     val content: String,
     @field:JsonInclude(JsonInclude.Include.ALWAYS)
     val charts: List<AiChatChartResponse> = emptyList(),
+    @field:JsonInclude(JsonInclude.Include.ALWAYS)
+    val items: List<AiChatHistoryItemResponse> = emptyList(),
 )
+
+sealed interface AiChatHistoryItemResponse {
+    val type: String
+}
+
+data class AiChatHistoryContentResponse(
+    val content: String,
+    override val type: String = "CONTENT",
+) : AiChatHistoryItemResponse
+
+data class AiChatHistoryChartResponse(
+    val chart: AiChatChartResponse,
+    override val type: String = "CHART",
+) : AiChatHistoryItemResponse
+
+data class AiChatHistoryToolActivityResponse(
+    val label: String,
+    override val type: String = "TOOL_ACTIVITY",
+) : AiChatHistoryItemResponse
 
 enum class AiChatHistoryMessageRole {
     USER,
@@ -277,6 +298,12 @@ data class AiChatAssistantChart(
     override val seq: Int,
     val chart: AiChatChartResponse,
     override val type: String = "assistant.chart",
+) : AiChatStreamEvent
+
+data class AiChatAssistantThinking(
+    override val seq: Int,
+    val label: String,
+    override val type: String = "assistant.thinking",
 ) : AiChatStreamEvent
 
 data class AiChatTurnCompleted(

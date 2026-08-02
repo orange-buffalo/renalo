@@ -64,7 +64,7 @@ class AiChatModelFactory {
         const val CHAT_MODEL_NAME = "aiChatModel"
         const val TITLE_MODEL_NAME = "aiChatTitleModel"
         private val CONNECT_TIMEOUT = Duration.ofSeconds(5)
-        private val CHAT_READ_TIMEOUT = Duration.ofSeconds(90)
+        private val CHAT_READ_TIMEOUT = Duration.ofMinutes(3)
         private val TITLE_READ_TIMEOUT = Duration.ofSeconds(20)
     }
 }

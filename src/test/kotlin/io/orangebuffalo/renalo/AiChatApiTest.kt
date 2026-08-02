@@ -72,18 +72,19 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"v":1,"seq":3,"type":"turn.started"}""",
             """{"v":1,"seq":4,"type":"tool.started","activityId":"call_category_totals","label":"Calculating category totals"}""",
             """{"v":1,"seq":5,"type":"tool.completed","activityId":"call_category_totals","label":"Calculated category totals","status":"COMPLETED"}""",
-            """{"v":1,"seq":6,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
-            """{"v":1,"seq":7,"type":"assistant.delta","text":"You asked: **How was this month?**\n\n"}""",
-            """{"v":1,"seq":8,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
-            """{"v":1,"seq":9,"type":"assistant.delta","text":"| Category | Amount | Share |\n| --- | ---: | ---: |\n"}""",
-            """{"v":1,"seq":10,"type":"assistant.delta","text":"| Groceries | ${'$'}428.30 | 42% |\n"}""",
-            """{"v":1,"seq":11,"type":"assistant.delta","text":"| Transport | ${'$'}186.75 | 18% |\n"}""",
-            """{"v":1,"seq":12,"type":"assistant.delta","text":"| Dining out | ${'$'}142.10 | 14% |\n\n"}""",
-            """{"v":1,"seq":13,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
-            """{"v":1,"seq":14,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
-            """{"v":1,"seq":15,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
-            """{"v":1,"seq":16,"type":"assistant.delta","text":"> This response was generated from Renalo's read-only financial tools."}""",
-            """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
+            """{"v":1,"seq":6,"type":"assistant.thinking","label":"Reviewing results"}""",
+            """{"v":1,"seq":7,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
+            """{"v":1,"seq":8,"type":"assistant.delta","text":"You asked: **How was this month?**\n\n"}""",
+            """{"v":1,"seq":9,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
+            """{"v":1,"seq":10,"type":"assistant.delta","text":"| Category | Amount | Share |\n| --- | ---: | ---: |\n"}""",
+            """{"v":1,"seq":11,"type":"assistant.delta","text":"| Groceries | ${'$'}428.30 | 42% |\n"}""",
+            """{"v":1,"seq":12,"type":"assistant.delta","text":"| Transport | ${'$'}186.75 | 18% |\n"}""",
+            """{"v":1,"seq":13,"type":"assistant.delta","text":"| Dining out | ${'$'}142.10 | 14% |\n\n"}""",
+            """{"v":1,"seq":14,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
+            """{"v":1,"seq":15,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
+            """{"v":1,"seq":16,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
+            """{"v":1,"seq":17,"type":"assistant.delta","text":"> This response was generated from Renalo's read-only financial tools."}""",
+            """{"v":1,"seq":18,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
         )
         actualEvents.shouldHaveSize(expectedEvents.size)
         actualEvents.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
@@ -124,7 +125,7 @@ class AiChatApiTest : IntegrationTestSupport() {
         response.statusCode().shouldBe(200)
         val events = response.body().lineSequence().filter(String::isNotBlank).toList()
         val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
-        val chartId = objectMapper.readTree(events[7]).path("chart").path("id").asText()
+        val chartId = objectMapper.readTree(events[8]).path("chart").path("id").asText()
         events.map { objectMapper.readTree(it).path("type").asText() }.shouldBe(
             listOf(
                 "conversation.created",
@@ -132,9 +133,11 @@ class AiChatApiTest : IntegrationTestSupport() {
                 "turn.started",
                 "tool.started",
                 "tool.completed",
+                "assistant.thinking",
                 "tool.started",
                 "tool.completed",
                 "assistant.chart",
+                "assistant.thinking",
                 "assistant.delta",
                 "assistant.delta",
                 "assistant.delta",
@@ -149,19 +152,21 @@ class AiChatApiTest : IntegrationTestSupport() {
                 "turn.completed",
             ),
         )
-        events[7].shouldEqualJson(
+        events[8].shouldEqualJson(
             """
                 {
                   "v":1,
-                  "seq":8,
+                  "seq":9,
                   "type":"assistant.chart",
                   "chart":{
                     "id":"$chartId",
                     "kind":"DONUT",
                     "title":"Expenses by category",
-                    "currency":"AUD",
-                    "series":[],
-                    "segments":[{"label":"Groceries","amountMinor":"2345"}]
+                    "xAxis":{"label":"Category","type":"CATEGORY"},
+                    "yAxis":{"label":"Expenses","type":"MONEY_MINOR","currency":"AUD"},
+                    "stacked":false,
+                    "orientation":"VERTICAL",
+                    "series":[{"name":"Expenses","points":[{"x":"Groceries","y":"2345"}]}]
                   }
                 }
             """.trimIndent(),
@@ -172,7 +177,7 @@ class AiChatApiTest : IntegrationTestSupport() {
                 {
                   "status":"AVAILABLE",
                   "messages":[
-                    {"role":"USER","content":"Show a chart of spending","charts":[]},
+                    {"role":"USER","content":"Show a chart of spending","charts":[],"items":[]},
                     {
                       "role":"ASSISTANT",
                       "content":"## Spending snapshot\n\nYou asked: **Show a chart of spending**\n\nHere is an example of how an AI-generated answer could present your results:\n\n| Category | Amount | Share |\n| --- | ---: | ---: |\n| Groceries | ${'$'}428.30 | 42% |\n| Transport | ${'$'}186.75 | 18% |\n| Dining out | ${'$'}142.10 | 14% |\n\n- **Groceries** were the largest expense category.\n- Dining out was lower than groceries by `${'$'}286.20`.\n- The remaining categories accounted for 26% of the sample total.\n\n> This response was generated from Renalo's read-only financial tools.",
@@ -180,10 +185,27 @@ class AiChatApiTest : IntegrationTestSupport() {
                         "id":"$chartId",
                         "kind":"DONUT",
                         "title":"Expenses by category",
-                        "currency":"AUD",
-                        "series":[],
-                        "segments":[{"label":"Groceries","amountMinor":"2345"}]
-                      }]
+                        "xAxis":{"label":"Category","type":"CATEGORY"},
+                        "yAxis":{"label":"Expenses","type":"MONEY_MINOR","currency":"AUD"},
+                        "stacked":false,
+                        "orientation":"VERTICAL",
+                        "series":[{"name":"Expenses","points":[{"x":"Groceries","y":"2345"}]}]
+                      }],
+                      "items":[
+                        {"type":"TOOL_ACTIVITY","label":"Calculated category totals"},
+                        {"type":"TOOL_ACTIVITY","label":"Prepared chart"},
+                        {"type":"CHART","chart":{
+                          "id":"$chartId",
+                          "kind":"DONUT",
+                          "title":"Expenses by category",
+                          "xAxis":{"label":"Category","type":"CATEGORY"},
+                          "yAxis":{"label":"Expenses","type":"MONEY_MINOR","currency":"AUD"},
+                          "stacked":false,
+                          "orientation":"VERTICAL",
+                          "series":[{"name":"Expenses","points":[{"x":"Groceries","y":"2345"}]}]
+                        }},
+                        {"type":"CONTENT","content":"## Spending snapshot\n\nYou asked: **Show a chart of spending**\n\nHere is an example of how an AI-generated answer could present your results:\n\n| Category | Amount | Share |\n| --- | ---: | ---: |\n| Groceries | ${'$'}428.30 | 42% |\n| Transport | ${'$'}186.75 | 18% |\n| Dining out | ${'$'}142.10 | 14% |\n\n- **Groceries** were the largest expense category.\n- Dining out was lower than groceries by `${'$'}286.20`.\n- The remaining categories accounted for 26% of the sample total.\n\n> This response was generated from Renalo's read-only financial tools."}
+                      ]
                     }
                   ]
                 }
@@ -211,18 +233,19 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"v":1,"seq":3,"type":"turn.started"}""",
             """{"v":1,"seq":4,"type":"tool.started","activityId":"call_category_totals","label":"Calculating category totals"}""",
             """{"v":1,"seq":5,"type":"tool.completed","activityId":"call_category_totals","label":"Calculated category totals","status":"COMPLETED"}""",
-            """{"v":1,"seq":6,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
-            """{"v":1,"seq":7,"type":"assistant.delta","text":"You asked: **Please fail title generation**\n\n"}""",
-            """{"v":1,"seq":8,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
-            """{"v":1,"seq":9,"type":"assistant.delta","text":"| Category | Amount | Share |\n| --- | ---: | ---: |\n"}""",
-            """{"v":1,"seq":10,"type":"assistant.delta","text":"| Groceries | ${'$'}428.30 | 42% |\n"}""",
-            """{"v":1,"seq":11,"type":"assistant.delta","text":"| Transport | ${'$'}186.75 | 18% |\n"}""",
-            """{"v":1,"seq":12,"type":"assistant.delta","text":"| Dining out | ${'$'}142.10 | 14% |\n\n"}""",
-            """{"v":1,"seq":13,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
-            """{"v":1,"seq":14,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
-            """{"v":1,"seq":15,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
-            """{"v":1,"seq":16,"type":"assistant.delta","text":"> This response was generated from Renalo's read-only financial tools."}""",
-            """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
+            """{"v":1,"seq":6,"type":"assistant.thinking","label":"Reviewing results"}""",
+            """{"v":1,"seq":7,"type":"assistant.delta","text":"## Spending snapshot\n\n"}""",
+            """{"v":1,"seq":8,"type":"assistant.delta","text":"You asked: **Please fail title generation**\n\n"}""",
+            """{"v":1,"seq":9,"type":"assistant.delta","text":"Here is an example of how an AI-generated answer could present your results:\n\n"}""",
+            """{"v":1,"seq":10,"type":"assistant.delta","text":"| Category | Amount | Share |\n| --- | ---: | ---: |\n"}""",
+            """{"v":1,"seq":11,"type":"assistant.delta","text":"| Groceries | ${'$'}428.30 | 42% |\n"}""",
+            """{"v":1,"seq":12,"type":"assistant.delta","text":"| Transport | ${'$'}186.75 | 18% |\n"}""",
+            """{"v":1,"seq":13,"type":"assistant.delta","text":"| Dining out | ${'$'}142.10 | 14% |\n\n"}""",
+            """{"v":1,"seq":14,"type":"assistant.delta","text":"- **Groceries** were the largest expense category.\n"}""",
+            """{"v":1,"seq":15,"type":"assistant.delta","text":"- Dining out was lower than groceries by `${'$'}286.20`.\n"}""",
+            """{"v":1,"seq":16,"type":"assistant.delta","text":"- The remaining categories accounted for 26% of the sample total.\n\n"}""",
+            """{"v":1,"seq":17,"type":"assistant.delta","text":"> This response was generated from Renalo's read-only financial tools."}""",
+            """{"v":1,"seq":18,"type":"turn.completed","conversation":${conversationJson(conversation)}}""",
         )
         events.shouldHaveSize(expectedEvents.size)
         events.zip(expectedEvents).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
@@ -256,6 +279,45 @@ class AiChatApiTest : IntegrationTestSupport() {
         )
         val conversation = conversationRepository.findByUserIdOrderByUpdatedAtDesc(user.id!!).single()
         conversation.modelAlias.shouldBe(null)
+    }
+
+    @Test
+    fun repairsInterruptedToolCallsBeforeContinuingAConversation() {
+        val user = saveUser("alice", UserType.USER)
+        val token = api().login("alice", "password")
+        val conversation = conversationRepository.save(
+            AiChatConversation(
+                userId = user.id!!,
+                title = "Interrupted chat",
+            ),
+        )
+        conversationEventService.appendItems(
+            user.id!!,
+            conversation.id!!,
+            listOf(
+                conversationEventService.userMessage("Original question"),
+                """{"type":"function_call","call_id":"call_interrupted","name":"get_account_balances","arguments":"{}"}""",
+            ),
+        )
+
+        val response = api().postJson(
+            "/api/ai-chat/messages",
+            """{"conversationId":${conversation.id},"content":"Continue interrupted chat"}""",
+            token,
+        )
+
+        response.statusCode().shouldBe(200)
+        objectMapper.readTree(response.body().lineSequence().filter(String::isNotBlank).last())
+            .path("type").asText().shouldBe("turn.completed")
+        val persistedItems = conversationEventService.loadItems(user.id!!, conversation.id!!)!!
+        persistedItems.take(4).zip(
+            listOf(
+                conversationEventService.userMessage("Original question"),
+                """{"type":"function_call","call_id":"call_interrupted","name":"get_account_balances","arguments":"{}"}""",
+                """{"type":"function_call_output","call_id":"call_interrupted","output":"{\"error\":\"The tool execution was interrupted before a result was available. Fetch fresh data if needed.\"}"}""",
+                conversationEventService.userMessage("Continue interrupted chat"),
+            ),
+        ).forEach { (actual, expected) -> actual.shouldEqualJson(expected) }
     }
 
     @Test
@@ -333,12 +395,19 @@ class AiChatApiTest : IntegrationTestSupport() {
                     {
                       "role": "USER",
                       "content": "What did we discuss in this chat?",
-                      "charts": []
+                      "charts": [],
+                      "items": []
                     },
                     {
                       "role": "ASSISTANT",
                       "content": "## Saved conversation\n\nThis history was loaded from Renalo's event log.",
-                      "charts": []
+                      "charts": [],
+                      "items": [
+                        {
+                          "type": "CONTENT",
+                          "content": "## Saved conversation\n\nThis history was loaded from Renalo's event log."
+                        }
+                      ]
                     }
                   ]
                 }
@@ -377,7 +446,7 @@ class AiChatApiTest : IntegrationTestSupport() {
             """{"v":1,"seq":1,"type":"conversation.updated","conversation":${conversationJson(firstAfter, updatedAt = acceptedAt)}}""",
         )
         events.last().shouldEqualJson(
-            """{"v":1,"seq":16,"type":"turn.completed","conversation":${conversationJson(firstAfter)}}""",
+            """{"v":1,"seq":17,"type":"turn.completed","conversation":${conversationJson(firstAfter)}}""",
         )
         (firstBefore.updatedAt!! < acceptedAt).shouldBe(true)
         (acceptedAt < firstAfter.updatedAt).shouldBe(true)

@@ -63,6 +63,9 @@ class TestAiChatTitleGeneratorFactory {
                 if (prompt.toLowerCase(Locale.ROOT).contains("fail model")) {
                     return Flux.error(new IllegalStateException("Simulated model failure"));
                 }
+                if (prompt.toLowerCase(Locale.ROOT).contains("continue interrupted")) {
+                    requireCompleteFunctionCalls(request.getConversationItems());
+                }
                 return Flux.just(new AiChatModelStepEvent.Completed(
                         responseId,
                         "renalo-chat",
@@ -83,18 +86,24 @@ class TestAiChatTitleGeneratorFactory {
                     .map(item -> item.path("content").path(0).path("text").asText())
                     .findFirst()
                     .orElse("your request");
+            if (prompt.toLowerCase(Locale.ROOT).contains("slow review")) {
+                try {
+                    Thread.sleep(750);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted while simulating result review", interruptedException);
+                }
+            }
             if (prompt.toLowerCase(Locale.ROOT).contains("chart")
-                    && request.getConversationItems().stream()
-                    .map(TestAiChatTitleGeneratorFactory::parseJson)
-                    .noneMatch(item -> item.path("type").asText().equals("function_call")
-                            && item.path("name").asText().equals("present_chart"))) {
-                var arguments = "{\"kind\":\"DONUT\",\"title\":\"Expenses by category\"}";
+                    && !currentTurnContainsFunctionCall(request.getConversationItems(), "present_chart")) {
+                var arguments = "{\"kind\":\"DONUT\",\"title\":\"Expenses by category\",\"xAxisLabel\":\"Category\",\"xAxisType\":\"CATEGORY\",\"yAxisLabel\":\"Expenses\",\"yAxisType\":\"MONEY_MINOR\",\"currency\":\"AUD\",\"stacked\":false,\"orientation\":\"VERTICAL\",\"series\":[{\"name\":\"Expenses\",\"points\":[{\"x\":\"Groceries\",\"y\":\"2345\"}]}]}";
+                var serializedArguments = arguments.replace("\\", "\\\\").replace("\"", "\\\"");
                 return Flux.just(new AiChatModelStepEvent.Completed(
                         responseId,
                         "renalo-chat",
                         List.of(new AiChatModelToolCall("call_chart", "present_chart", arguments)),
                         List.of(
-                                "{\"type\":\"function_call\",\"id\":\"fc_chart\",\"call_id\":\"call_chart\",\"name\":\"present_chart\",\"arguments\":\"{\\\"kind\\\":\\\"DONUT\\\",\\\"title\\\":\\\"Expenses by category\\\"}\",\"status\":\"completed\"}"
+                                "{\"type\":\"function_call\",\"id\":\"fc_chart\",\"call_id\":\"call_chart\",\"name\":\"present_chart\",\"arguments\":\"" + serializedArguments + "\",\"status\":\"completed\"}"
                         )
                 ));
             }
@@ -127,6 +136,35 @@ class TestAiChatTitleGeneratorFactory {
             return OBJECT_MAPPER.readTree(json);
         } catch (JsonProcessingException exception) {
             throw new IllegalArgumentException("Invalid AI chat test event", exception);
+        }
+    }
+
+    private static boolean currentTurnContainsFunctionCall(List<String> items, String functionName) {
+        for (var index = items.size() - 1; index >= 0; index--) {
+            var item = parseJson(items.get(index));
+            if (item.path("type").asText().equals("message") && item.path("role").asText().equals("user")) {
+                return false;
+            }
+            if (item.path("type").asText().equals("function_call")
+                    && item.path("name").asText().equals(functionName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void requireCompleteFunctionCalls(List<String> items) {
+        var pendingCallIds = new java.util.LinkedHashSet<String>();
+        for (var itemJson : items) {
+            var item = parseJson(itemJson);
+            if (item.path("type").asText().equals("function_call")) {
+                pendingCallIds.add(item.path("call_id").asText());
+            } else if (item.path("type").asText().equals("function_call_output")) {
+                pendingCallIds.remove(item.path("call_id").asText());
+            }
+        }
+        if (!pendingCallIds.isEmpty()) {
+            throw new IllegalStateException("Test model received function calls without outputs: " + pendingCallIds);
         }
     }
 }

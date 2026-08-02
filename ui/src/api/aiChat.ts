@@ -13,19 +13,34 @@ export type AiChatConversationHistory = {
     role: "USER" | "ASSISTANT";
     content: string;
     charts: AiChatChart[];
+    items: AiChatHistoryItem[];
   }>;
 };
 
+export type AiChatHistoryItem =
+  | { type: "CONTENT"; content: string }
+  | { type: "CHART"; chart: AiChatChart }
+  | { type: "TOOL_ACTIVITY"; label: string };
+
 export type AiChatChart = {
   id: string;
-  kind: "LINE" | "PIE" | "DONUT";
+  kind: "LINE" | "AREA" | "BAR" | "PIE" | "DONUT" | "SCATTER";
   title: string;
-  currency: string;
+  xAxis: {
+    label: string;
+    type: "CATEGORY" | "DATE" | "NUMBER";
+  };
+  yAxis: {
+    label: string;
+    type: "MONEY_MINOR" | "NUMBER";
+    currency?: string;
+  };
+  stacked: boolean;
+  orientation: "VERTICAL" | "HORIZONTAL";
   series: Array<{
     name: string;
-    points: Array<{ label: string; amountMinor: string }>;
+    points: Array<{ x: string; y: string }>;
   }>;
-  segments: Array<{ label: string; amountMinor: string }>;
 };
 
 export type AiChatToolActivity = {
@@ -65,6 +80,7 @@ export type AiChatStreamEvent =
     }
   | { v: 1; seq: number; type: "assistant.delta"; text: string }
   | { v: 1; seq: number; type: "assistant.chart"; chart: AiChatChart }
+  | { v: 1; seq: number; type: "assistant.thinking"; label: string }
   | {
       v: 1;
       seq: number;
@@ -190,6 +206,7 @@ const streamEventTypes = new Set([
   "tool.completed",
   "assistant.delta",
   "assistant.chart",
+  "assistant.thinking",
   "turn.completed",
   "turn.error",
 ]);

@@ -1,27 +1,63 @@
 package io.orangebuffalo.renalo.ai
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.inject.Singleton
+import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.Currency
 import java.util.UUID
 
 enum class AiChatChartKind {
     LINE,
+    AREA,
+    BAR,
     PIE,
     DONUT,
+    SCATTER,
+}
+
+enum class AiChatChartAxisType {
+    CATEGORY,
+    DATE,
+    NUMBER,
+}
+
+enum class AiChatChartValueType {
+    MONEY_MINOR,
+    NUMBER,
+}
+
+enum class AiChatChartOrientation {
+    VERTICAL,
+    HORIZONTAL,
 }
 
 data class AiChatChartResponse(
     val id: String,
     val kind: AiChatChartKind,
     val title: String,
-    val currency: String,
+    @get:JsonProperty("xAxis")
+    val xAxis: AiChatChartAxisResponse,
+    @get:JsonProperty("yAxis")
+    val yAxis: AiChatChartValueAxisResponse,
+    val stacked: Boolean,
+    val orientation: AiChatChartOrientation,
     @field:JsonInclude(JsonInclude.Include.ALWAYS)
-    val series: List<AiChatChartSeriesResponse> = emptyList(),
-    @field:JsonInclude(JsonInclude.Include.ALWAYS)
-    val segments: List<AiChatChartSegmentResponse> = emptyList(),
+    val series: List<AiChatChartSeriesResponse>,
+)
+
+data class AiChatChartAxisResponse(
+    val label: String,
+    val type: AiChatChartAxisType,
+)
+
+data class AiChatChartValueAxisResponse(
+    val label: String,
+    val type: AiChatChartValueType,
+    val currency: String? = null,
 )
 
 data class AiChatChartSeriesResponse(
@@ -31,100 +67,43 @@ data class AiChatChartSeriesResponse(
 )
 
 data class AiChatChartPointResponse(
-    val label: String,
-    val amountMinor: String,
+    val x: String,
+    val y: String,
 )
-
-data class AiChatChartSegmentResponse(
-    val label: String,
-    val amountMinor: String,
-)
-
-sealed interface AiChatChartSource {
-    data class Line(
-        val currency: String,
-        val seriesName: String,
-        val points: List<AiChatChartSourcePoint>,
-    ) : AiChatChartSource
-
-    data class Slices(
-        val currency: String,
-        val segments: List<AiChatChartSourceSegment>,
-    ) : AiChatChartSource
-}
-
-data class AiChatChartSourcePoint(val label: LocalDate, val amountMinor: Long)
-
-data class AiChatChartSourceSegment(val label: String, val amountMinor: Long)
-
-class AiChatToolExecutionContext {
-    val chartSources = linkedMapOf<String, AiChatChartSource>()
-}
 
 @Singleton
 class AiChatCharts {
     private val objectMapper = ObjectMapper().findAndRegisterModules()
 
-    fun create(
-        kind: AiChatChartKind,
-        title: String,
-        source: AiChatChartSource,
-        id: String = UUID.randomUUID().toString(),
-    ): AiChatChartResponse {
-        UUID.fromString(id)
-        val validatedTitle = title.trim().also {
-            require(it.isNotEmpty() && it.length <= MAX_TITLE_LENGTH) { "chart title must contain 1 to 100 characters" }
-            require(it.none(Char::isISOControl)) { "chart title must not contain control characters" }
-        }
-        return when (kind) {
-            AiChatChartKind.LINE -> {
-                require(source is AiChatChartSource.Line) { "LINE charts require time-series data" }
-                validateCurrency(source.currency)
-                require(source.seriesName.isNotBlank() && source.seriesName.length <= MAX_LABEL_LENGTH) {
-                    "line series name must contain 1 to 80 characters"
-                }
-                require(source.points.isNotEmpty() && source.points.size <= MAX_LINE_POINTS) {
-                    "line charts require 1 to 200 points"
-                }
-                require(source.points.map { it.label }.distinct().size == source.points.size) {
-                    "line chart point labels must be unique"
-                }
-                AiChatChartResponse(
-                    id = id,
-                    kind = kind,
-                    title = validatedTitle,
-                    currency = source.currency,
-                    series = listOf(
-                        AiChatChartSeriesResponse(
-                            name = source.seriesName,
-                            points = source.points.sortedBy { it.label }.map {
-                                AiChatChartPointResponse(it.label.toString(), it.amountMinor.toString())
-                            },
-                        ),
-                    ),
+    fun create(arguments: JsonNode, id: String = UUID.randomUUID().toString()): AiChatChartResponse = validate(
+        AiChatChartResponse(
+            id = id,
+            kind = arguments.requiredEnum("kind"),
+            title = arguments.requiredText("title"),
+            xAxis = AiChatChartAxisResponse(
+                label = arguments.requiredText("xAxisLabel"),
+                type = arguments.requiredEnum("xAxisType"),
+            ),
+            yAxis = AiChatChartValueAxisResponse(
+                label = arguments.requiredText("yAxisLabel"),
+                type = arguments.requiredEnum("yAxisType"),
+                currency = arguments.path("currency").asText().trim().ifEmpty { null },
+            ),
+            stacked = arguments.path("stacked").asBoolean(),
+            orientation = arguments.requiredEnum("orientation"),
+            series = arguments.path("series").map { series ->
+                AiChatChartSeriesResponse(
+                    name = series.requiredText("name"),
+                    points = series.path("points").map { point ->
+                        AiChatChartPointResponse(
+                            x = point.requiredText("x"),
+                            y = point.requiredText("y"),
+                        )
+                    },
                 )
-            }
-            AiChatChartKind.PIE, AiChatChartKind.DONUT -> {
-                require(source is AiChatChartSource.Slices) { "$kind charts require category data" }
-                validateCurrency(source.currency)
-                val segments = source.segments.filter { it.amountMinor > 0 }
-                require(segments.isNotEmpty() && segments.size <= MAX_SEGMENTS) {
-                    "$kind charts require 1 to 100 positive segments"
-                }
-                require(source.segments.all { it.amountMinor >= 0 }) { "$kind chart values must not be negative" }
-                require(segments.all { it.label.isNotBlank() && it.label.length <= MAX_LABEL_LENGTH }) {
-                    "chart labels must contain 1 to 80 characters"
-                }
-                AiChatChartResponse(
-                    id = id,
-                    kind = kind,
-                    title = validatedTitle,
-                    currency = source.currency,
-                    segments = segments.map { AiChatChartSegmentResponse(it.label, it.amountMinor.toString()) },
-                )
-            }
-        }
-    }
+            },
+        ),
+    )
 
     fun encodeArtifact(chart: AiChatChartResponse): String = objectMapper.writeValueAsString(
         mapOf("type" to ARTIFACT_TYPE, "version" to 1, "chart" to chart),
@@ -133,56 +112,130 @@ class AiChatCharts {
     fun decodeArtifact(value: String): AiChatChartResponse? {
         val root = runCatching { objectMapper.readTree(value) }.getOrNull() ?: return null
         if (root.path("type").asText() != ARTIFACT_TYPE || root.path("version").asInt() != 1) return null
-        val chartNode = root.path("chart")
-        val kind = runCatching { AiChatChartKind.valueOf(chartNode.path("kind").asText()) }.getOrNull() ?: return null
-        val id = chartNode.path("id").asText()
-        val title = chartNode.path("title").asText()
-        val currency = chartNode.path("currency").asText()
         return runCatching {
-            when (kind) {
-                AiChatChartKind.LINE -> create(
-                    kind,
-                    title,
-                    AiChatChartSource.Line(
-                        currency = currency,
-                        seriesName = chartNode.path("series").path(0).path("name").asText(),
-                        points = chartNode.path("series").path(0).path("points").map {
-                            AiChatChartSourcePoint(
-                                label = LocalDate.parse(it.path("label").asText()),
-                                amountMinor = it.path("amountMinor").asText().toLong(),
-                            )
-                        },
+            val chart = root.path("chart")
+            validate(
+                AiChatChartResponse(
+                    id = chart.requiredText("id"),
+                    kind = chart.requiredEnum("kind"),
+                    title = chart.requiredText("title"),
+                    xAxis = AiChatChartAxisResponse(
+                        label = chart.path("xAxis").requiredText("label"),
+                        type = chart.path("xAxis").requiredEnum("type"),
                     ),
-                    id,
-                )
-                AiChatChartKind.PIE, AiChatChartKind.DONUT -> create(
-                    kind,
-                    title,
-                    AiChatChartSource.Slices(
-                        currency = currency,
-                        segments = chartNode.path("segments").map {
-                            AiChatChartSourceSegment(
-                                label = it.path("label").asText(),
-                                amountMinor = it.path("amountMinor").asText().toLong(),
-                            )
-                        },
+                    yAxis = AiChatChartValueAxisResponse(
+                        label = chart.path("yAxis").requiredText("label"),
+                        type = chart.path("yAxis").requiredEnum("type"),
+                        currency = chart.path("yAxis").path("currency")
+                            .takeIf(JsonNode::isTextual)
+                            ?.asText()
+                            ?.trim()
+                            ?.ifEmpty { null },
                     ),
-                    id,
-                )
-            }
+                    stacked = chart.path("stacked").asBoolean(),
+                    orientation = chart.requiredEnum("orientation"),
+                    series = chart.path("series").map { series ->
+                        AiChatChartSeriesResponse(
+                            name = series.requiredText("name"),
+                            points = series.path("points").map { point ->
+                                AiChatChartPointResponse(point.requiredText("x"), point.requiredText("y"))
+                            },
+                        )
+                    },
+                ),
+            )
         }.getOrNull()
     }
 
-    private fun validateCurrency(currency: String) {
-        Currency.getInstance(currency)
+    private fun validate(chart: AiChatChartResponse): AiChatChartResponse {
+        UUID.fromString(chart.id)
+        validateLabel(chart.title, "chart title", MAX_TITLE_LENGTH)
+        validateLabel(chart.xAxis.label, "x-axis label")
+        validateLabel(chart.yAxis.label, "y-axis label")
+        when (chart.yAxis.type) {
+            AiChatChartValueType.MONEY_MINOR -> Currency.getInstance(requireNotNull(chart.yAxis.currency) {
+                "money charts require a currency"
+            })
+            AiChatChartValueType.NUMBER -> require(chart.yAxis.currency == null) {
+                "number charts must not specify a currency"
+            }
+        }
+        require(chart.series.isNotEmpty() && chart.series.size <= MAX_SERIES) {
+            "charts require 1 to $MAX_SERIES series"
+        }
+        require(chart.series.map { it.name }.distinct().size == chart.series.size) { "chart series names must be unique" }
+        require(chart.series.sumOf { it.points.size } <= MAX_POINTS) { "charts support at most $MAX_POINTS points" }
+        chart.series.forEach { series ->
+            validateLabel(series.name, "series name")
+            require(series.points.isNotEmpty()) { "chart series must contain at least one point" }
+            require(series.points.map { it.x }.distinct().size == series.points.size) {
+                "x-axis values must be unique within each series"
+            }
+            series.points.forEach { point ->
+                validateLabel(point.x, "x-axis value")
+                when (chart.xAxis.type) {
+                    AiChatChartAxisType.CATEGORY -> Unit
+                    AiChatChartAxisType.DATE -> LocalDate.parse(point.x)
+                    AiChatChartAxisType.NUMBER -> point.x.requiredDecimal("x-axis value")
+                }
+                when (chart.yAxis.type) {
+                    AiChatChartValueType.MONEY_MINOR -> requireNotNull(point.y.toLongOrNull()) {
+                        "money values must be signed 64-bit integer minor units"
+                    }
+                    AiChatChartValueType.NUMBER -> point.y.requiredDecimal("chart value")
+                }
+            }
+        }
+        when (chart.kind) {
+            AiChatChartKind.PIE, AiChatChartKind.DONUT -> {
+                require(chart.series.size == 1) { "${chart.kind} charts require exactly one series" }
+                require(chart.series.single().points.all { BigDecimal(it.y).signum() >= 0 }) {
+                    "${chart.kind} chart values must not be negative"
+                }
+                require(!chart.stacked) { "${chart.kind} charts cannot be stacked" }
+            }
+            AiChatChartKind.SCATTER -> {
+                require(chart.xAxis.type == AiChatChartAxisType.NUMBER) { "SCATTER charts require a numeric x-axis" }
+                require(!chart.stacked) { "SCATTER charts cannot be stacked" }
+            }
+            AiChatChartKind.LINE -> require(!chart.stacked) { "LINE charts cannot be stacked" }
+            AiChatChartKind.AREA, AiChatChartKind.BAR -> Unit
+        }
+        require(chart.orientation == AiChatChartOrientation.VERTICAL || chart.kind == AiChatChartKind.BAR) {
+            "horizontal orientation is only supported for BAR charts"
+        }
+        return chart
     }
+
+    private fun validateLabel(value: String, description: String, maxLength: Int = MAX_LABEL_LENGTH) {
+        require(value.isNotBlank() && value.length <= maxLength) {
+            "$description must contain 1 to $maxLength characters"
+        }
+        require(value.none(Char::isISOControl)) { "$description must not contain control characters" }
+    }
+
+    private fun String.requiredDecimal(description: String) {
+        val value = runCatching { BigDecimal(this) }.getOrNull()
+        require(value != null && value.precision() <= MAX_NUMBER_PRECISION && value.scale() <= MAX_NUMBER_SCALE) {
+            "$description must be a decimal with at most $MAX_NUMBER_PRECISION digits and $MAX_NUMBER_SCALE decimal places"
+        }
+    }
+
+    private fun JsonNode.requiredText(name: String): String = path(name).asText().trim().also {
+        require(it.isNotEmpty()) { "$name must not be empty" }
+    }
+
+    private inline fun <reified T : Enum<T>> JsonNode.requiredEnum(name: String): T =
+        enumValueOf(requiredText(name).uppercase())
 
     companion object {
         const val PRESENT_CHART_TOOL = "present_chart"
         private const val ARTIFACT_TYPE = "renalo_chart"
         private const val MAX_TITLE_LENGTH = 100
         private const val MAX_LABEL_LENGTH = 80
-        private const val MAX_SEGMENTS = 100
-        private const val MAX_LINE_POINTS = 200
+        private const val MAX_SERIES = 12
+        private const val MAX_POINTS = 500
+        private const val MAX_NUMBER_PRECISION = 100
+        private const val MAX_NUMBER_SCALE = 20
     }
 }

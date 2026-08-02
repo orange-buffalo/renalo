@@ -6,7 +6,6 @@ import io.kotest.matchers.shouldBe
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.ai.AiChatModelToolCall
 import io.orangebuffalo.renalo.ai.AiChatTools
-import io.orangebuffalo.renalo.ai.AiChatToolExecutionContext
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
 import io.orangebuffalo.renalo.tracking.ExpenseCategoryRepository
@@ -53,7 +52,6 @@ class AiChatToolsTest : IntegrationTestSupport() {
             ),
         )
 
-        val context = AiChatToolExecutionContext()
         tools.execute(
             alice.id!!,
             LocalDate.parse("2026-08-01"),
@@ -78,7 +76,6 @@ class AiChatToolsTest : IntegrationTestSupport() {
                 "get_category_totals",
                 """{"type":"EXPENSE","from":"2026-08-01","to":"2026-08-01"}""",
             ),
-            context,
         )
         categoryResult.result.shouldEqualJson(
             """
@@ -90,20 +87,36 @@ class AiChatToolsTest : IntegrationTestSupport() {
                 }]
             """.trimIndent(),
         )
-        context.chartSources["call-2"] = categoryResult.chartSource!!
         val chartResult = tools.execute(
             alice.id!!,
             LocalDate.parse("2026-08-01"),
             AiChatModelToolCall(
                 "call-chart",
                 "present_chart",
-                """{"kind":"DONUT","title":"Expenses by category"}""",
+                """
+                    {
+                      "kind":"DONUT",
+                      "title":"Expenses by category",
+                      "xAxisLabel":"Category",
+                      "xAxisType":"CATEGORY",
+                      "yAxisLabel":"Expenses",
+                      "yAxisType":"MONEY_MINOR",
+                      "currency":"AUD",
+                      "stacked":false,
+                      "orientation":"VERTICAL",
+                      "series":[{"name":"Expenses","points":[{"x":"Groceries","y":"2345"}]}]
+                    }
+                """.trimIndent(),
             ),
-            context,
         )
         chartResult.chart?.kind.shouldBe(io.orangebuffalo.renalo.ai.AiChatChartKind.DONUT)
-        chartResult.chart?.segments.shouldBe(
-            listOf(io.orangebuffalo.renalo.ai.AiChatChartSegmentResponse("Groceries", "2345")),
+        chartResult.chart?.series.shouldBe(
+            listOf(
+                io.orangebuffalo.renalo.ai.AiChatChartSeriesResponse(
+                    "Expenses",
+                    listOf(io.orangebuffalo.renalo.ai.AiChatChartPointResponse("Groceries", "2345")),
+                ),
+            ),
         )
 
     }
@@ -206,11 +219,11 @@ class AiChatToolsTest : IntegrationTestSupport() {
                       "maxDefaultCurrencyAmountMinor":"",
                       "conversionSources":"",
                       "conversionTransferIds":"",
-                      "recurring":"ANY",
+                      "recurring":"",
                       "recurringRuleIds":"",
                       "recurringInstanceFrom":"",
                       "recurringInstanceTo":"",
-                      "recurringLocked":"ANY",
+                      "recurringLocked":"   ",
                       "metadataSources":"",
                       "orderBy":"DEFAULT_CURRENCY_AMOUNT",
                       "direction":"DESC",

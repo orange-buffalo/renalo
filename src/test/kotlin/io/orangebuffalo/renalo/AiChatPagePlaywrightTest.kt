@@ -1,5 +1,6 @@
 package io.orangebuffalo.renalo
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Route
@@ -15,10 +16,6 @@ import io.orangebuffalo.renalo.test.shouldEventually
 import io.orangebuffalo.renalo.ai.AiChatConversation
 import io.orangebuffalo.renalo.ai.AiChatConversationEventService
 import io.orangebuffalo.renalo.ai.AiChatConversationRepository
-import io.orangebuffalo.renalo.ai.AiChatChartKind
-import io.orangebuffalo.renalo.ai.AiChatChartSource
-import io.orangebuffalo.renalo.ai.AiChatChartSourcePoint
-import io.orangebuffalo.renalo.ai.AiChatChartSourceSegment
 import io.orangebuffalo.renalo.ai.AiChatCharts
 import io.orangebuffalo.renalo.ai.AiChatModelToolCall
 import io.orangebuffalo.renalo.tracking.ExpenseCategory
@@ -40,6 +37,8 @@ import java.time.LocalDate
 @Property(name = "micronaut.server.port", value = "-1")
 @Property(name = "renalo.ai-chat.enabled", value = "true")
 class AiChatPagePlaywrightTest : IntegrationTestSupport() {
+    private val objectMapper = ObjectMapper()
+
     @Inject
     lateinit var userRepository: UserRepository
 
@@ -91,11 +90,12 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ChartData(
                     title = "Expenses by category",
                     kind = "DONUT",
-                    rows = listOf(ChartRow("Donut segment", "Groceries", "A${'$'}23.45")),
+                    rows = listOf(ChartRow("Expenses", "Groceries", "A${'$'}23.45")),
                 ),
             )
         }
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+        assertThat(page.getByText("Calculated category totals, Prepared chart")).isVisible()
 
         page.reload()
         page.shouldEventually {
@@ -103,48 +103,82 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ChartData(
                     title = "Expenses by category",
                     kind = "DONUT",
-                    rows = listOf(ChartRow("Donut segment", "Groceries", "A${'$'}23.45")),
+                    rows = listOf(ChartRow("Expenses", "Groceries", "A${'$'}23.45")),
                 ),
             )
         }
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+        val historicalActivity = page.getByText("Calculated category totals, Prepared chart")
+        assertThat(historicalActivity).isVisible()
+        historicalActivity.click()
     }
 
     @Test
-    fun rendersLinePieAndDonutChartsFromSavedHistory(page: Page) {
+    fun rendersFlexibleMultiSeriesChartsFromSavedHistory(page: Page) {
         val user = saveUser("alice", UserType.USER)
         val conversation = conversationRepository.save(AiChatConversation(userId = user.id!!, title = "Chart gallery"))
         val chartValues = listOf(
             charts.create(
-                AiChatChartKind.LINE,
-                "Balance trend",
-                AiChatChartSource.Line(
-                    "AUD",
-                    "Balance",
-                    listOf(
-                        AiChatChartSourcePoint(LocalDate.parse("2026-01-01"), 1_000),
-                        AiChatChartSourcePoint(LocalDate.parse("2026-02-01"), 2_500),
-                    ),
+                objectMapper.readTree(
+                    """
+                        {"kind":"LINE","title":"Balance trend","xAxisLabel":"Month","xAxisType":"DATE","yAxisLabel":"Balance","yAxisType":"MONEY_MINOR","currency":"AUD","stacked":false,"orientation":"VERTICAL","series":[
+                          {"name":"Daily","points":[{"x":"2026-01-01","y":"1000"},{"x":"2026-02-01","y":"2500"}]},
+                          {"name":"Savings","points":[{"x":"2026-01-01","y":"5000"},{"x":"2026-02-01","y":"6200"}]}
+                        ]}
+                    """.trimIndent(),
                 ),
                 "00000000-0000-0000-0000-000000000101",
             ),
             charts.create(
-                AiChatChartKind.PIE,
-                "Expense share",
-                AiChatChartSource.Slices(
-                    "AUD",
-                    listOf(AiChatChartSourceSegment("Food", 1_200), AiChatChartSourceSegment("Rent", 8_800)),
+                objectMapper.readTree(
+                    """
+                        {"kind":"BAR","title":"Spending by account and category","xAxisLabel":"Account","xAxisType":"CATEGORY","yAxisLabel":"Expenses","yAxisType":"MONEY_MINOR","currency":"AUD","stacked":true,"orientation":"HORIZONTAL","series":[
+                          {"name":"Food","points":[{"x":"Daily","y":"1200"},{"x":"Savings","y":"300"}]},
+                          {"name":"Rent","points":[{"x":"Daily","y":"8800"},{"x":"Savings","y":"0"}]}
+                        ]}
+                    """.trimIndent(),
                 ),
                 "00000000-0000-0000-0000-000000000102",
             ),
             charts.create(
-                AiChatChartKind.DONUT,
-                "Income share",
-                AiChatChartSource.Slices(
-                    "AUD",
-                    listOf(AiChatChartSourceSegment("Salary", 9_000), AiChatChartSourceSegment("Interest", 1_000)),
+                objectMapper.readTree(
+                    """
+                        {"kind":"DONUT","title":"Income share","xAxisLabel":"Source","xAxisType":"CATEGORY","yAxisLabel":"Income","yAxisType":"MONEY_MINOR","currency":"AUD","stacked":false,"orientation":"VERTICAL","series":[
+                          {"name":"Income","points":[{"x":"Salary","y":"9000"},{"x":"Interest","y":"1000"}]}
+                        ]}
+                    """.trimIndent(),
                 ),
                 "00000000-0000-0000-0000-000000000103",
+            ),
+            charts.create(
+                objectMapper.readTree(
+                    """
+                        {"kind":"AREA","title":"Savings growth","xAxisLabel":"Quarter","xAxisType":"CATEGORY","yAxisLabel":"Growth rate","yAxisType":"NUMBER","currency":"","stacked":false,"orientation":"VERTICAL","series":[
+                          {"name":"Growth","points":[{"x":"Q1","y":"1.25"},{"x":"Q2","y":"2.5"}]}
+                        ]}
+                    """.trimIndent(),
+                ),
+                "00000000-0000-0000-0000-000000000104",
+            ),
+            charts.create(
+                objectMapper.readTree(
+                    """
+                        {"kind":"PIE","title":"Expense share","xAxisLabel":"Category","xAxisType":"CATEGORY","yAxisLabel":"Expenses","yAxisType":"MONEY_MINOR","currency":"AUD","stacked":false,"orientation":"VERTICAL","series":[
+                          {"name":"Expenses","points":[{"x":"Food","y":"1200"},{"x":"Rent","y":"8800"}]}
+                        ]}
+                    """.trimIndent(),
+                ),
+                "00000000-0000-0000-0000-000000000105",
+            ),
+            charts.create(
+                objectMapper.readTree(
+                    """
+                        {"kind":"SCATTER","title":"Transaction size and frequency","xAxisLabel":"Transactions","xAxisType":"NUMBER","yAxisLabel":"Average amount","yAxisType":"MONEY_MINOR","currency":"AUD","stacked":false,"orientation":"VERTICAL","series":[
+                          {"name":"Accounts","points":[{"x":"3","y":"2500"},{"x":"8","y":"1200"}]}
+                        ]}
+                    """.trimIndent(),
+                ),
+                "00000000-0000-0000-0000-000000000106",
             ),
         )
         val items = mutableListOf(conversationEventService.userMessage("Show all chart styles"))
@@ -165,27 +199,57 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                     "Balance trend",
                     "LINE",
                     listOf(
-                        ChartRow("Balance", "2026-01-01", "A${'$'}10.00"),
-                        ChartRow("Balance", "2026-02-01", "A${'$'}25.00"),
+                        ChartRow("Daily", "2026-01-01", "A${'$'}10.00"),
+                        ChartRow("Daily", "2026-02-01", "A${'$'}25.00"),
+                        ChartRow("Savings", "2026-01-01", "A${'$'}50.00"),
+                        ChartRow("Savings", "2026-02-01", "A${'$'}62.00"),
                     ),
                 ),
                 ChartData(
-                    "Expense share",
-                    "PIE",
+                    "Spending by account and category",
+                    "BAR",
                     listOf(
-                        ChartRow("Pie segment", "Food", "A${'$'}12.00"),
-                        ChartRow("Pie segment", "Rent", "A${'$'}88.00"),
+                        ChartRow("Food", "Daily", "A${'$'}12.00"),
+                        ChartRow("Food", "Savings", "A${'$'}3.00"),
+                        ChartRow("Rent", "Daily", "A${'$'}88.00"),
+                        ChartRow("Rent", "Savings", "A${'$'}0.00"),
                     ),
                 ),
                 ChartData(
                     "Income share",
                     "DONUT",
                     listOf(
-                        ChartRow("Donut segment", "Salary", "A${'$'}90.00"),
-                        ChartRow("Donut segment", "Interest", "A${'$'}10.00"),
+                        ChartRow("Income", "Salary", "A${'$'}90.00"),
+                        ChartRow("Income", "Interest", "A${'$'}10.00"),
+                    ),
+                ),
+                ChartData(
+                    "Savings growth",
+                    "AREA",
+                    listOf(ChartRow("Growth", "Q1", "1.25"), ChartRow("Growth", "Q2", "2.5")),
+                ),
+                ChartData(
+                    "Expense share",
+                    "PIE",
+                    listOf(
+                        ChartRow("Expenses", "Food", "A${'$'}12.00"),
+                        ChartRow("Expenses", "Rent", "A${'$'}88.00"),
+                    ),
+                ),
+                ChartData(
+                    "Transaction size and frequency",
+                    "SCATTER",
+                    listOf(
+                        ChartRow("Accounts", "3", "A${'$'}25.00"),
+                        ChartRow("Accounts", "8", "A${'$'}12.00"),
                     ),
                 ),
             )
+        }
+        listOf("line", "bar", "donut", "area", "pie", "scatter").forEach { kind ->
+            val chart = page.locator("[data-testid='ai-chat-$kind-chart']")
+            chart.scrollIntoViewIfNeeded()
+            assertThat(chart).isVisible()
         }
     }
 
@@ -263,7 +327,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                 ChatMessage(
                     "Renalo",
                     "Spending snapshot\n\nYou asked: How was this month?\n\nHere is an example of how an AI-generated answer could present your results:\n\nCategory\tAmount\tShare\nGroceries\t${'$'}428.30\t42%\nTransport\t${'$'}186.75\t18%\nDining out\t${'$'}142.10\t14%\nGroceries were the largest expense category.\nDining out was lower than groceries by ${'$'}286.20.\nThe remaining categories accounted for 26% of the sample total.\n\nThis response was generated from Renalo's read-only financial tools.",
-                    emptyList(),
+                    listOf(ToolActivity("Calculated category totals", "COMPLETED")),
                 ),
             )
         }
@@ -418,6 +482,85 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     }
 
     @Test
+    fun showsReviewActivityBetweenToolExecutionAndTheResponse(page: Page) {
+        saveUser("alice", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.navigate(server.url.toString() + "/chat")
+
+        page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        ).fill("Slow review request")
+        page.getByLabel("Send message").click()
+
+        assertThat(page.getByRole(AriaRole.STATUS, Page.GetByRoleOptions().setName("Reviewing results..."))).isVisible()
+        assertThat(page.getByText("Calculated category totals")).isVisible()
+        assertThat(page.getByRole(AriaRole.STATUS, Page.GetByRoleOptions().setName("Reviewing results..."))).not().isVisible()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Spending snapshot"))).isVisible()
+    }
+
+    @Test
+    fun summarizesToolCallsBetweenAssistantOutput(page: Page) {
+        saveUser("alice", UserType.USER)
+        setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
+        page.route("**/api/ai-chat/messages") { route ->
+            route.fulfill(
+                Route.FulfillOptions()
+                    .setContentType("application/x-ndjson")
+                    .setBody(
+                        """
+                            {"v":1,"seq":1,"type":"turn.started"}
+                            {"v":1,"seq":2,"type":"assistant.delta","text":"I checked the broad spending history."}
+                            {"v":1,"seq":3,"type":"tool.started","activityId":"search-1","label":"Searching transactions"}
+                            {"v":1,"seq":4,"type":"tool.completed","activityId":"search-1","label":"Searched transactions","status":"COMPLETED"}
+                            {"v":1,"seq":5,"type":"tool.started","activityId":"search-2","label":"Searching transactions"}
+                            {"v":1,"seq":6,"type":"tool.completed","activityId":"search-2","label":"Searched transactions","status":"COMPLETED"}
+                            {"v":1,"seq":7,"type":"tool.started","activityId":"search-3","label":"Searching transactions"}
+                            {"v":1,"seq":8,"type":"tool.completed","activityId":"search-3","label":"Searched transactions","status":"COMPLETED"}
+                            {"v":1,"seq":9,"type":"tool.started","activityId":"categories-1","label":"Calculating category totals"}
+                            {"v":1,"seq":10,"type":"tool.completed","activityId":"categories-1","label":"Calculated category totals","status":"COMPLETED"}
+                            {"v":1,"seq":11,"type":"tool.started","activityId":"categories-2","label":"Calculating category totals"}
+                            {"v":1,"seq":12,"type":"tool.completed","activityId":"categories-2","label":"Calculated category totals","status":"COMPLETED"}
+                            {"v":1,"seq":13,"type":"assistant.thinking","label":"Reviewing results"}
+                            {"v":1,"seq":14,"type":"assistant.delta","text":"I then narrowed the date range."}
+                            {"v":1,"seq":15,"type":"tool.started","activityId":"search-4","label":"Searching transactions"}
+                            {"v":1,"seq":16,"type":"tool.completed","activityId":"search-4","label":"Searched transactions","status":"COMPLETED"}
+                            {"v":1,"seq":17,"type":"assistant.thinking","label":"Reviewing results"}
+                            {"v":1,"seq":18,"type":"assistant.delta","text":"Leisure spending increased overall."}
+                            {"v":1,"seq":19,"type":"turn.completed"}
+                        """.trimIndent() + "\n",
+                    ),
+            )
+        }
+        page.navigate(server.url.toString() + "/chat")
+
+        page.getByRole(
+            AriaRole.TEXTBOX,
+            Page.GetByRoleOptions().setName("Message").setExact(true),
+        ).fill("Summarize the tool activity")
+        page.getByLabel("Send message").click()
+
+        page.shouldEventually {
+            page.locator("[data-chat-author='Renalo'] .ai-chat-tool-activity").allInnerTexts()
+                .shouldContainExactly(
+                    "Searched transactions (3), Calculated category totals (2)",
+                    "Searched transactions",
+                )
+            page.locator(
+                "[data-chat-author='Renalo'] .ai-chat-markdown, " +
+                    "[data-chat-author='Renalo'] .ai-chat-tool-activity",
+            ).allInnerTexts().map { it.trim() }.shouldContainExactly(
+                "I checked the broad spending history.",
+                "Searched transactions (3), Calculated category totals (2)",
+                "I then narrowed the date range.",
+                "Searched transactions",
+                "Leisure spending increased overall.",
+            )
+        }
+        page.getByText("Leisure spending increased overall.").click()
+    }
+
+    @Test
     fun preservesPartialContentWhenTheStreamIsInterrupted(page: Page) {
         saveUser("alice", UserType.USER)
         setStoredToken(page, testAuthTokens.issueToken("alice", UserType.USER))
@@ -557,9 +700,14 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     )
 
     private fun Page.extractMessages(): List<ChatMessage> = locator("[data-chat-author]").all().map { message ->
+        val author = message.getAttribute("data-chat-author")
         ChatMessage(
-            author = message.getAttribute("data-chat-author"),
-            content = message.locator(".ai-chat-message-content").innerText(),
+            author = author,
+            content = if (author == "Renalo") {
+                message.locator(".ai-chat-markdown").allInnerTexts().joinToString("\n\n")
+            } else {
+                message.locator(".ai-chat-message-content").innerText()
+            },
             toolActivities = message.locator(".ai-chat-tool-activity").all().map { activity ->
                 ToolActivity(
                     label = activity.innerText().replace(Regex("\\s+"), " ").trim(),

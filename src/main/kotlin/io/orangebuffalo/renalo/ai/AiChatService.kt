@@ -7,6 +7,7 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.time.LocalDate
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
 @Singleton
@@ -58,15 +59,8 @@ class AiChatService(
                 check(conversation.modelAlias == null || conversation.modelAlias == configuredModel) {
                     "AI chat conversation model no longer matches the configured model alias"
                 }
-                conversationEventService.appendItems(
-                    userId,
-                    conversationId,
-                    listOf(conversationEventService.userMessage(content)),
-                )
-                val conversationItems = conversationEventService.loadItems(userId, conversationId)
+                val conversationItems = conversationEventService.beginTurn(userId, conversationId, content)
                     ?: return@defer Flux.error(IllegalStateException("AI chat conversation no longer exists"))
-                val toolContext = AiChatToolExecutionContext()
-
                 Flux.concat(
                     Flux.just(AiChatTurnStarted(seq = sequence.getAndIncrement())),
                     streamModelStep(
@@ -78,11 +72,13 @@ class AiChatService(
                         conversationItems = conversationItems,
                         sequence = sequence,
                         toolCallCount = 0,
-                        toolContext = toolContext,
                     ),
                 )
             }.subscribeOn(Schedulers.boundedElastic())
-        }.onErrorResume { error ->
+        }.takeUntilOther(
+            Mono.delay(MAX_TURN_DURATION)
+                .then(Mono.error(TimeoutException("AI chat turn exceeded its maximum duration"))),
+        ).onErrorResume { error ->
             logger.warn("AI chat turn failed for conversation {}", conversationId, error)
             Flux.just(
                 AiChatTurnError(
@@ -103,7 +99,6 @@ class AiChatService(
         conversationItems: List<String>,
         sequence: AtomicInteger,
         toolCallCount: Int,
-        toolContext: AiChatToolExecutionContext,
     ): Flux<AiChatStreamEvent> = modelGateway.streamStep(
         AiChatModelStepRequest(
             systemPrompt = systemPrompt(currentDate),
@@ -135,7 +130,6 @@ class AiChatService(
                         event.toolCalls,
                         sequence,
                         toolCallCount + event.toolCalls.size,
-                        toolContext,
                     )
                 }
             }
@@ -150,7 +144,6 @@ class AiChatService(
         calls: List<AiChatModelToolCall>,
         sequence: AtomicInteger,
         toolCallCount: Int,
-        toolContext: AiChatToolExecutionContext,
     ): Flux<AiChatStreamEvent> {
         val results = mutableListOf<AiChatModelInput.ToolResult>()
         return Flux.fromIterable(calls).concatMap { call ->
@@ -158,11 +151,10 @@ class AiChatService(
             Flux.concat(
                 Flux.just<AiChatStreamEvent>(AiChatToolStarted(sequence.getAndIncrement(), call.id, activity.first)),
                 Mono.delay(MIN_TOOL_ACTIVITY_DURATION)
-                    .then(Mono.fromCallable { tools.execute(userId, currentDate, call, toolContext) })
+                    .then(Mono.fromCallable { tools.execute(userId, currentDate, call) })
                     .subscribeOn(Schedulers.boundedElastic())
                     .flatMapMany { executed ->
                         results += AiChatModelInput.ToolResult(call.id, call.name, executed.result)
-                        executed.chartSource?.let { toolContext.chartSources[call.id] = it }
                         conversationEventService.appendItems(
                             userId,
                             conversationId,
@@ -180,6 +172,10 @@ class AiChatService(
             )
         }.concatWith(
             Flux.defer {
+                Flux.just(AiChatAssistantThinking(sequence.getAndIncrement(), "Reviewing results"))
+            },
+        ).concatWith(
+            Flux.defer {
                 val conversationItems = conversationEventService.loadItems(userId, conversationId)
                     ?: return@defer Flux.error(IllegalStateException("AI chat conversation no longer exists"))
                 streamModelStep(
@@ -191,7 +187,6 @@ class AiChatService(
                     conversationItems,
                     sequence,
                     toolCallCount,
-                    toolContext,
                 )
             },
         )
@@ -202,13 +197,14 @@ class AiChatService(
         Use the provided read-only tools for every claim about the user's Renalo data; never invent values.
         Tool amounts are integer minor units in the accompanying ISO currency. Format them using that currency's fraction digits.
         Use transaction query summaries for complete-set analytics and explicit ordering for rankings. Paginate when the answer requires individual rows beyond one result page.
-        Prefer presenting a line, pie, or donut chart whenever a chart can answer or materially clarify the user's question. First obtain compatible authoritative data, then present it with the chart tool.
+        Prefer presenting a chart whenever one can answer or materially clarify the user's question. First obtain authoritative data, then choose the most useful grouping, series, axes, and chart style. Pass only exact values from successful tools to the chart tool; never invent or estimate chart data.
         State when search results are truncated or currency conversion data is unavailable.
         Answer concisely in Markdown. Do not reveal tool names, arguments, raw JSON, internal IDs, or hidden reasoning.
     """.trimIndent()
 
     companion object {
-        private const val MAX_TOOL_CALLS = 12
+        private const val MAX_TOOL_CALLS = 64
         private val MIN_TOOL_ACTIVITY_DURATION = Duration.ofMillis(500)
+        private val MAX_TURN_DURATION = Duration.ofMinutes(15)
     }
 }

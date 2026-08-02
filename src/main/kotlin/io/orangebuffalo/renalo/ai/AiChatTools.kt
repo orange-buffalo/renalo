@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import dev.langchain4j.agent.tool.ToolSpecification
+import dev.langchain4j.model.chat.request.json.JsonArraySchema
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema
 import io.orangebuffalo.renalo.tracking.DashboardService
 import io.orangebuffalo.renalo.tracking.DefaultCurrencyConversionSource
@@ -67,11 +68,11 @@ class AiChatTools(
                 "maxDefaultCurrencyAmountMinor" to "Maximum projected amount minor units, or empty",
                 "conversionSources" to "Comma-separated SAME_CURRENCY, ACTUAL_TRANSFER, or UNAVAILABLE values, or empty",
                 "conversionTransferIds" to "Comma-separated conversion evidence transfer IDs, or empty",
-                "recurring" to "ANY, TRUE, or FALSE",
+                "recurring" to "ANY, TRUE, FALSE, or empty for no filter",
                 "recurringRuleIds" to "Comma-separated recurring rule IDs, or empty",
                 "recurringInstanceFrom" to "Minimum recurring instance date in YYYY-MM-DD format, or empty",
                 "recurringInstanceTo" to "Maximum recurring instance date in YYYY-MM-DD format, or empty",
-                "recurringLocked" to "ANY, TRUE, or FALSE",
+                "recurringLocked" to "ANY, TRUE, FALSE, or empty for no filter",
                 "metadataSources" to "Comma-separated metadata source values such as toshl, or empty",
                 "orderBy" to "ID, ACCOUNT_ID, CATEGORY_ID, DATE, AMOUNT, CURRENCY, DEFAULT_CURRENCY_AMOUNT, DEFAULT_CURRENCY, CONVERSION_SOURCE, CONVERSION_TRANSFER_ID, NOTES, ACCOUNT_NAME, CATEGORY_NAME, RECURRING_RULE_ID, RECURRING_INSTANCE_DATE, RECURRING_LOCKED, or METADATA_SOURCE",
                 "direction" to "ASC or DESC",
@@ -108,15 +109,16 @@ class AiChatTools(
         ),
         tool(
             name = AiChatCharts.PRESENT_CHART_TOOL,
-            description = "Present a prior compatible data-tool result as a chart. Prefer a chart whenever it can answer or materially clarify the user's question. LINE requires time-series or net-worth data; PIE and DONUT require category totals.",
-            parameters = parameters(
-                "kind" to "LINE, PIE, or DONUT",
-                "title" to "Concise plain-text chart title, 1 to 100 characters",
-            ),
+            description = "Present arbitrary data from prior financial tool results as a chart. Choose the grouping, series, axes, and chart style that best answer the user. Values must come from successful tools in this turn; never invent or estimate them.",
+            parameters = chartParameters(),
         ),
     )
 
-    fun activity(call: AiChatModelToolCall): Pair<String, String> = when (call.name) {
+    fun activity(call: AiChatModelToolCall): Pair<String, String> = activity(call.name)
+
+    fun completedActivityLabel(toolName: String): String = activity(toolName).second
+
+    private fun activity(toolName: String): Pair<String, String> = when (toolName) {
         ACCOUNT_BALANCES -> "Reviewing account balances" to "Reviewed account balances"
         CATEGORY_TOTALS -> "Calculating category totals" to "Calculated category totals"
         TRANSACTION_SEARCH -> "Searching transactions" to "Searched transactions"
@@ -131,7 +133,6 @@ class AiChatTools(
         userId: Long,
         currentDate: LocalDate,
         call: AiChatModelToolCall,
-        context: AiChatToolExecutionContext = AiChatToolExecutionContext(),
     ): ExecutedAiChatTool {
         val arguments = objectMapper.readTree(call.arguments)
         return when (call.name) {
@@ -154,12 +155,6 @@ class AiChatTools(
                     "Calculating category totals",
                     "Calculated category totals",
                     objectMapper.writeValueAsString(totals),
-                    chartSource = totals.firstOrNull()?.let { first ->
-                        AiChatChartSource.Slices(
-                            currency = first.currency,
-                            segments = totals.map { AiChatChartSourceSegment(it.categoryName, it.amountMinor) },
-                        )
-                    },
                 )
             }
             TRANSACTION_TIME_SERIES -> {
@@ -177,13 +172,6 @@ class AiChatTools(
                     "Calculating transaction trend",
                     "Calculated transaction trend",
                     objectMapper.writeValueAsString(timeSeries),
-                    chartSource = timeSeries.points.firstOrNull()?.let { first ->
-                        AiChatChartSource.Line(
-                            currency = first.currency,
-                            seriesName = if (type == TransactionType.EXPENSE) "Expenses" else "Income",
-                            points = timeSeries.points.map { AiChatChartSourcePoint(it.bucket, it.amountMinor) },
-                        )
-                    },
                 )
             }
             TRANSACTION_SEARCH -> {
@@ -262,13 +250,6 @@ class AiChatTools(
                     "Calculating net worth",
                     "Calculated net worth",
                     objectMapper.writeValueAsString(timeSeries),
-                    chartSource = timeSeries.points.firstOrNull()?.let { first ->
-                        AiChatChartSource.Line(
-                            currency = first.currency,
-                            seriesName = "Net worth",
-                            points = timeSeries.points.map { AiChatChartSourcePoint(it.bucket, it.amountMinor) },
-                        )
-                    },
                 )
             }
             TRANSFER_SEARCH -> {
@@ -294,18 +275,7 @@ class AiChatTools(
                 )
             }
             AiChatCharts.PRESENT_CHART_TOOL -> {
-                val kind = enumValue<AiChatChartKind>(arguments.requiredText("kind"))
-                val source = context.chartSources.values.lastOrNull {
-                    when (kind) {
-                        AiChatChartKind.LINE -> it is AiChatChartSource.Line
-                        AiChatChartKind.PIE, AiChatChartKind.DONUT -> it is AiChatChartSource.Slices
-                    }
-                } ?: throw IllegalArgumentException("chart requires compatible data from this turn")
-                val chart = charts.create(
-                    kind = kind,
-                    title = arguments.requiredText("title"),
-                    source = source,
-                )
+                val chart = charts.create(arguments)
                 ExecutedAiChatTool(
                     call.id,
                     "Preparing chart",
@@ -349,11 +319,11 @@ class AiChatTools(
     private inline fun <reified T : Enum<T>> JsonNode.enumList(name: String): List<T> =
         textList(name).map(::enumValue)
 
-    private fun JsonNode.optionalBoolean(name: String): Boolean? = when (val value = requiredText(name).uppercase()) {
-        "ANY" -> null
+    private fun JsonNode.optionalBoolean(name: String): Boolean? = when (val value = requiredText(name).trim().uppercase()) {
+        "", "ANY" -> null
         "TRUE" -> true
         "FALSE" -> false
-        else -> throw IllegalArgumentException("$name must be ANY, TRUE, or FALSE, but was $value")
+        else -> throw IllegalArgumentException("$name must be ANY, TRUE, FALSE, or empty, but was $value")
     }
 
     private fun String.words(): List<String> = split(Regex("\\s+")).filter(String::isNotBlank)
@@ -369,6 +339,46 @@ class AiChatTools(
             required(*properties.map(Pair<String, String>::first).toTypedArray())
             additionalProperties(false)
         }.build()
+
+    private fun chartParameters(): JsonObjectSchema {
+        val point = JsonObjectSchema.builder()
+            .addStringProperty("x", "X-axis value: category label, ISO date, or decimal number according to xAxisType")
+            .addStringProperty("y", "Exact Y value as signed integer minor units for MONEY_MINOR, otherwise a decimal number")
+            .required("x", "y")
+            .additionalProperties(false)
+            .build()
+        val series = JsonObjectSchema.builder()
+            .addStringProperty("name", "Series or group name")
+            .addProperty("points", JsonArraySchema.builder().items(point).build())
+            .required("name", "points")
+            .additionalProperties(false)
+            .build()
+        return JsonObjectSchema.builder()
+            .addEnumProperty("kind", AiChatChartKind.entries.map { it.name })
+            .addStringProperty("title", "Concise plain-text chart title, 1 to 100 characters")
+            .addStringProperty("xAxisLabel", "Human-readable label for the chosen grouping or X value")
+            .addEnumProperty("xAxisType", AiChatChartAxisType.entries.map { it.name })
+            .addStringProperty("yAxisLabel", "Human-readable label for the plotted measure")
+            .addEnumProperty("yAxisType", AiChatChartValueType.entries.map { it.name })
+            .addStringProperty("currency", "ISO currency for MONEY_MINOR values; empty string for NUMBER values")
+            .addBooleanProperty("stacked", "Whether AREA or BAR series should be stacked")
+            .addEnumProperty("orientation", AiChatChartOrientation.entries.map { it.name })
+            .addProperty("series", JsonArraySchema.builder().items(series).build())
+            .required(
+                "kind",
+                "title",
+                "xAxisLabel",
+                "xAxisType",
+                "yAxisLabel",
+                "yAxisType",
+                "currency",
+                "stacked",
+                "orientation",
+                "series",
+            )
+            .additionalProperties(false)
+            .build()
+    }
 
     companion object {
         private const val ACCOUNT_BALANCES = "get_account_balances"
@@ -386,7 +396,6 @@ data class ExecutedAiChatTool(
     val startedLabel: String,
     val completedLabel: String,
     val result: String,
-    val chartSource: AiChatChartSource? = null,
     val chart: AiChatChartResponse? = null,
 )
 

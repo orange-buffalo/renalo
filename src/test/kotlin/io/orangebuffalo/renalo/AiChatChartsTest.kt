@@ -1,47 +1,69 @@
 package io.orangebuffalo.renalo
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
+import io.orangebuffalo.renalo.ai.AiChatChartAxisResponse
+import io.orangebuffalo.renalo.ai.AiChatChartAxisType
 import io.orangebuffalo.renalo.ai.AiChatChartKind
-import io.orangebuffalo.renalo.ai.AiChatChartSource
-import io.orangebuffalo.renalo.ai.AiChatChartSourcePoint
-import io.orangebuffalo.renalo.ai.AiChatChartSourceSegment
+import io.orangebuffalo.renalo.ai.AiChatChartOrientation
+import io.orangebuffalo.renalo.ai.AiChatChartPointResponse
+import io.orangebuffalo.renalo.ai.AiChatChartResponse
+import io.orangebuffalo.renalo.ai.AiChatChartSeriesResponse
+import io.orangebuffalo.renalo.ai.AiChatChartValueAxisResponse
+import io.orangebuffalo.renalo.ai.AiChatChartValueType
 import io.orangebuffalo.renalo.ai.AiChatCharts
 import org.junit.jupiter.api.Test
-import java.time.LocalDate
 
 class AiChatChartsTest {
     private val charts = AiChatCharts()
+    private val objectMapper = ObjectMapper()
 
     @Test
-    fun createsAndRoundTripsExactLineCharts() {
+    fun createsAndRoundTripsFlexibleMultiSeriesCharts() {
         val chart = charts.create(
-            kind = AiChatChartKind.LINE,
-            title = "Net worth",
-            source = AiChatChartSource.Line(
-                currency = "AUD",
-                seriesName = "Balance",
-                points = listOf(
-                    AiChatChartSourcePoint(LocalDate.parse("2026-02-01"), Long.MAX_VALUE),
-                    AiChatChartSourcePoint(LocalDate.parse("2026-01-01"), Long.MIN_VALUE),
-                ),
+            objectMapper.readTree(
+                """
+                    {
+                      "kind":"BAR",
+                      "title":"Spending by account and category",
+                      "xAxisLabel":"Account",
+                      "xAxisType":"CATEGORY",
+                      "yAxisLabel":"Expenses",
+                      "yAxisType":"MONEY_MINOR",
+                      "currency":"AUD",
+                      "stacked":true,
+                      "orientation":"HORIZONTAL",
+                      "series":[
+                        {"name":"Groceries","points":[{"x":"Daily","y":"${Long.MAX_VALUE}"},{"x":"Savings","y":"1200"}]},
+                        {"name":"Dining","points":[{"x":"Daily","y":"3400"},{"x":"Savings","y":"500"}]}
+                      ]
+                    }
+                """.trimIndent(),
             ),
-            id = "00000000-0000-0000-0000-000000000001",
+            "00000000-0000-0000-0000-000000000001",
         )
 
         chart.shouldBe(
-            io.orangebuffalo.renalo.ai.AiChatChartResponse(
+            AiChatChartResponse(
                 id = "00000000-0000-0000-0000-000000000001",
-                kind = AiChatChartKind.LINE,
-                title = "Net worth",
-                currency = "AUD",
+                kind = AiChatChartKind.BAR,
+                title = "Spending by account and category",
+                xAxis = AiChatChartAxisResponse("Account", AiChatChartAxisType.CATEGORY),
+                yAxis = AiChatChartValueAxisResponse("Expenses", AiChatChartValueType.MONEY_MINOR, "AUD"),
+                stacked = true,
+                orientation = AiChatChartOrientation.HORIZONTAL,
                 series = listOf(
-                    io.orangebuffalo.renalo.ai.AiChatChartSeriesResponse(
-                        name = "Balance",
-                        points = listOf(
-                            io.orangebuffalo.renalo.ai.AiChatChartPointResponse("2026-01-01", Long.MIN_VALUE.toString()),
-                            io.orangebuffalo.renalo.ai.AiChatChartPointResponse("2026-02-01", Long.MAX_VALUE.toString()),
+                    AiChatChartSeriesResponse(
+                        "Groceries",
+                        listOf(
+                            AiChatChartPointResponse("Daily", Long.MAX_VALUE.toString()),
+                            AiChatChartPointResponse("Savings", "1200"),
                         ),
+                    ),
+                    AiChatChartSeriesResponse(
+                        "Dining",
+                        listOf(AiChatChartPointResponse("Daily", "3400"), AiChatChartPointResponse("Savings", "500")),
                     ),
                 ),
             ),
@@ -50,51 +72,69 @@ class AiChatChartsTest {
     }
 
     @Test
-    fun createsPieAndDonutChartsFromPositiveSlices() {
-        val source = AiChatChartSource.Slices(
-            currency = "AUD",
-            segments = listOf(
-                AiChatChartSourceSegment("Groceries", 12_345),
-                AiChatChartSourceSegment("Unused", 0),
-                AiChatChartSourceSegment("Rent", 90_000),
-            ),
-        )
-
-        listOf(AiChatChartKind.PIE, AiChatChartKind.DONUT).forEach { kind ->
+    fun supportsAllChartKindsAndGeneralNumbers() {
+        AiChatChartKind.entries.forEach { kind ->
+            val xAxisType = if (kind == AiChatChartKind.SCATTER) "NUMBER" else "DATE"
             val chart = charts.create(
-                kind,
-                "Spending",
-                source,
-                "00000000-0000-0000-0000-00000000000${if (kind == AiChatChartKind.PIE) 2 else 3}",
-            )
-            chart.kind.shouldBe(kind)
-            chart.segments.shouldBe(
-                listOf(
-                    io.orangebuffalo.renalo.ai.AiChatChartSegmentResponse("Groceries", "12345"),
-                    io.orangebuffalo.renalo.ai.AiChatChartSegmentResponse("Rent", "90000"),
+                objectMapper.readTree(
+                    """
+                        {
+                          "kind":"$kind",
+                          "title":"Flexible chart",
+                          "xAxisLabel":"Any grouping",
+                          "xAxisType":"$xAxisType",
+                          "yAxisLabel":"Rate",
+                          "yAxisType":"NUMBER",
+                          "currency":"",
+                          "stacked":false,
+                          "orientation":"VERTICAL",
+                          "series":[{"name":"Observed","points":[{"x":"${if (xAxisType == "NUMBER") "1.5" else "2026-01-01"}","y":"12.345"}]}]
+                        }
+                    """.trimIndent(),
                 ),
             )
-            chart.series.shouldBe(emptyList())
-            charts.decodeArtifact(charts.encodeArtifact(chart)).shouldBe(chart)
+            chart.kind.shouldBe(kind)
+            chart.yAxis.currency.shouldBe(null)
         }
     }
 
     @Test
-    fun rejectsIncompatibleOrUnsafeCharts() {
+    fun rejectsUnsafeOrIncompatibleCharts() {
         shouldThrow<IllegalArgumentException> {
-            charts.create(
-                AiChatChartKind.LINE,
-                "Wrong source",
-                AiChatChartSource.Slices("AUD", listOf(AiChatChartSourceSegment("Food", 1))),
-            )
+            charts.create(arguments(kind = "PIE", y = "-1"))
         }
         shouldThrow<IllegalArgumentException> {
-            charts.create(
-                AiChatChartKind.PIE,
-                "Negative",
-                AiChatChartSource.Slices("AUD", listOf(AiChatChartSourceSegment("Debt", -1))),
-            )
+            charts.create(arguments(kind = "SCATTER", xAxisType = "CATEGORY"))
+        }
+        shouldThrow<IllegalArgumentException> {
+            charts.create(arguments(kind = "LINE", stacked = true))
+        }
+        shouldThrow<IllegalArgumentException> {
+            charts.create(arguments(kind = "BAR", currency = "INVALID"))
         }
         charts.decodeArtifact("""{"type":"renalo_chart","version":1,"chart":{"kind":"PIE"}}""").shouldBe(null)
     }
+
+    private fun arguments(
+        kind: String,
+        xAxisType: String = "CATEGORY",
+        y: String = "1",
+        stacked: Boolean = false,
+        currency: String = "AUD",
+    ) = objectMapper.readTree(
+        """
+            {
+              "kind":"$kind",
+              "title":"Chart",
+              "xAxisLabel":"Group",
+              "xAxisType":"$xAxisType",
+              "yAxisLabel":"Amount",
+              "yAxisType":"MONEY_MINOR",
+              "currency":"$currency",
+              "stacked":$stacked,
+              "orientation":"VERTICAL",
+              "series":[{"name":"Values","points":[{"x":"Group A","y":"$y"}]}]
+            }
+        """.trimIndent(),
+    )
 }
