@@ -2579,8 +2579,10 @@ input {
 }
 
 .standard-page-shell:has(.ai-chat-page-surface) {
+  position: fixed;
+  inset: 0;
   grid-template-rows: auto minmax(0, 1fr);
-  height: 100vh;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
 }
@@ -2902,11 +2904,23 @@ input {
 }
 
 .ai-chat-chart-header {
+  position: relative;
+  z-index: 1;
   display: flex;
+  flex-shrink: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 14px;
+  background: #fff;
+}
+
+.ai-chat-chart-heading {
+  min-width: 0;
+}
+
+.ai-chat-chart-header > button {
+  flex-shrink: 0;
 }
 
 .ai-chat-chart-header h3 {
@@ -2915,6 +2929,7 @@ input {
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .ai-chat-chart-header p {
@@ -3591,12 +3606,6 @@ input {
 
   .standard-page-content:has(.ai-chat-page-surface) {
     padding: 0;
-  }
-
-  .standard-page-shell:has(.ai-chat-page-surface) {
-    position: fixed;
-    inset: 0;
-    height: 100dvh;
   }
 
   .standard-page-surface {

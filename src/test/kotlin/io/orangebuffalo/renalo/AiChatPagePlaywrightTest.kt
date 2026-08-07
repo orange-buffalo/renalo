@@ -151,7 +151,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             charts.create(
                 objectMapper.readTree(
                     """
-                        {"kind":"BAR","title":"Spending by account and category","xAxisLabel":"Account","xAxisType":"CATEGORY","yAxisLabel":"Expenses","yAxisType":"MONEY_MINOR","currency":"AUD","stacked":true,"orientation":"HORIZONTAL","series":[
+                        {"kind":"BAR","title":"Monthly Income Over Recorded Period","xAxisLabel":"Account","xAxisType":"CATEGORY","yAxisLabel":"Expenses","yAxisType":"MONEY_MINOR","currency":"AUD","stacked":true,"orientation":"HORIZONTAL","series":[
                           {"name":"Food","points":[{"x":"Account 1","y":"100"},{"x":"Account 2","y":"200"},{"x":"Account 3","y":"300"},{"x":"Account 4","y":"400"},{"x":"Account 5","y":"500"},{"x":"Account 6","y":"600"},{"x":"Account 7","y":"700"},{"x":"Account 8","y":"800"},{"x":"Account 9","y":"900"},{"x":"Account 10","y":"1000"}]},
                           {"name":"Rent","points":[{"x":"Account 1","y":"1000"},{"x":"Account 2","y":"2000"},{"x":"Account 3","y":"3000"},{"x":"Account 4","y":"4000"},{"x":"Account 5","y":"5000"},{"x":"Account 6","y":"6000"},{"x":"Account 7","y":"7000"},{"x":"Account 8","y":"8000"},{"x":"Account 9","y":"9000"},{"x":"Account 10","y":"10000"}]}
                         ]}
@@ -225,7 +225,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
                     ),
                 ),
                 ChartData(
-                    "Spending by account and category",
+                    "Monthly Income Over Recorded Period",
                     "BAR",
                     (1..10).map { ChartRow("Food", "Account $it", "A${'$'}${it}.00") } +
                         (1..10).map { ChartRow("Rent", "Account $it", "A${'$'}${it * 10}.00") },
@@ -288,6 +288,11 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         chartDialog.getByLabel("Close Balance trend chart").click()
         assertThat(chartDialog).not().isVisible()
 
+        val viewportHeight = (page.evaluate("window.innerHeight") as Number).toDouble()
+        (page.evaluate("document.scrollingElement.scrollHeight") as Number).toDouble().shouldBe(viewportHeight)
+        page.evaluate("window.scrollTo(0, document.scrollingElement.scrollHeight)")
+        (page.evaluate("window.scrollY") as Number).toDouble().shouldBe(0.0)
+
         page.setViewportSize(390, 844)
         (page.evaluate("document.scrollingElement.scrollHeight") as Number).toDouble().shouldBe(844.0)
         page.evaluate("window.scrollTo(0, document.scrollingElement.scrollHeight)")
@@ -307,7 +312,20 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         val composerBounds = page.locator(".ai-chat-composer").boundingBox()
         (lineChartBounds.y + lineChartBounds.height <= feedBounds.y + feedBounds.height + 1).shouldBe(true)
         (feedBounds.y + feedBounds.height <= composerBounds.y + 1).shouldBe(true)
-        page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Balance trend")).click()
+
+        page.getByLabel("Maximize Monthly Income Over Recorded Period chart").click()
+        val mobileChartDialog = page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Monthly Income Over Recorded Period chart"),
+        )
+        assertThat(mobileChartDialog).isVisible()
+        val mobileChartTitle = mobileChartDialog.getByRole(
+            AriaRole.HEADING,
+            Locator.GetByRoleOptions().setName("Monthly Income Over Recorded Period"),
+        )
+        assertThat(mobileChartTitle).hasCount(1)
+        mobileChartTitle.evaluate("title => title.scrollWidth <= title.clientWidth + 1").shouldBe(true)
+        mobileChartTitle.click()
     }
 
     @Test

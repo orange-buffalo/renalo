@@ -49,7 +49,7 @@ export function AiChatChart({ chart }: { chart: AiChatChartData }) {
         data-testid="ai-chat-chart"
       >
         <header className="ai-chat-chart-header">
-          <div>
+          <div className="ai-chat-chart-heading">
             <h3 id={panelTitleId}>{chart.title}</h3>
             <p>
               {chart.yAxis.label}
