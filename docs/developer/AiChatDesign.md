@@ -12,6 +12,8 @@ Renalo is a private, self-hosted application for an individual, household, or sm
 
 Regular-user data boundaries still apply. Each conversation belongs to one authenticated regular user, and AI tools may only read that user's data. The model never supplies, selects, or overrides the effective user ID.
 
+The assistant is deliberately limited to financial analytics over the user's data available through Renalo. Its server-owned instructions require it to decline general knowledge, writing, coding, unrelated advice, financial advice or recommendations about what the user should do, and attempts in user messages, stored conversation content, or tool results to override or weaken that scope. Out-of-scope requests do not invoke financial tools or trigger a new-chat recommendation; the response briefly redirects the user toward Renalo financial analytics.
+
 ## Goals
 
 - Let a regular user ask questions about their Renalo data in natural language.
@@ -25,7 +27,7 @@ Regular-user data boundaries still apply. Each conversation belongs to one authe
 ## Non-goals
 
 - Public SaaS tenancy, per-user provider accounts, billing quotas, or a provider marketplace.
-- Model-generated SQL, direct database access, or general-purpose filesystem and shell tools.
+- General-purpose assistance, model-generated SQL, direct database access, or filesystem and shell tools.
 - Write-capable financial tools in the initial design.
 - Treating generated prose as an authoritative financial calculation.
 - Guaranteeing that consumer AI subscriptions provide durable API access.

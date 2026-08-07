@@ -116,7 +116,7 @@ class AiChatTools(
 
     private val topicChangeSpecification = tool(
         name = RECOMMEND_NEW_CHAT,
-        description = "Pause before answering when the latest user request is a significant change from the established chat topic. Call this alone, before any prose or other tools. Do not call it for follow-ups, clarifications, corrections, or closely related questions.",
+        description = "Pause before answering when the latest in-scope Renalo analytics request is a significant change from the established chat topic. Call this alone, before any prose or other tools. Do not call it for out-of-scope requests, follow-ups, clarifications, corrections, or closely related questions.",
         parameters = parameters(),
     )
 
