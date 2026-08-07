@@ -555,6 +555,11 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         )
         assertThat(messageInput).isVisible()
         assertThat(page.getByLabel("Send message")).isVisible()
+        page.locator(".ai-chat-panel").boundingBox().let { panel ->
+            panel.x.shouldBe(0.0)
+            panel.width.shouldBe(390.0)
+            (panel.y + panel.height).shouldBe(844.0)
+        }
         page.locator(".ai-chat-feed").evaluate(
             "feed => feed.scrollHeight > feed.clientHeight && feed.scrollTop > 0",
         ).shouldBe(true)

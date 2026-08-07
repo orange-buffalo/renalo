@@ -3589,7 +3589,7 @@ input {
   }
 
   .standard-page-content:has(.ai-chat-page-surface) {
-    padding-bottom: 0;
+    padding: 0;
   }
 
   .standard-page-surface {
@@ -3614,7 +3614,10 @@ input {
   .ai-chat-panel {
     grid-template-rows: auto minmax(0, 1fr) auto;
     min-height: 100%;
-    border-radius: 12px 12px 0 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .ai-chat-toolbar {
