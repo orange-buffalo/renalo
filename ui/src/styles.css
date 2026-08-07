@@ -2770,6 +2770,7 @@ input {
 .ai-chat-message {
   display: flex;
   max-width: min(82%, 720px);
+  flex-shrink: 0;
 }
 
 .ai-chat-message--user {
@@ -3590,6 +3591,12 @@ input {
 
   .standard-page-content:has(.ai-chat-page-surface) {
     padding: 0;
+  }
+
+  .standard-page-shell:has(.ai-chat-page-surface) {
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
   }
 
   .standard-page-surface {

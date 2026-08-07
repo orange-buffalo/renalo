@@ -289,6 +289,9 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(chartDialog).not().isVisible()
 
         page.setViewportSize(390, 844)
+        (page.evaluate("document.scrollingElement.scrollHeight") as Number).toDouble().shouldBe(844.0)
+        page.evaluate("window.scrollTo(0, document.scrollingElement.scrollHeight)")
+        (page.evaluate("window.scrollY") as Number).toDouble().shouldBe(0.0)
         val chartMessage = page.locator(".ai-chat-message--has-chart")
         val feed = page.locator(".ai-chat-feed")
         val feedContentWidth = (feed.evaluate(
@@ -296,6 +299,14 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         ) as Number).toDouble()
         val widthDifference = feedContentWidth - chartMessage.boundingBox().width
         (kotlin.math.abs(widthDifference) < 1).shouldBe(true)
+        chartMessage.evaluate("message => message.scrollHeight <= message.clientHeight + 1").shouldBe(true)
+        val lineChart = page.getByTestId("ai-chat-line-chart")
+        lineChart.scrollIntoViewIfNeeded()
+        val feedBounds = feed.boundingBox()
+        val lineChartBounds = lineChart.boundingBox()
+        val composerBounds = page.locator(".ai-chat-composer").boundingBox()
+        (lineChartBounds.y + lineChartBounds.height <= feedBounds.y + feedBounds.height + 1).shouldBe(true)
+        (feedBounds.y + feedBounds.height <= composerBounds.y + 1).shouldBe(true)
         page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Balance trend")).click()
     }
 
