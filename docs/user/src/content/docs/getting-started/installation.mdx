@@ -7,6 +7,12 @@ import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
 Renalo is published as `ghcr.io/orange-buffalo/renalo:<version>`. Use an explicit numeric version from the [GitHub releases](https://github.com/orange-buffalo/renalo/releases); Renalo does not publish a floating `latest` tag.
 
+## Intended deployment model
+
+Renalo is designed for private use by an individual, household, or small trusted group. Multiple user accounts keep budgeting data separate within the application, but the deployment operator remains trusted and can access the host, database, configuration, and backups. Do not offer one Renalo installation as a public multi-tenant service.
+
+Internet access is optional. If Renalo must be reachable outside your private network, place it behind a maintained HTTPS reverse proxy, apply updates promptly, and restrict PostgreSQL and internal companion services to private networks.
+
 ## Required configuration
 
 | Variable | Purpose |
@@ -17,6 +23,11 @@ Renalo is published as `ghcr.io/orange-buffalo/renalo:<version>`. Use an explici
 | `RENALO_JWT_SECRET` | Stable secret used to sign access tokens |
 | `RENALO_PUBLIC_URL` | Exact externally reachable origin, such as `https://budget.example.com` |
 | `RENALO_DEFAULT_ADMIN_USERNAME` | Optional first administrator username; defaults to `admin` |
+| `RENALO_AI_CHAT_ENABLED` | Optional `true`/`false` flag for AI chat; defaults to `false` |
+| `RENALO_AI_CHAT_LITELLM_BASE_URL` | LiteLLM OpenAI-compatible API root, including `/v1` |
+| `RENALO_AI_CHAT_LITELLM_API_KEY` | LiteLLM API key; kept only on the Renalo server |
+| `RENALO_AI_CHAT_LITELLM_MODEL` | Stable LiteLLM model alias used by Renalo |
+| `RENALO_AI_CHAT_LITELLM_MAX_CONTEXT_TOKENS` | Optional positive model context limit used for the context-fill indicator; omit it when unknown |
 
 Generate a strong JWT secret once and store it in your secret manager:
 
@@ -25,6 +36,12 @@ openssl rand -base64 64
 ```
 
 Do not regenerate it at every container start. Rotating it signs users out, while persisted remembered sessions must be revoked separately if the rotation responds to a compromise.
+
+AI Chat is disabled unless `RENALO_AI_CHAT_ENABLED=true` is set on the Renalo container. An enabled deployment must also configure the three `RENALO_AI_CHAT_LITELLM_*` variables. The configured LiteLLM model route must support the Responses API, streaming tools, and replay of prior Responses input items. Renalo stores each conversation's event log locally so follow-up turns and history do not depend on provider-side response storage.
+
+Set `RENALO_AI_CHAT_LITELLM_MAX_CONTEXT_TOKENS` only when the stable model alias has a known context limit. Renalo uses it to calculate the percentage shown beside the composer and warn users when a chat reaches 75%. It does not compact or automatically replace long conversations.
+
+The base URL normally looks like `http://litellm:4000/v1`. Keep LiteLLM on a private network, configure the model name as a stable LiteLLM alias rather than a provider-specific model ID, and do not expose the API key to browsers or user accounts.
 
 <Tabs>
   <TabItem label="Docker Compose">

@@ -47,7 +47,7 @@ const chartConfigs = {
     storageKey: "renalo.dashboard.incomeCategoryVisibility",
   },
 } satisfies Record<TransactionApiConfig["type"], ChartConfig>;
-const colors = [
+export const transactionCategoryColors = [
   "#3976c5",
   "#65a3df",
   "#8abce8",
@@ -174,7 +174,11 @@ export function TransactionByCategoryChart({
                   <CategoryLegendItem
                     key={category.categoryId}
                     category={category}
-                    color={colors[index % colors.length]}
+                    color={
+                      transactionCategoryColors[
+                        index % transactionCategoryColors.length
+                      ]
+                    }
                     isVisible={!hiddenCategoryIds.has(category.categoryId)}
                     visibleTotal={visibleTotal}
                     isDimmed={
@@ -204,9 +208,9 @@ export function TransactionByCategoryChart({
                           key={category.categoryId}
                           category={category}
                           color={
-                            colors[
+                            transactionCategoryColors[
                               (index + visibleLegendCategoryCount) %
-                                colors.length
+                                transactionCategoryColors.length
                             ]
                           }
                           isVisible={
@@ -251,7 +255,11 @@ export function TransactionByCategoryChart({
                         return (
                           <Cell
                             key={category.categoryId}
-                            fill={colors[originalIndex % colors.length]}
+                            fill={
+                              transactionCategoryColors[
+                                originalIndex % transactionCategoryColors.length
+                              ]
+                            }
                             opacity={
                               hoveredCategoryId === undefined ||
                               hoveredCategoryId === category.categoryId

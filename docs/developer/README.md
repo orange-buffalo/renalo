@@ -6,4 +6,5 @@ This directory contains implementation and contributor references for Renalo. Us
 
 - [Development Guide](Development.md): local tooling, builds, tests, containers, documentation, and releases.
 - [Financial Calculations](FinancialCalculations.md): authoritative business rules, formulas, rounding, currencies, edge cases, and coverage.
+- [AI Chat Design](AiChatDesign.md): living architecture for user-scoped financial chat through LangChain4j and LiteLLM Proxy.
 - [`AGENTS.md`](../../AGENTS.md): repository-wide engineering conventions and recurring implementation rules.

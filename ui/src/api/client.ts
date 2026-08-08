@@ -25,6 +25,19 @@ export function clearAuthToken() {
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}) {
+  const response = await apiStreamingRequest(path, options);
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function apiStreamingRequest(
+  path: string,
+  options: RequestInit = {},
+) {
   const token = getAuthToken();
   const headers = new Headers(options.headers);
   headers.set(
@@ -54,11 +67,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}) {
     );
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return (await response.json()) as T;
+  return response;
 }
 
 export function redirectToLoginForExpiredSession() {

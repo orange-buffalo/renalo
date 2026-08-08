@@ -70,6 +70,9 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("io.projectreactor:reactor-core")
+    implementation("dev.langchain4j:langchain4j-open-ai:1.18.1")
+    implementation("dev.langchain4j:langchain4j-http-client-jdk:1.18.1")
 
     runtimeOnly("ch.qos.logback:logback-classic")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")

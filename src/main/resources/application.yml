@@ -34,6 +34,13 @@ flyway:
 
 renalo:
   public-url: ${RENALO_PUBLIC_URL:`http://localhost:8080`}
+  ai-chat:
+    enabled: ${RENALO_AI_CHAT_ENABLED:false}
+    litellm:
+      base-url: ${RENALO_AI_CHAT_LITELLM_BASE_URL:}
+      api-key: ${RENALO_AI_CHAT_LITELLM_API_KEY:}
+      model: ${RENALO_AI_CHAT_LITELLM_MODEL:}
+      max-context-tokens: ${RENALO_AI_CHAT_LITELLM_MAX_CONTEXT_TOKENS:0}
   auth:
     access-token-expiration-seconds: 1800
     remember-me-token-expiration-seconds: 2592000

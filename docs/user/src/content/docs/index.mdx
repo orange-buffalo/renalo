@@ -22,6 +22,8 @@ import dashboardMobile from "../../assets/screenshots/mobile/03-dashboard.png";
 
 Renalo brings accounts, income, expenses, transfers, recurring entries, and balance corrections into one calm workspace. It is designed to run on infrastructure you control, with PostgreSQL as the durable source of truth.
 
+Renalo is intended for an individual, a household, or a small trusted group. Its multi-user support gives people separate accounts and separate budgeting data inside one trusted deployment; it is not designed to operate as a public multi-tenant SaaS service.
+
 <ScreenshotPair desktop={dashboardDesktop} mobile={dashboardMobile} alt="Renalo account dashboard" />
 
 ## Built for ownership
@@ -43,7 +45,11 @@ Renalo brings accounts, income, expenses, transfers, recurring entries, and bala
 
 ## Privacy and responsibility
 
-Self-hosting changes who is responsible for your data. Renalo does not send your budgeting records to a Renalo-operated cloud, but your deployment operator can access the database and application logs. Protect the host, use HTTPS, keep the JWT secret private, restrict database access, and maintain tested backups.
+Self-hosting changes who is responsible for your data. Regular users cannot access each other's budgeting records through Renalo, but the trusted deployment operator can access the database, configuration, backups, and application logs. Renalo does not send your budgeting records to a Renalo-operated cloud.
+
+Protect the host, use HTTPS, keep the JWT secret private, restrict database access, and maintain tested backups. If you expose Renalo to the internet, you are responsible for securing and updating the deployment and its reverse proxy.
+
+Optional integrations may send data to services selected by the deployment operator. In particular, an external AI model can receive questions, relevant financial data, and generated answers. Use a locally hosted model when this information must remain within your infrastructure, and review the privacy and retention terms of any external provider before enabling it.
 
 Passkeys, remembered sessions, activation links, and sign-in links all depend on the security of your deployment. Treat `RENALO_PUBLIC_URL` as stable configuration: changing the public origin can make registered passkeys unusable.
 

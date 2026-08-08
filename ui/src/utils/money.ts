@@ -67,6 +67,26 @@ export function formatMoney(minorUnits: number, currency: string) {
   );
 }
 
+export function formatMoneyFromMinorUnits(
+  minorUnits: string,
+  currency: string,
+) {
+  if (!/^-?\d+$/.test(minorUnits)) {
+    throw new RangeError("Minor units must be an integer string");
+  }
+  const fractionDigits = currencyFractionDigits(currency);
+  const formatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+  return formatExactDecimal(
+    formatter,
+    minorUnitsStringToDecimal(minorUnits, fractionDigits),
+  );
+}
+
 export function formatMoneyInput(minorUnits: number, currency: string) {
   assertSafeMinorUnits(minorUnits);
   const fractionDigits = currencyFractionDigits(currency);
@@ -228,6 +248,18 @@ function assertSafeMinorUnits(minorUnits: number) {
 function minorUnitsToDecimal(minorUnits: number, fractionDigits: number) {
   const sign = minorUnits < 0 ? "-" : "";
   const digits = String(Math.abs(minorUnits)).padStart(fractionDigits + 1, "0");
+  if (fractionDigits === 0) {
+    return `${sign}${digits}`;
+  }
+  return `${sign}${digits.slice(0, -fractionDigits)}.${digits.slice(-fractionDigits)}`;
+}
+
+function minorUnitsStringToDecimal(minorUnits: string, fractionDigits: number) {
+  const value = BigInt(minorUnits);
+  const sign = value < 0n ? "-" : "";
+  const digits = (value < 0n ? -value : value)
+    .toString()
+    .padStart(fractionDigits + 1, "0");
   if (fractionDigits === 0) {
     return `${sign}${digits}`;
   }

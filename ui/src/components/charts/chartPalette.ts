@@ -1,0 +1,18 @@
+export const chartSeriesColors = [
+  "#3976c5",
+  "#75a94a",
+  "#76529a",
+  "#d65d5d",
+  "#e5ad35",
+  "#d47f38",
+  "#65a3df",
+  "#9bc767",
+  "#9b73bc",
+  "#e78787",
+  "#f2c75c",
+  "#8abce8",
+  "#b8d98d",
+  "#c0a5d4",
+  "#efb0a8",
+  "#f5d889",
+];

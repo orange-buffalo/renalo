@@ -33,7 +33,8 @@ class SystemSettingsApiTest : IntegrationTestSupport() {
         response.body().shouldEqualJson(
             """
                 {
-                  "publicUrl": "https://renalo.example"
+                  "publicUrl": "https://renalo.example",
+                  "aiChatEnabled": false
                 }
             """.trimIndent(),
         )
