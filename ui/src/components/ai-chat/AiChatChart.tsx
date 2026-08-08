@@ -173,7 +173,7 @@ function CartesianChartView({
       <Tooltip
         cursor={{ stroke: "#d1d7e0", strokeWidth: 1 }}
         wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
-        content={<ChartTooltip chart={chart} />}
+        content={(props) => <ChartTooltip {...props} chart={chart} />}
       />
       {chart.series.length > 1 && (
         <Legend
@@ -302,7 +302,7 @@ function ScatterChartView({ chart }: { chart: AiChatChartData }) {
           <Tooltip
             cursor={{ stroke: "#d1d7e0", strokeWidth: 1 }}
             wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
-            content={<ChartTooltip chart={chart} />}
+            content={(props) => <ChartTooltip {...props} chart={chart} />}
           />
           {chart.series.length > 1 && (
             <Legend
@@ -385,7 +385,7 @@ function SliceChartView({
             </Pie>
             <Tooltip
               wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
-              content={<ChartTooltip chart={chart} />}
+              content={(props) => <ChartTooltip {...props} chart={chart} />}
             />
           </PieChart>
         </ResponsiveContainer>
@@ -419,7 +419,7 @@ function ChartTooltip({
   payload,
   label,
   chart,
-}: TooltipContentProps<number, string> & { chart: AiChatChartData }) {
+}: TooltipContentProps & { chart: AiChatChartData }) {
   if (!active || !payload?.length) return null;
   const source = payload[0]?.payload as
     | {
@@ -476,17 +476,18 @@ function ChartDataTable({ chart }: { chart: AiChatChartData }) {
 }
 
 function cartesianData(chart: AiChatChartData) {
-  const rows = new Map<
-    string,
-    {
-      x: string;
-      exactValues: Record<string, string>;
-      [key: string]: string | number | Record<string, string>;
-    }
-  >();
+  type CartesianChartRow = {
+    x: string;
+    exactValues: Record<string, string>;
+    [key: string]: string | number | Record<string, string>;
+  };
+  const rows = new Map<string, CartesianChartRow>();
   chart.series.forEach((series, seriesIndex) => {
     series.points.forEach((point) => {
-      const row = rows.get(point.x) ?? { x: point.x, exactValues: {} };
+      const row: CartesianChartRow = rows.get(point.x) ?? {
+        x: point.x,
+        exactValues: {},
+      };
       const dataKey = `series-${seriesIndex}`;
       row[dataKey] = Number(point.y);
       row.exactValues[dataKey] = point.y;

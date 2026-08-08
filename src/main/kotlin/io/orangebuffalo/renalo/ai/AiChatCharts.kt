@@ -106,7 +106,24 @@ class AiChatCharts {
     )
 
     fun encodeArtifact(chart: AiChatChartResponse): String = objectMapper.writeValueAsString(
-        mapOf("type" to ARTIFACT_TYPE, "version" to 1, "chart" to chart),
+        mapOf(
+            "type" to ARTIFACT_TYPE,
+            "version" to 1,
+            "chart" to mapOf(
+                "id" to chart.id,
+                "kind" to chart.kind,
+                "title" to chart.title,
+                "xAxis" to mapOf("label" to chart.xAxis.label, "type" to chart.xAxis.type),
+                "yAxis" to mapOf(
+                    "label" to chart.yAxis.label,
+                    "type" to chart.yAxis.type,
+                    "currency" to chart.yAxis.currency,
+                ),
+                "stacked" to chart.stacked,
+                "orientation" to chart.orientation,
+                "series" to chart.series,
+            ),
+        ),
     )
 
     fun decodeArtifact(value: String): AiChatChartResponse? {

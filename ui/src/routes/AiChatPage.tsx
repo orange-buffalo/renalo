@@ -348,7 +348,8 @@ export function AiChatPage() {
     topicChangeId: string,
     decision: "NEW_CHAT" | "CONTINUE_HERE",
   ) {
-    if (isSending || !activeConversation?.id) {
+    const sourceConversationId = activeConversation?.id;
+    if (isSending || !activeConversation || !sourceConversationId) {
       return;
     }
     const sourceConversation = activeConversation;
@@ -383,7 +384,7 @@ export function AiChatPage() {
           setMessageStreaming(current, sourceConversation.clientId, messageId),
         );
         await continueAiChatTopicChange(
-          sourceConversation.id,
+          sourceConversationId,
           topicChangeId,
           (event) =>
             applyStreamEvent(sourceConversation.clientId, messageId, event),
@@ -392,7 +393,7 @@ export function AiChatPage() {
       } else {
         let destinationClientId: string | undefined;
         await continueAiChatTopicChangeInNewChat(
-          sourceConversation.id,
+          sourceConversationId,
           topicChangeId,
           (event) => {
             if (event.type === "conversation.created") {
