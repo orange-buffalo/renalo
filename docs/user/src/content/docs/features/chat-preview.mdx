@@ -5,24 +5,119 @@ description: Ask Renalo's optional AI assistant questions about your financial d
 
 import { Aside } from "@astrojs/starlight/components";
 import ScreenshotPair from "../../../components/ScreenshotPair.astro";
-import desktop from "../../../assets/screenshots/desktop/33-chat-preview.png";
-import mobile from "../../../assets/screenshots/mobile/33-chat-preview.png";
+import answerDesktop from "../../../assets/screenshots/desktop/33-ai-chat-answer.png";
+import answerMobile from "../../../assets/screenshots/mobile/33-ai-chat-answer.png";
+import chartDesktop from "../../../assets/screenshots/desktop/35-ai-chat-chart.png";
+import chartMobile from "../../../assets/screenshots/mobile/35-ai-chat-chart.png";
+import chartFullscreenDesktop from "../../../assets/screenshots/desktop/36-ai-chat-chart-fullscreen.png";
+import chartFullscreenMobile from "../../../assets/screenshots/mobile/36-ai-chat-chart-fullscreen.png";
+import contextDesktop from "../../../assets/screenshots/desktop/37-ai-chat-context.png";
+import contextMobile from "../../../assets/screenshots/mobile/37-ai-chat-context.png";
+import conversationsDesktop from "../../../assets/screenshots/desktop/38-ai-chat-conversations.png";
+import conversationsMobile from "../../../assets/screenshots/mobile/38-ai-chat-conversations.png";
+import topicChangeDesktop from "../../../assets/screenshots/desktop/39-ai-chat-topic-change.png";
+import topicChangeMobile from "../../../assets/screenshots/mobile/39-ai-chat-topic-change.png";
 
-Chat is an optional AI assistant. A deployment operator enables it and configures LiteLLM as described in [Install with Docker](/getting-started/installation/); when disabled, Chat does not appear in the main navigation.
+AI chat is an optional assistant for regular users exploring the financial data already stored in Renalo. A deployment operator enables it and configures LiteLLM as described in [Install with Docker](/getting-started/installation/). When it is disabled, **Chat** does not appear in the navigation; administrators do not have access to it.
 
-Renalo uses the configured AI model to answer questions through read-only access to your accounts, category totals, transactions, net worth, and funds transfers. Amounts, date filtering, currency projections, balances, and analytics remain calculated by Renalo rather than by the model. A new chat also receives a concise generated title based on its first prompt.
+## Ask about your Renalo data
 
-<ScreenshotPair desktop={desktop} mobile={mobile} alt="Renalo AI Chat with a conversation selector, message feed, and composer" />
+AI chat can analyze, summarize, compare, visualize, and explain your own Renalo data. It has read-only tools for:
 
-## Try the interface
+- active account balances and current-month money flow;
+- income and expense totals by category;
+- transactions filtered by dates, accounts, categories, notes, currencies, amounts, recurrence, and import source;
+- income and expense trends over time;
+- net worth through today; and
+- funds transfers.
 
-- Select **New conversation** to add another conversation.
-- Use the conversation selector to move between their separate message feeds.
-- Write a message and press **Enter** or select the send button. Use **Shift + Enter** for a new line.
-- Review the activity labels to see when Renalo is calculating or searching financial data for the answer.
+Renalo remains responsible for authorization, date filtering, balances, currency projections, and exact financial calculations. The model interprets those results and writes the answer. It cannot edit transactions, accounts, categories, transfers, or settings.
 
-Conversation names and message history persist across browser reloads. Renalo keeps the conversation event log in its own database, so saved history remains available even when LiteLLM or the configured model is temporarily unavailable.
+Answers stream into the feed and can contain headings, lists, tables, diagrams, and other structured Markdown. Safe Renalo-owned activities such as **Calculated category totals** explain what the app is doing without exposing hidden model reasoning, raw tool arguments, or raw results. Adjacent tool calls are grouped into concise summaries.
+
+<ScreenshotPair
+  desktop={answerDesktop}
+  mobile={answerMobile}
+  alt="A completed Renalo AI chat answer with grouped data activity and structured Markdown"
+/>
+
+Type a message and press **Enter** or select **Send message**. Use **Shift + Enter** for a new line. While a response is running, the send control becomes **Stop response**; stopping keeps output that has already arrived.
+
+On mobile, Chat fills the screen below the topbar. The message feed is the only scrolling region, while the conversation controls and composer remain available around it. Charts use the full feed width and interactive panels open full screen.
+
+## Conversations and history
+
+An empty **New chat** remains only in your browser until its first message is accepted. Renalo then saves the conversation and generates a concise title from that prompt.
+
+Use the conversation selector to switch between chats or start another one. The actions beside the title let you rename or delete the current conversation. Saved messages, charts, activity summaries, and turn metrics survive reloads because Renalo stores its own conversation event log rather than relying on provider-side response history.
+
+<ScreenshotPair
+  desktop={conversationsDesktop}
+  mobile={conversationsMobile}
+  alt="The AI chat conversation selector showing separate titled conversations"
+/>
+
+Deleting a conversation removes it from Renalo. It does not guarantee deletion of data retained independently by LiteLLM or its model provider.
+
+## Charts
+
+Ask for a useful visualization or let the assistant choose one for the question. AI chat supports line, area, vertical and horizontal bar, pie, donut, and scatter charts, including multiple series and stacked data. Chart values come from successful read-only Renalo tools and retain exact currency or numeric values for tooltips and the accessible data table.
+
+<ScreenshotPair
+  desktop={chartDesktop}
+  mobile={chartMobile}
+  alt="An AI-generated expense chart embedded in a Renalo chat answer"
+/>
+
+Select the maximize control in a chart header to open it full screen. Charts adapt to desktop and mobile layouts, and remain part of the saved conversation without rerunning the model when you return later.
+
+<ScreenshotPair
+  desktop={chartFullscreenDesktop}
+  mobile={chartFullscreenMobile}
+  alt="A Renalo AI chat chart expanded into a full-screen dialog"
+/>
+
+## Time, tokens, and context
+
+Each completed assistant turn shows its elapsed time and, when the provider supplies it, the number of tokens consumed across the turn. These values are best-effort operational information and do not change the financial result.
+
+The circular indicator above **Send message** shows the latest estimate of how much model context the conversation occupies. Select or hover over it for the current and maximum sizes. If the operator configured the model's maximum context and the estimate reaches 75%, the indicator warns you to start a new chat. If the maximum is unknown, Renalo warns that an unexpectedly full context may cause the chat to fail.
+
+<ScreenshotPair
+  desktop={contextDesktop}
+  mobile={contextMobile}
+  alt="The AI chat context indicator warning that a conversation is 80 percent full"
+/>
+
+Renalo does not compact long conversations or automatically replace them. Keep chats focused and start a new one before the context becomes full.
+
+## Changing topics
+
+For a significant change to another in-scope financial analytics topic, the assistant can pause before answering and recommend a separate chat. The recommendation is not used for ordinary follow-up questions, corrections, refinements, or closely related analysis.
+
+<ScreenshotPair
+  desktop={topicChangeDesktop}
+  mobile={topicChangeMobile}
+  alt="An AI chat topic-change recommendation with continue-here and new-chat actions"
+/>
+
+- **Continue in a new chat** moves the pending question through the normal new-chat flow and leaves the previous conversation focused on its original topic.
+- **Continue here** resumes the same turn in the current conversation.
+
+The decision remains available after a reload. While it is pending, the composer is disabled so the question cannot be submitted twice.
+
+## Scope and limitations
+
+AI chat is restricted to analyzing and explaining the authenticated user's financial data available through Renalo. It declines unrelated general questions, writing or coding tasks, and requests for financial advice or recommendations about what you should do. For a mixed request, it can address the in-scope analysis and decline the rest.
+
+Instructions found in messages, saved conversation content, transaction notes, imported data, or tool results cannot change that scope. Out-of-scope requests are declined rather than moved to a new chat.
 
 <Aside type="caution" title="AI-generated explanations">
-  The model can make mistakes when interpreting tool results. Verify important decisions against Renalo's regular dashboards and transaction pages. Your prompts and the financial data needed to answer them are sent through the configured LiteLLM deployment and may be processed by its model provider.
+  The model can still make mistakes when interpreting authoritative tool results. Verify important conclusions against Renalo's regular dashboard and transaction pages. AI chat explains financial data; it is not financial advice.
 </Aside>
+
+## Privacy and deployment
+
+The browser communicates only with authenticated Renalo endpoints, and the LiteLLM API key remains on the server. Tool queries are scoped to the signed-in user, and the model cannot select another user ID.
+
+Your prompts, relevant financial data, and generated responses pass through the configured LiteLLM deployment and may be processed or retained by its model provider. Deployment operators should review those systems' privacy and retention terms. A locally hosted model behind a private LiteLLM deployment provides the strongest control over where data is processed. Renalo database backups also include saved conversation history.

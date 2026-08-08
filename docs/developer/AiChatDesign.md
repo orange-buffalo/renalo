@@ -155,8 +155,6 @@ Tools return typed values with monetary amounts in exact `Long` minor units plus
 
 ### Chart presentation
 
-User-guide content and documentation screenshots for charts are intentionally deferred until the chart design is explicitly approved. Do not update them as part of ongoing chart implementation work.
-
 `present_chart` is a general presentation tool rather than a set of source-specific chart commands. After obtaining financial data, the model chooses the grouping, X-axis type, value type, named series, and presentation that best answer the user's question. The supported presentations are line, area, vertical or horizontal bar, pie, donut, and scatter charts; bar and area series can be stacked.
 
 The model supplies a normalized dataset with arbitrary category, ISO date, or numeric X values and exact string Y values. Monetary values remain signed integer minor units with one ISO currency for the chart, while non-monetary values use bounded decimals. This allows data to be grouped by any useful field exposed by a read-only tool and allows multiple measures or groups to be rendered as independent series.

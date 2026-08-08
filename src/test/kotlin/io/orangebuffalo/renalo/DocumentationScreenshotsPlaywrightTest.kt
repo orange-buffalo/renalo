@@ -51,6 +51,7 @@ import java.util.regex.Pattern
 @MicronautTest(transactional = false)
 @Property(name = "micronaut.server.port", value = "-1")
 @Property(name = "renalo.ai-chat.enabled", value = "true")
+@Property(name = "renalo.ai-chat.litellm.max-context-tokens", value = "150")
 @EnabledIfEnvironmentVariable(named = "RENALO_DOCUMENTATION_SCREENSHOTS", matches = "(?i:true|1)")
 class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
     @Inject
@@ -284,13 +285,87 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
 
         page.navigate(server.url.toString() + "/chat")
         assertThat(page.locator(".ai-chat-panel")).isVisible()
-        page.getByRole(
+        val messageInput = page.getByRole(
             AriaRole.TEXTBOX,
             Page.GetByRoleOptions().setName("Message").setExact(true),
-        ).fill("Summarize my spending this month")
+        )
+        if (layout == DocumentationLayout.DESKTOP) {
+            if (page.getByLabel("New conversation").isEnabled) {
+                page.getByLabel("New conversation").click()
+            }
+            messageInput.fill("Summarize my recent expenses")
+            page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Send message")).click()
+        } else {
+            page.getByLabel("Select conversation").click()
+            page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Financial overview")).click()
+        }
+        val answerHeading = page.getByRole(
+            AriaRole.HEADING,
+            Page.GetByRoleOptions().setName("Spending snapshot"),
+        )
+        assertThat(answerHeading).isVisible()
+        assertThat(page.getByText("Calculated category totals", Page.GetByTextOptions().setExact(true))).isVisible()
+        assertThat(page.getByText(Pattern.compile("240 tokens$"))).isVisible()
+        answerHeading.scrollIntoViewIfNeeded()
+        capture(page, layout, "33-ai-chat-answer")
+
+        if (layout == DocumentationLayout.DESKTOP) {
+            page.getByLabel("New conversation").click()
+            messageInput.fill("Show a chart of spending this month")
+            page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Send message")).click()
+        } else {
+            page.getByLabel("Select conversation").click()
+            page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Monthly spending review")).click()
+        }
+        val chartHeading = page.getByRole(
+            AriaRole.HEADING,
+            Page.GetByRoleOptions().setName("Expenses by category"),
+        )
+        assertThat(chartHeading).isVisible()
+        assertThat(page.getByText(Pattern.compile("360 tokens$"))).isVisible()
+        chartHeading.scrollIntoViewIfNeeded()
+        capture(page, layout, "35-ai-chat-chart")
+
+        page.getByLabel("Maximize Expenses by category chart").click()
+        val chartDialog = page.getByRole(
+            AriaRole.DIALOG,
+            Page.GetByRoleOptions().setName("Expenses by category chart"),
+        )
+        assertThat(chartDialog).isVisible()
+        page.mouse().move(1.0, 1.0)
+        capture(page, layout, "36-ai-chat-chart-fullscreen")
+        chartDialog.getByLabel("Close Expenses by category chart").click()
+        assertThat(chartDialog).not().isVisible()
+
+        page.getByRole(
+            AriaRole.BUTTON,
+            Page.GetByRoleOptions().setName(Pattern.compile("^Context 80% full")),
+        ).click()
+        assertThat(page.getByText("Context 80% full", Page.GetByTextOptions().setExact(true))).isVisible()
+        capture(page, layout, "37-ai-chat-context")
+        page.keyboard().press("Escape")
+
+        page.getByLabel("Select conversation").click()
+        assertThat(page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Monthly spending review")))
+            .isVisible()
+        assertThat(page.getByRole(AriaRole.MENUITEMRADIO, Page.GetByRoleOptions().setName("Financial overview")))
+            .isVisible()
+        capture(page, layout, "38-ai-chat-conversations")
+        page.keyboard().press("Escape")
+
+        val completedTurnCount = page.locator(".ai-chat-turn-metrics").count()
+        messageInput.fill("Change topic to compare net worth over time")
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Send message")).click()
-        assertThat(page.locator("[data-chat-author='Renalo']")).isVisible()
-        capture(page, layout, "33-chat-preview")
+        val recommendation = page.getByRole(AriaRole.ALERT)
+        assertThat(recommendation).containsText("This looks like a different topic")
+        assertThat(recommendation.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Continue in a new chat")))
+            .isVisible()
+        assertThat(recommendation.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Continue here")))
+            .isVisible()
+        capture(page, layout, "39-ai-chat-topic-change")
+        recommendation.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Continue here")).click()
+        assertThat(recommendation).not().isVisible()
+        assertThat(page.locator(".ai-chat-turn-metrics")).hasCount(completedTurnCount + 1)
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
         assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Settings"))).isVisible()

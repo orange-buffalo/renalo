@@ -82,16 +82,21 @@ class TestAiChatTitleGeneratorFactory {
                             TOKEN_USAGE
                     ));
                 }
+                var documentationChartPrompt = prompt.equalsIgnoreCase("Show a chart of spending this month");
+                var categoryTotalsArguments = documentationChartPrompt
+                        ? "{\"type\":\"EXPENSE\",\"from\":\"2026-08-01\",\"to\":\"2026-08-07\"}"
+                        : "{\"type\":\"EXPENSE\",\"from\":\"2026-08-01\",\"to\":\"2026-08-01\"}";
+                var serializedCategoryTotalsArguments = categoryTotalsArguments.replace("\"", "\\\"");
                 return Flux.just(new AiChatModelStepEvent.Completed(
                         responseId,
                         "renalo-chat",
                         List.of(new AiChatModelToolCall(
                                 "call_category_totals",
                                 "get_category_totals",
-                                "{\"type\":\"EXPENSE\",\"from\":\"2026-08-01\",\"to\":\"2026-08-01\"}"
+                                categoryTotalsArguments
                         )),
                         List.of(
-                                "{\"type\":\"function_call\",\"id\":\"fc_category_totals\",\"call_id\":\"call_category_totals\",\"name\":\"get_category_totals\",\"arguments\":\"{\\\"type\\\":\\\"EXPENSE\\\",\\\"from\\\":\\\"2026-08-01\\\",\\\"to\\\":\\\"2026-08-01\\\"}\",\"status\":\"completed\"}"
+                                "{\"type\":\"function_call\",\"id\":\"fc_category_totals\",\"call_id\":\"call_category_totals\",\"name\":\"get_category_totals\",\"arguments\":\"" + serializedCategoryTotalsArguments + "\",\"status\":\"completed\"}"
                         ),
                         TOKEN_USAGE
                 ));
@@ -113,7 +118,10 @@ class TestAiChatTitleGeneratorFactory {
             }
             if (prompt.toLowerCase(Locale.ROOT).contains("chart")
                     && !currentTurnContainsFunctionCall(request.getConversationItems(), "present_chart")) {
-                var arguments = "{\"kind\":\"DONUT\",\"title\":\"Expenses by category\",\"xAxisLabel\":\"Category\",\"xAxisType\":\"CATEGORY\",\"yAxisLabel\":\"Expenses\",\"yAxisType\":\"MONEY_MINOR\",\"currency\":\"AUD\",\"stacked\":false,\"orientation\":\"VERTICAL\",\"series\":[{\"name\":\"Expenses\",\"points\":[{\"x\":\"Groceries\",\"y\":\"2345\"}]}]}";
+                var points = prompt.equalsIgnoreCase("Show a chart of spending this month")
+                        ? "[{\"x\":\"Tour travel\",\"y\":\"12900\"},{\"x\":\"Studio hire\",\"y\":\"8500\"},{\"x\":\"Promotion\",\"y\":\"4500\"},{\"x\":\"Guitar gear\",\"y\":\"2899\"},{\"x\":\"Insurance\",\"y\":\"2700\"},{\"x\":\"Web hosting\",\"y\":\"1900\"}]"
+                        : "[{\"x\":\"Groceries\",\"y\":\"2345\"}]";
+                var arguments = "{\"kind\":\"DONUT\",\"title\":\"Expenses by category\",\"xAxisLabel\":\"Category\",\"xAxisType\":\"CATEGORY\",\"yAxisLabel\":\"Expenses\",\"yAxisType\":\"MONEY_MINOR\",\"currency\":\"AUD\",\"stacked\":false,\"orientation\":\"VERTICAL\",\"series\":[{\"name\":\"Expenses\",\"points\":" + points + "}]}";
                 var serializedArguments = arguments.replace("\\", "\\\\").replace("\"", "\\\"");
                 return Flux.just(new AiChatModelStepEvent.Completed(
                         responseId,
