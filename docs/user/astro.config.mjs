@@ -4,6 +4,9 @@ import starlight from "@astrojs/starlight";
 export default defineConfig({
   site: process.env.RENALO_DOCS_SITE_URL || "https://renalo-docs.orange-buffalo.io",
   output: "static",
+  redirects: {
+    "/features/chat-preview": "/features/ai-chat",
+  },
   integrations: [
     starlight({
       title: "Renalo",
@@ -41,7 +44,7 @@ export default defineConfig({
           items: [
             { label: "Feature map", slug: "features" },
             { label: "Dashboard", slug: "features/dashboard" },
-            { label: "AI chat", slug: "features/chat-preview" },
+            { label: "AI chat", slug: "features/ai-chat" },
             { label: "Expenses", slug: "features/expenses" },
             { label: "Incomes", slug: "features/incomes" },
             { label: "Recurring entries", slug: "features/recurring-entries" },
