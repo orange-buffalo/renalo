@@ -1,15 +1,12 @@
-import {
-  ApiError,
-  apiRequest,
-  getAuthToken as readAuthToken,
-  setAuthToken,
-} from "@/api/client";
+import { ApiError, apiRequest, setAuthToken } from "@/api/client";
 
 export {
   ApiError,
   clearAuthToken,
   getAuthToken,
+  getAuthTokenExpirationTime,
   redirectToLoginForExpiredSession,
+  refreshAccessToken,
 } from "@/api/client";
 
 export type UserType = "USER" | "ADMIN";
@@ -57,44 +54,6 @@ export async function createAuthToken(
   const body = (await response.json()) as { token: string };
   setAuthToken(body.token);
   return body.token;
-}
-
-export async function refreshAccessToken() {
-  const token = readAuthToken();
-  const response = await fetch("/api/refresh-access-token", {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    credentials: "same-origin",
-  });
-
-  if (!response.ok) {
-    throw new ApiError("Access token refresh failed", response.status);
-  }
-
-  const body = (await response.json()) as { token: string | null };
-  if (body.token) {
-    setAuthToken(body.token);
-  }
-  return body.token;
-}
-
-export function getAuthTokenExpirationTime(token: string) {
-  const [, payload] = token.split(".");
-  if (!payload) {
-    return undefined;
-  }
-
-  try {
-    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const decodedPayload = JSON.parse(window.atob(normalizedPayload)) as {
-      exp?: number;
-    };
-    return typeof decodedPayload.exp === "number"
-      ? decodedPayload.exp * 1000
-      : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 export async function fetchProfile() {
@@ -212,6 +171,7 @@ export async function createAuthTokenWithPasskey() {
   const response = await fetch("/api/passkeys/create-auth-token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify({
       requestId: optionsResponse.requestId,
       credential: assertionCredentialToJson(credential as PublicKeyCredential),

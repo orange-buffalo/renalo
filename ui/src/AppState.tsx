@@ -9,6 +9,7 @@ import {
   redirectToLoginForExpiredSession,
   refreshAccessToken,
 } from "@/api/auth";
+import { isAccessTokenDueForRefresh } from "@/api/client";
 import { fetchSystemSettings, type SystemSettings } from "@/api/system";
 import {
   createDefaultTransactionDateFilter,
@@ -17,6 +18,11 @@ import {
 
 type AuthStatus = "checking" | "authenticated" | "anonymous";
 const accessTokenRefreshLeadTimeMs = 30_000;
+// Timers stall while the device sleeps or the tab is frozen, so the wall clock
+// is polled as a safety net for the precisely scheduled refresh.
+const accessTokenWatchdogIntervalMs = 30_000;
+const failedRefreshRetryDelayMs = 5_000;
+const maxFailedRefreshRetryDelayMs = 60_000;
 
 type AppState = {
   authStatus: AuthStatus;
@@ -62,10 +68,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
 
       const expiresAt = getAuthTokenExpirationTime(token);
-      if (
-        !expiresAt ||
-        expiresAt - Date.now() <= accessTokenRefreshLeadTimeMs
-      ) {
+      if (isAccessTokenDueForRefresh(token)) {
         const refreshedToken = await refreshAccessToken();
         if (!refreshedToken) {
           if (!expiresAt || expiresAt <= Date.now()) {
@@ -115,8 +118,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     let isActive = true;
     let refreshTimer: number | undefined;
+    let consecutiveRefreshFailures = 0;
+    let isRefreshInFlight = false;
+    let isSessionEndScheduled = false;
+
+    function clearRefreshTimer() {
+      if (refreshTimer !== undefined) {
+        window.clearTimeout(refreshTimer);
+        refreshTimer = undefined;
+      }
+    }
 
     function scheduleRefresh() {
+      clearRefreshTimer();
       const token = getAuthToken();
       if (!token) {
         return;
@@ -131,21 +145,48 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         expiresAt - Date.now() - accessTokenRefreshLeadTimeMs,
         0,
       );
-      refreshTimer = window.setTimeout(() => {
-        const tokenBeingRefreshed = token;
-        refreshAccessToken()
-          .then((refreshedToken) => {
-            if (isActive && refreshedToken) {
-              scheduleRefresh();
-              return;
-            }
+      refreshTimer = window.setTimeout(
+        () => runRefresh(token, expiresAt),
+        refreshDelay,
+      );
+    }
 
-            scheduleExpirationRedirect(tokenBeingRefreshed, expiresAt);
-          })
-          .catch(() => {
-            scheduleExpirationRedirect(tokenBeingRefreshed, expiresAt);
-          });
-      }, refreshDelay);
+    function runRefresh(tokenBeingRefreshed: string, expiresAt: number) {
+      clearRefreshTimer();
+      isRefreshInFlight = true;
+      refreshAccessToken()
+        .then((refreshedToken) => {
+          isRefreshInFlight = false;
+          if (!isActive) {
+            return;
+          }
+          consecutiveRefreshFailures = 0;
+          if (refreshedToken) {
+            scheduleRefresh();
+            return;
+          }
+
+          // The server explicitly reports there is no session to extend.
+          scheduleExpirationRedirect(tokenBeingRefreshed, expiresAt);
+        })
+        .catch(() => {
+          isRefreshInFlight = false;
+          if (!isActive) {
+            return;
+          }
+          // A failed refresh is usually transient (the network is not up yet
+          // after a device wake), so keep retrying instead of ending a session
+          // the remember-me token can still restore.
+          consecutiveRefreshFailures += 1;
+          clearRefreshTimer();
+          refreshTimer = window.setTimeout(
+            () => runRefresh(tokenBeingRefreshed, expiresAt),
+            Math.min(
+              failedRefreshRetryDelayMs * consecutiveRefreshFailures,
+              maxFailedRefreshRetryDelayMs,
+            ),
+          );
+        });
     }
 
     function scheduleExpirationRedirect(
@@ -156,6 +197,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      clearRefreshTimer();
+      isSessionEndScheduled = true;
       refreshTimer = window.setTimeout(
         () => {
           if (
@@ -171,13 +214,41 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       );
     }
 
+    function refreshIfDue() {
+      if (!isActive || isRefreshInFlight || isSessionEndScheduled) {
+        return;
+      }
+
+      const token = getAuthToken();
+      if (!token || !isAccessTokenDueForRefresh(token)) {
+        return;
+      }
+
+      runRefresh(token, getAuthTokenExpirationTime(token) ?? Date.now());
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshIfDue();
+      }
+    }
+
     scheduleRefresh();
+    const watchdog = window.setInterval(
+      refreshIfDue,
+      accessTokenWatchdogIntervalMs,
+    );
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", refreshIfDue);
+    window.addEventListener("online", refreshIfDue);
 
     return () => {
       isActive = false;
-      if (refreshTimer !== undefined) {
-        window.clearTimeout(refreshTimer);
-      }
+      clearRefreshTimer();
+      window.clearInterval(watchdog);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", refreshIfDue);
+      window.removeEventListener("online", refreshIfDue);
     };
   }, [authStatus]);
 

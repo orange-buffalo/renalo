@@ -14,6 +14,7 @@ import io.orangebuffalo.renalo.user.User
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
 import jakarta.inject.Inject
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.jupiter.api.Test
 
 @MicronautTest(transactional = false)
@@ -72,6 +73,64 @@ class RememberMeRefreshPlaywrightTest : IntegrationTestSupport() {
         page.waitForURL("**/?sessionExpired=true", Page.WaitForURLOptions().setTimeout(55_000.0))
         assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Sign in to Renalo"))).isVisible()
         assertThat(page.getByRole(AriaRole.ALERT)).containsText("Session expired")
+    }
+
+    @Test
+    fun refreshesExpiredAccessTokenWhenApiRequestIsRejected(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        val validToken = testAuthTokens.issueToken("alice", UserType.USER, testTimeProvider.now().plusSeconds(1800))
+        val refreshedToken = testAuthTokens.issueToken("alice", UserType.USER, testTimeProvider.now().plusSeconds(3600))
+        setStoredToken(page, validToken)
+
+        page.navigate(server.url.toString() + "/tracking")
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+
+        // The scheduled refresh does not run while the device sleeps or the tab is frozen,
+        // so the stored access token is already expired when the user comes back.
+        page.route("**/api/refresh-access-token") { route ->
+            route.fulfill(
+                Route.FulfillOptions()
+                    .setStatus(200)
+                    .setContentType("application/json")
+                    .setBody("""{"token":"$refreshedToken"}"""),
+            )
+        }
+        page.evaluate(
+            "token => window.localStorage.setItem('renalo.authToken', token)",
+            testAuthTokens.issueExpiredToken("alice", UserType.USER),
+        )
+
+        page.getByRole(AriaRole.LINK, Page.GetByRoleOptions().setName("Expenses")).click()
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
+        page.waitForFunction("token => window.localStorage.getItem('renalo.authToken') === token", refreshedToken)
+    }
+
+    @Test
+    fun retriesFailedAccessTokenRefreshInsteadOfEndingSession(page: Page) {
+        saveUser("alice", "password", UserType.USER)
+        val refreshedToken = "refresh-retry-token.${tokenPayloadWithExpiration(1800)}.signature"
+        val storedToken = testAuthTokens.issueToken("alice", UserType.USER, testTimeProvider.now().plusSeconds(45))
+        val refreshAttempts = AtomicInteger()
+        page.route("**/api/refresh-access-token") { route ->
+            if (refreshAttempts.incrementAndGet() == 1) {
+                route.abort()
+            } else {
+                route.fulfill(
+                    Route.FulfillOptions()
+                        .setStatus(200)
+                        .setContentType("application/json")
+                        .setBody("""{"token":"$refreshedToken"}"""),
+                )
+            }
+        }
+        setStoredToken(page, storedToken)
+
+        page.navigate(server.url.toString() + "/tracking")
+
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
+        page.waitForFunction("token => window.localStorage.getItem('renalo.authToken') === token", refreshedToken)
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Dashboard"))).isVisible()
     }
 
     private fun saveUser(username: String, password: String, type: UserType): User {
