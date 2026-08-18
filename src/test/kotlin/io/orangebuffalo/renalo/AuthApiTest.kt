@@ -2,6 +2,8 @@ package io.orangebuffalo.renalo
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.assertions.json.shouldEqualJson
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -10,6 +12,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
+import io.orangebuffalo.renalo.auth.ExpiredRememberMeTokenCleanupJob
 import io.orangebuffalo.renalo.auth.RememberMeTokenRepository
 import io.orangebuffalo.renalo.auth.passkeys.PasskeyChallengeRepository
 import io.orangebuffalo.renalo.auth.passkeys.PasskeyCredential
@@ -35,6 +38,9 @@ class AuthApiTest : IntegrationTestSupport() {
 
     @Inject
     lateinit var rememberMeTokenRepository: RememberMeTokenRepository
+
+    @Inject
+    lateinit var expiredRememberMeTokenCleanupJob: ExpiredRememberMeTokenCleanupJob
 
     @Inject
     lateinit var passkeyChallengeRepository: PasskeyChallengeRepository
@@ -415,7 +421,7 @@ class AuthApiTest : IntegrationTestSupport() {
         rememberMeCookie.shouldContain("renalo.rememberMe=")
         rememberMeCookie.shouldContain("HTTPOnly")
         rememberMeCookie.shouldContain("SameSite=Lax")
-        rememberMeCookie.shouldContain("Max-Age=2592000")
+        rememberMeCookie.shouldContain("Max-Age=$rememberMeTokenExpirationSeconds")
         val cookieValue = rememberMeCookie.substringAfter("renalo.rememberMe=").substringBefore(";")
         cookieValue.shouldNotBeBlank()
         cookieValue.split(".").size.shouldBe(1)
@@ -426,6 +432,7 @@ class AuthApiTest : IntegrationTestSupport() {
         persistedToken.device.shouldBe("Chrome on Linux")
         persistedToken.createdAt.shouldBe(testTimeProvider.now())
         persistedToken.lastUsedAt.shouldBe(testTimeProvider.now())
+        persistedToken.expiresAt.shouldBe(testTimeProvider.now().plusSeconds(rememberMeTokenExpirationSeconds))
 
         val refreshResponse = api().postWithCookie("/api/refresh-access-token", rememberMeCookie.substringBefore(";"))
 
@@ -445,6 +452,84 @@ class AuthApiTest : IntegrationTestSupport() {
             """.trimIndent(),
         )
         rememberMeTokenRepository.findAll().toList().single().lastUsedAt.shouldBe(testTimeProvider.now())
+    }
+
+    @Test
+    fun slidesRememberMeTokenExpirationOnEveryRefresh() {
+        saveUser("alice", "correct-password", UserType.USER)
+        val rememberMeCookie = loginWithRememberMe("alice", "correct-password").substringBefore(";")
+
+        // the token is close to expiring after a long-running session
+        val agingToken = rememberMeTokenRepository.findAll().toList().single()
+        agingToken.expiresAt = testTimeProvider.now().plusSeconds(60)
+        rememberMeTokenRepository.update(agingToken)
+
+        val refreshResponse = api().postWithCookie("/api/refresh-access-token", rememberMeCookie)
+
+        refreshResponse.statusCode().shouldBe(200)
+        api().get("/api/profile", api().extractToken(refreshResponse.body())).statusCode().shouldBe(200)
+
+        // both the server-side deadline and the cookie are pushed out by using the token
+        val slidTokenCookie = refreshResponse.headers().allValues("Set-Cookie").single()
+        slidTokenCookie.shouldContain(rememberMeCookie)
+        slidTokenCookie.shouldContain("Max-Age=$rememberMeTokenExpirationSeconds")
+        slidTokenCookie.shouldContain("HTTPOnly")
+        slidTokenCookie.shouldContain("SameSite=Lax")
+        rememberMeTokenRepository.findAll().toList().single()
+            .expiresAt.shouldBe(testTimeProvider.now().plusSeconds(rememberMeTokenExpirationSeconds))
+    }
+
+    @Test
+    fun rejectsAndDeletesExpiredRememberMeToken() {
+        saveUser("alice", "correct-password", UserType.USER)
+        val rememberMeCookie = loginWithRememberMe("alice", "correct-password").substringBefore(";")
+
+        // the browser would normally stop sending the cookie, but the server must not rely on that
+        val expiredToken = rememberMeTokenRepository.findAll().toList().single()
+        expiredToken.expiresAt = testTimeProvider.now()
+        rememberMeTokenRepository.update(expiredToken)
+
+        val refreshResponse = api().postWithCookie("/api/refresh-access-token", rememberMeCookie)
+
+        refreshResponse.statusCode().shouldBe(200)
+        refreshResponse.body().shouldEqualJson(
+            """
+                {
+                  "token": null
+                }
+            """.trimIndent(),
+        )
+        refreshResponse.headers().allValues("Set-Cookie").single().shouldContain("Max-Age=0")
+        rememberMeTokenRepository.findAll().toList().shouldBeEmpty()
+    }
+
+    @Test
+    fun deletesExpiredRememberMeTokensInBackground() {
+        saveUser("alice", "correct-password", UserType.USER)
+        saveUser("bob", "correct-password", UserType.USER)
+        loginWithRememberMe("alice", "correct-password")
+        loginWithRememberMe("bob", "correct-password")
+        val aliceId = userRepository.findByUsername("alice")!!.id
+        val expiredToken = rememberMeTokenRepository.findAll().toList().single { it.userId == aliceId }
+        expiredToken.expiresAt = testTimeProvider.now().minusSeconds(1)
+        rememberMeTokenRepository.update(expiredToken)
+
+        expiredRememberMeTokenCleanupJob.deleteExpiredTokens()
+
+        rememberMeTokenRepository.findAll().toList().map { it.userId }
+            .shouldContainExactly(userRepository.findByUsername("bob")!!.id)
+    }
+
+    private fun loginWithRememberMe(username: String, password: String): String {
+        val loginResponse = api().postJson(
+            "/api/create-auth-token",
+            """
+                {"username":"$username","password":"$password","rememberMe":true,"rememberMeDevice":"Chrome on Linux"}
+            """.trimIndent(),
+            null,
+        )
+        loginResponse.statusCode().shouldBe(200)
+        return loginResponse.headers().allValues("Set-Cookie").single()
     }
 
     @Test
@@ -687,5 +772,9 @@ class AuthApiTest : IntegrationTestSupport() {
                 createdAt = testTimeProvider.now(),
             ),
         )
+    }
+
+    companion object {
+        private const val rememberMeTokenExpirationSeconds = 2592000L
     }
 }
