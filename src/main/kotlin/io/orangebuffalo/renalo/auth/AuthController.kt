@@ -11,34 +11,25 @@ import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Patch
 import io.micronaut.http.annotation.Post
-import io.micronaut.http.cookie.Cookie
-import io.micronaut.http.cookie.SameSite
 import io.micronaut.security.annotation.Secured
 import io.micronaut.security.authentication.Authentication
 import io.micronaut.security.rules.SecurityRule
 import io.micronaut.security.token.jwt.validator.JsonWebTokenValidator
 import io.orangebuffalo.renalo.auth.passkeys.PasskeyCredentialRepository
-import io.orangebuffalo.renalo.time.TimeProvider
 import io.orangebuffalo.renalo.user.PasswordHasher
 import io.orangebuffalo.renalo.user.UserRepository
 import io.orangebuffalo.renalo.user.UserType
-import java.security.MessageDigest
-import java.security.SecureRandom
 import java.time.Duration
-import java.util.Base64
 
 @Controller("/api")
 class AuthController(
     private val userRepository: UserRepository,
-    private val rememberMeTokenRepository: RememberMeTokenRepository,
+    private val rememberMeService: RememberMeService,
     private val passkeyCredentialRepository: PasskeyCredentialRepository,
     private val passwordHasher: PasswordHasher,
     private val accessTokenService: AccessTokenService,
     private val signInLinkService: SignInLinkService,
     private val jwtValidator: JsonWebTokenValidator<JWT, HttpRequest<*>>,
-    private val timeProvider: TimeProvider,
-    @Value("\${renalo.auth.remember-me-token-expiration-seconds}")
-    private val rememberMeTokenExpirationSeconds: Long,
     @Value("\${renalo.login-bruteforce-delay}")
     private val loginBruteforceDelay: Duration,
 ) {
@@ -64,19 +55,14 @@ class AuthController(
 
         val response = HttpResponse.ok(CreateAuthTokenResponse(token = token))
         if (request.rememberMe) {
-            val rememberMeToken = createRememberMeToken(
-                userId = user.id ?: throw IllegalStateException("Persisted user is missing id"),
-                device = request.rememberMeDevice ?: httpRequest.headers.get("User-Agent"),
-            )
             response.cookie(
-                Cookie.of(rememberMeCookieName, rememberMeToken)
-                    .httpOnly(true)
-                    .path("/")
-                    .sameSite(SameSite.Lax)
-                    .maxAge(rememberMeTokenExpirationSeconds),
+                rememberMeService.issueToken(
+                    userId = user.id ?: throw IllegalStateException("Persisted user is missing id"),
+                    device = request.rememberMeDevice ?: httpRequest.headers.get("User-Agent"),
+                ),
             )
         } else {
-            response.cookie(expireRememberMeCookie())
+            response.cookie(rememberMeService.expiredCookie())
         }
         return response
     }
@@ -84,11 +70,13 @@ class AuthController(
     @Post("/refresh-access-token")
     @Secured(SecurityRule.IS_ANONYMOUS)
     fun refreshAccessToken(request: HttpRequest<*>): HttpResponse<RefreshAccessTokenResponse> {
-        val rememberMeToken = request.cookies.findCookie(rememberMeCookieName).orElse(null)?.value
+        val rememberMeToken = rememberMeService.readToken(request)
         if (rememberMeToken != null) {
-            val refreshedToken = refreshAccessTokenWithRememberMeToken(rememberMeToken)
-            if (refreshedToken != null) {
-                return HttpResponse.ok(RefreshAccessTokenResponse(token = refreshedToken))
+            val rememberMe = rememberMeService.authenticate(rememberMeToken)
+            if (rememberMe != null) {
+                val token = accessTokenService.issueAccessToken(rememberMe.user.username, rememberMe.user.type)
+                return HttpResponse.ok(RefreshAccessTokenResponse(token = token))
+                    .cookie(rememberMe.renewedCookie)
             }
         }
 
@@ -96,24 +84,9 @@ class AuthController(
             RefreshAccessTokenResponse(token = refreshAccessTokenWithBearerToken(request)),
         )
         if (rememberMeToken != null) {
-            response.cookie(expireRememberMeCookie())
+            response.cookie(rememberMeService.expiredCookie())
         }
         return response
-    }
-
-    private fun refreshAccessTokenWithRememberMeToken(rememberMeToken: String): String? {
-        val tokenRecord = rememberMeTokenRepository.findByTokenHash(hashRememberMeToken(rememberMeToken))
-            ?: return null
-        val user = userRepository.findById(tokenRecord.userId).orElse(null)
-            ?: return null
-        if (!user.active) {
-            return null
-        }
-
-        tokenRecord.lastUsedAt = timeProvider.now()
-        rememberMeTokenRepository.update(tokenRecord)
-
-        return accessTokenService.issueAccessToken(user.username, user.type)
     }
 
     private fun refreshAccessTokenWithBearerToken(request: HttpRequest<*>): String? {
@@ -235,54 +208,12 @@ class AuthController(
     @Secured(UserRoles.ADMIN)
     fun userManagement(): MessageResponse = MessageResponse("user-management")
 
-    private fun createRememberMeToken(userId: Long, device: String?): String {
-        val rawToken = generateOpaqueRememberMeToken()
-        val now = timeProvider.now()
-        rememberMeTokenRepository.save(
-            RememberMeToken(
-                userId = userId,
-                tokenHash = hashRememberMeToken(rawToken),
-                device = normalizeDevice(device),
-                createdAt = now,
-                lastUsedAt = now,
-            ),
-        )
-        return rawToken
-    }
-
-    private fun generateOpaqueRememberMeToken(): String {
-        val bytes = ByteArray(32)
-        secureRandom.nextBytes(bytes)
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
-    }
-
-    private fun hashRememberMeToken(token: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(token.toByteArray(Charsets.UTF_8))
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
-    }
-
-    private fun normalizeDevice(device: String?): String {
-        val normalized = device?.trim()?.take(120)
-        return if (normalized.isNullOrBlank()) "Unknown device" else normalized
-    }
-
-    private fun expireRememberMeCookie(): Cookie = Cookie.of(rememberMeCookieName, "")
-        .httpOnly(true)
-        .path("/")
-        .sameSite(SameSite.Lax)
-        .maxAge(0)
-
     private fun io.orangebuffalo.renalo.user.User.toProfileResponse() = ProfileResponse(
         username = username,
         type = type,
         passwordSignInDisabled = passwordSignInDisabled,
         issueRefreshTokenOnPasskeyLogin = issueRefreshTokenOnPasskeyLogin,
     )
-
-    companion object {
-        private const val rememberMeCookieName = "renalo.rememberMe"
-        private val secureRandom = SecureRandom()
-    }
 }
 
 data class CreateAuthTokenRequest(

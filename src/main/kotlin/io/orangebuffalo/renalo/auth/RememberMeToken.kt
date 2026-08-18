@@ -15,4 +15,5 @@ data class RememberMeToken(
     var device: String,
     var createdAt: Instant,
     var lastUsedAt: Instant,
+    var expiresAt: Instant,
 )
