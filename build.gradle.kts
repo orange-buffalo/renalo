@@ -7,12 +7,12 @@ import org.gradle.kotlin.dsl.register
 
 plugins {
     id("io.micronaut.application") version "5.0.2"
-    id("org.jetbrains.kotlin.jvm") version "2.4.10"
-    id("org.jetbrains.kotlin.kapt") version "2.4.10"
+    id("org.jetbrains.kotlin.jvm") version "2.4.20"
+    id("org.jetbrains.kotlin.kapt") version "2.4.20"
     id("com.google.cloud.tools.jib") version "3.5.4"
-    id("com.github.jmongard.git-semver-plugin") version "0.19.2"
-    id("com.github.ben-manes.versions") version "0.54.0"
-    id("org.gradle.test-retry") version "1.6.5"
+    id("com.github.jmongard.git-semver-plugin") version "0.19.5"
+    id("io.github.ben-manes.versions") version "0.61.0"
+    id("org.gradle.test-retry") version "1.6.6"
 }
 
 group = "io.orange-buffalo"
@@ -29,7 +29,7 @@ allprojects {
 val javaVersion = 25
 
 micronaut {
-    version("5.0.5")
+    version("5.1.4")
     runtime("netty")
     testRuntime("junit5")
     processing {
@@ -71,20 +71,20 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("io.projectreactor:reactor-core")
-    implementation("dev.langchain4j:langchain4j-open-ai:1.18.1")
-    implementation("dev.langchain4j:langchain4j-http-client-jdk:1.18.1")
+    implementation("dev.langchain4j:langchain4j-open-ai:1.20.0")
+    implementation("dev.langchain4j:langchain4j-http-client-jdk:1.20.0")
 
     runtimeOnly("ch.qos.logback:logback-classic")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.yaml:snakeyaml")
     runtimeOnly("org.postgresql:postgresql")
 
-    testImplementation(platform("org.junit:junit-bom:6.1.2"))
-    testImplementation("com.microsoft.playwright:playwright:1.61.0")
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
+    testImplementation("com.microsoft.playwright:playwright:1.62.0")
     testImplementation("io.micronaut:micronaut-http-client")
     testImplementation("io.micronaut.test:micronaut-test-junit5")
-    testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.2")
-    testImplementation("io.kotest:kotest-assertions-json-jvm:6.2.2")
+    testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.4")
+    testImplementation("io.kotest:kotest-assertions-json-jvm:6.2.4")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5")
     testImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
