@@ -8,6 +8,7 @@ import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.test.IntegrationTestSupport
@@ -266,8 +267,8 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             chart.scrollIntoViewIfNeeded()
             assertThat(chart).isVisible()
         }
-        val lineHeight = page.getByTestId("ai-chat-line-chart").boundingBox().height
-        val barHeight = page.getByTestId("ai-chat-bar-chart").boundingBox().height
+        val lineHeight = page.getByTestId("ai-chat-line-chart").boundingBox().shouldNotBeNull().height
+        val barHeight = page.getByTestId("ai-chat-bar-chart").boundingBox().shouldNotBeNull().height
         (barHeight > lineHeight).shouldBe(true)
 
         page.getByLabel("Maximize Balance trend chart").click()
@@ -302,14 +303,14 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         val feedContentWidth = (feed.evaluate(
             "feed => feed.clientWidth - parseFloat(getComputedStyle(feed).paddingLeft) - parseFloat(getComputedStyle(feed).paddingRight)",
         ) as Number).toDouble()
-        val widthDifference = feedContentWidth - chartMessage.boundingBox().width
+        val widthDifference = feedContentWidth - chartMessage.boundingBox().shouldNotBeNull().width
         (kotlin.math.abs(widthDifference) < 1).shouldBe(true)
         chartMessage.evaluate("message => message.scrollHeight <= message.clientHeight + 1").shouldBe(true)
         val lineChart = page.getByTestId("ai-chat-line-chart")
         lineChart.scrollIntoViewIfNeeded()
-        val feedBounds = feed.boundingBox()
-        val lineChartBounds = lineChart.boundingBox()
-        val composerBounds = page.locator(".ai-chat-composer").boundingBox()
+        val feedBounds = feed.boundingBox().shouldNotBeNull()
+        val lineChartBounds = lineChart.boundingBox().shouldNotBeNull()
+        val composerBounds = page.locator(".ai-chat-composer").boundingBox().shouldNotBeNull()
         (lineChartBounds.y + lineChartBounds.height <= feedBounds.y + feedBounds.height + 1).shouldBe(true)
         (feedBounds.y + feedBounds.height <= composerBounds.y + 1).shouldBe(true)
 
@@ -584,7 +585,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         )
         assertThat(messageInput).isVisible()
         assertThat(page.getByLabel("Send message")).isVisible()
-        page.locator(".ai-chat-panel").boundingBox().let { panel ->
+        page.locator(".ai-chat-panel").boundingBox().shouldNotBeNull().let { panel ->
             panel.x.shouldBe(0.0)
             panel.width.shouldBe(390.0)
             (panel.y + panel.height).shouldBe(844.0)
@@ -873,7 +874,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
         .getByRole(AriaRole.NAVIGATION, Page.GetByRoleOptions().setName("Main navigation"))
         .getByRole(AriaRole.LINK)
         .all()
-        .map { it.getAttribute("aria-label") }
+        .map { it.getAttribute("aria-label").shouldNotBeNull() }
 
     private fun assertAccountMenuItems(page: Page, expected: List<String>) {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Open account menu")).click()
@@ -909,7 +910,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     )
 
     private fun Page.extractMessages(): List<ChatMessage> = locator("[data-chat-author]").all().map { message ->
-        val author = message.getAttribute("data-chat-author")
+        val author = message.getAttribute("data-chat-author").shouldNotBeNull()
         ChatMessage(
             author = author,
             content = if (author == "Renalo") {
@@ -920,7 +921,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
             toolActivities = message.locator(".ai-chat-tool-activity").all().map { activity ->
                 ToolActivity(
                     label = activity.innerText().replace(Regex("\\s+"), " ").trim(),
-                    status = activity.getAttribute("data-tool-status"),
+                    status = activity.getAttribute("data-tool-status").shouldNotBeNull(),
                 )
             },
         )
@@ -929,7 +930,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
     private fun Page.extractChartData(): List<ChartData> = locator("[data-testid='ai-chat-chart']").all().map { chart ->
         ChartData(
             title = chart.getByRole(AriaRole.HEADING).innerText(),
-            kind = chart.getAttribute("data-chart-kind"),
+            kind = chart.getAttribute("data-chart-kind").shouldNotBeNull(),
             rows = chart.locator("tbody tr").all().map { row ->
                 val cells = row.locator("td").allTextContents()
                 ChartRow(cells[0], cells[1], cells[2])
@@ -939,7 +940,7 @@ class AiChatPagePlaywrightTest : IntegrationTestSupport() {
 
     private fun Locator.extractChartData(): ChartData = ChartData(
         title = getByRole(AriaRole.HEADING).innerText(),
-        kind = getAttribute("data-chart-kind"),
+        kind = getAttribute("data-chart-kind").shouldNotBeNull(),
         rows = locator("tbody tr").all().map { row ->
             val cells = row.locator("td").allTextContents()
             ChartRow(cells[0], cells[1], cells[2])
