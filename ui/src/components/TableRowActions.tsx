@@ -123,18 +123,19 @@ export function TableDeleteAction({
   isDisabled,
   actionIcon = "delete",
 }: TableDeleteActionProps) {
-  function DeleteActionIcon(props: ComponentProps<typeof Trash01>) {
-    return (
-      <Trash01 {...props} data-action-icon={actionIcon} aria-hidden="true" />
-    );
-  }
-
   return (
     <Button
       aria-label={label}
       color="tertiary-destructive"
       size="sm"
-      iconLeading={DeleteActionIcon}
+      iconLeading={
+        <Trash01
+          data-icon="leading"
+          data-action-icon={actionIcon}
+          aria-hidden="true"
+          className="pointer-events-none size-5 shrink-0 transition-inherit-all"
+        />
+      }
       isLoading={isLoading}
       isDisabled={isDisabled}
       onPress={onPress}

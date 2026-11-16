@@ -7,11 +7,11 @@ import org.gradle.kotlin.dsl.register
 
 plugins {
     id("io.micronaut.application") version "5.0.2"
-    id("org.jetbrains.kotlin.jvm") version "2.4.20"
-    id("org.jetbrains.kotlin.kapt") version "2.4.20"
+    id("org.jetbrains.kotlin.jvm") version "2.4.21"
+    id("org.jetbrains.kotlin.kapt") version "2.4.21"
     id("com.google.cloud.tools.jib") version "3.5.4"
-    id("com.github.jmongard.git-semver-plugin") version "0.19.5"
-    id("io.github.ben-manes.versions") version "0.61.0"
+    id("com.github.jmongard.git-semver-plugin") version "0.19.6"
+    id("io.github.ben-manes.versions") version "0.67.0"
     id("org.gradle.test-retry") version "1.6.6"
 }
 
@@ -29,7 +29,7 @@ allprojects {
 val javaVersion = 25
 
 micronaut {
-    version("5.1.4")
+    version("5.2.6")
     runtime("netty")
     testRuntime("junit5")
     processing {
@@ -66,13 +66,13 @@ dependencies {
     implementation("io.micronaut.security:micronaut-security-jwt")
     implementation("io.micronaut.sql:micronaut-jdbc-hikari")
     implementation("jakarta.annotation:jakarta.annotation-api")
-    implementation("com.yubico:webauthn-server-core:2.9.0")
+    implementation("com.yubico:webauthn-server-core:2.10.1")
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("io.projectreactor:reactor-core")
-    implementation("dev.langchain4j:langchain4j-open-ai:1.20.0")
-    implementation("dev.langchain4j:langchain4j-http-client-jdk:1.20.0")
+    implementation("dev.langchain4j:langchain4j-open-ai:1.23.0")
+    implementation("dev.langchain4j:langchain4j-http-client-jdk:1.23.0")
 
     runtimeOnly("ch.qos.logback:logback-classic")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
@@ -80,11 +80,11 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
-    testImplementation("com.microsoft.playwright:playwright:1.62.0")
+    testImplementation("com.microsoft.playwright:playwright:1.65.0")
     testImplementation("io.micronaut:micronaut-http-client")
     testImplementation("io.micronaut.test:micronaut-test-junit5")
-    testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.4")
-    testImplementation("io.kotest:kotest-assertions-json-jvm:6.2.4")
+    testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.7")
+    testImplementation("io.kotest:kotest-assertions-json-jvm:6.2.7")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5")
     testImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
@@ -183,7 +183,7 @@ tasks.withType<Test>().configureEach {
 
 jib {
     from {
-        image = "eclipse-temurin:25-jre"
+        image = "eclipse-temurin:25.0.5_8-jre@sha256:a640968ae55027b322cedd5f8228b01a84baff0b9e9360e47601c6a111ba1699"
     }
     to {
         image = "ghcr.io/orange-buffalo/renalo:${project.version}"

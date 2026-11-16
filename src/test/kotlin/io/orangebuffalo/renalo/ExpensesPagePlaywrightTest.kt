@@ -7,6 +7,7 @@ import com.microsoft.playwright.options.AriaRole
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.micronaut.context.annotation.Property
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.orangebuffalo.renalo.recurrence.RecurrenceInterval
@@ -521,7 +522,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         page.locator("[data-testid='transaction-chart-data'] caption").count().shouldBe(0)
 
         val chartCanvas = page.locator(".transaction-chart-canvas")
-        val chartBounds = chartCanvas.boundingBox()
+        val chartBounds = chartCanvas.boundingBox().shouldNotBeNull()
         val chartPlotWidth = chartBounds.width - 84
         page.mouse().move(
             chartBounds.x + 76 + chartPlotWidth * 13 / 29,
@@ -537,7 +538,7 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         openMoreFilters(page)
         val moreFilters = page.getByRole(AriaRole.DIALOG, Page.GetByRoleOptions().setName("More filters"))
-        val initialFilterDialogBounds = moreFilters.boundingBox()
+        val initialFilterDialogBounds = moreFilters.boundingBox().shouldNotBeNull()
         val categoryTrigger = moreFilters.getByRole(
             AriaRole.BUTTON,
             Locator.GetByRoleOptions().setName("Category").setExact(true),
@@ -552,8 +553,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
 
         groceriesRow.click()
         assertThat(categoryTrigger).containsText("1 selected")
-        (abs(moreFilters.boundingBox().x - initialFilterDialogBounds.x) <= 1.0).shouldBe(true)
-        (abs(moreFilters.boundingBox().y - initialFilterDialogBounds.y) <= 1.0).shouldBe(true)
+        (abs(moreFilters.boundingBox().shouldNotBeNull().x - initialFilterDialogBounds.x) <= 1.0).shouldBe(true)
+        (abs(moreFilters.boundingBox().shouldNotBeNull().y - initialFilterDialogBounds.y) <= 1.0).shouldBe(true)
         page.shouldEventuallyContainExpenseRows(
             ExpenseRow("Rent", "A$15.00", "Today", "Main", "Coffee beans rent", "edit delete"),
         )
@@ -595,8 +596,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         assertThat(selectedCategory.getByRole(AriaRole.BUTTON)).hasCount(1)
         assertThat(page.getByLabel("Selected account").getByRole(AriaRole.BUTTON)).hasCount(1)
         assertThat(page.locator(".transaction-filter-count-badge")).hasText("3")
-        val filterIconBounds = page.locator(".transaction-filter-icon").boundingBox()
-        val filterBadgeBounds = page.locator(".transaction-filter-count-badge").boundingBox()
+        val filterIconBounds = page.locator(".transaction-filter-icon").boundingBox().shouldNotBeNull()
+        val filterBadgeBounds = page.locator(".transaction-filter-count-badge").boundingBox().shouldNotBeNull()
         (abs(filterBadgeBounds.width - filterIconBounds.width * 0.6) <= 1.0).shouldBe(true)
         (abs(filterBadgeBounds.width - filterBadgeBounds.height) <= 1.0).shouldBe(true)
         (abs(filterBadgeBounds.x + filterBadgeBounds.width - filterIconBounds.x - filterIconBounds.width) <= 1.0)
@@ -625,8 +626,8 @@ class ExpensesPagePlaywrightTest : IntegrationTestSupport() {
         openMoreFilters(page)
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Clear all")).click()
         assertThat(page.locator(".transaction-filter-count-badge")).not().isVisible()
-        (abs(moreFilters.boundingBox().x - initialFilterDialogBounds.x) <= 1.0).shouldBe(true)
-        (abs(moreFilters.boundingBox().y - initialFilterDialogBounds.y) <= 1.0).shouldBe(true)
+        (abs(moreFilters.boundingBox().shouldNotBeNull().x - initialFilterDialogBounds.x) <= 1.0).shouldBe(true)
+        (abs(moreFilters.boundingBox().shouldNotBeNull().y - initialFilterDialogBounds.y) <= 1.0).shouldBe(true)
         assertThat(categoryTrigger).containsText("All categories")
         assertThat(accountTrigger).containsText("All accounts")
         assertThat(page.getByLabel("Selected category")).hasCount(0)

@@ -17,7 +17,7 @@ Do not use this skill for a request limited to one named dependency.
 
 - Preserve unrelated user changes. Start from a clean worktree; if it is not clean, stop and ask how to proceed.
 - Never push directly to `main`, use destructive Git commands, use plain `--force`, or commit secrets.
-- Select the latest stable release. Do not adopt snapshots, milestones, release candidates, betas, or alphas unless the repository already uses a prerelease for that dependency or the user explicitly requests it.
+- Select the newest stable version released at least three days (72 hours) before the update run's fixed UTC cutoff time. If the latest release is too new, inspect earlier versions and select the newest eligible upgrade; do not skip the dependency merely because its latest release is cooling off. Do not adopt snapshots, milestones, release candidates, betas, or alphas unless the repository already uses a prerelease for that dependency or the user explicitly requests it; the same cooling-off period still applies.
 - Update direct dependencies, build plugins and tools, lockfiles, container base images, and pinned GitHub Actions. Do not intentionally rewrite transitive lockfile versions back to older releases.
 - Read release notes and migration guides for major upgrades and for any upgrade that fails compilation or tests.
 - Compatibility work must preserve existing behavior unless the dependency explicitly removed it and the user approves a behavioral change.
@@ -62,6 +62,8 @@ Record current versions before editing. Include Java, Bun, and other tool versio
 
 ## 3. Discover Stable Updates
 
+Record the update run's start time in UTC and use that time minus 72 hours as a fixed release cutoff throughout discovery, installation, and final verification. A release published exactly at the cutoff is eligible.
+
 Use multiple sources rather than trusting one report:
 
 ```bash
@@ -81,24 +83,30 @@ Also check:
 
 The Gradle report can miss newer framework BOMs or plugins and can suggest unstable versions. Independently verify its output. A managed dependency with no version is updated through the Micronaut platform; do not add unnecessary explicit versions.
 
+For every dependency surface, enumerate release history in descending version order until the newest stable version published on or before the cutoff is found. Use authoritative per-version publication timestamps (package registry metadata, Maven Central publication records, Gradle release history, or official GitHub releases), not a mutable tag's current timestamp or an image build timestamp. For container tags and action major aliases, verify the actual release/digest/commit they resolve to. If publication time cannot be verified, do not assume the release is old enough: investigate earlier candidates and report any unresolved age evidence.
+
+Record the current version, selected eligible version, publication timestamp and source, and any newer releases excluded by the cutoff. For example, if `2.4.0` is one day old and `2.3.0` is five days old, upgrade `2.2.0` to `2.3.0` rather than retaining `2.2.0`. Retain the current version only when no eligible newer version exists; do not downgrade an already-installed version solely because it is within the cooling-off period.
+
 ## 4. Apply All Updates
 
-Update Gradle and JVM versions manually, then regenerate the wrapper when needed:
+Update Gradle and JVM versions to the selected age-eligible releases, then regenerate the wrapper when needed:
 
 ```bash
-./gradlew wrapper --gradle-version <latest-stable-gradle>
+./gradlew wrapper --gradle-version <selected-age-eligible-gradle>
 ```
 
-Update both Bun projects to latest releases and regenerate their lockfiles:
+Update both Bun projects' manifests to their selected age-eligible versions, preserving the existing range/pin policy, then regenerate their lockfiles:
 
 ```bash
-(cd ui && bun update --latest)
-(cd docs/user && bun update --latest)
+(cd ui && bun install)
+(cd docs/user && bun install)
 ```
 
-Update container tags and GitHub Actions when newer stable versions exist. Keep version ranges and exact pins consistent with each manifest's existing policy unless a package manager necessarily normalizes them.
+Do not use an unrestricted `bun update --latest`: it can select releases still cooling off. Use package-manager release-age filtering when supported by the installed version, configured to honor the fixed cutoff, or constrain resolution explicitly. Verify newly resolved lockfile versions against the cutoff, including transitive upgrades; do not accept a too-new version just because a manifest range allows it. If an eligible direct upgrade requires a too-new transitive version, try an earlier eligible direct version rather than installing the too-new dependency. Do not downgrade existing lockfile entries solely to enforce age.
 
-Run the dependency reports again. Investigate every remaining reported update and document why any version is intentionally retained. Do not declare completion while an unexplained direct dependency update remains.
+Update container tags and GitHub Actions to the selected age-eligible releases. A mutable alias must not resolve to a release newer than the cutoff; select a specific eligible version or immutable digest/commit when necessary. Keep version ranges and exact pins consistent with each manifest's existing policy unless age-safe resolution requires a tighter constraint; document any such change.
+
+Run the dependency reports again. Investigate every remaining reported update and document why any version is intentionally retained, including newer releases still cooling off and their publication timestamps. Confirm that every dependency is at its newest eligible upgrade, not necessarily the registry's latest version. Do not declare completion while an unexplained direct dependency update remains.
 
 ## 5. Compatibility And Verification
 
@@ -204,6 +212,7 @@ Report:
 
 - The PR URL and final state.
 - Major dependency groups and notable version changes.
+- The fixed UTC release cutoff, selected releases' age evidence, and newer versions deferred by the cooling-off period.
 - Compatibility changes made.
 - CI outcome and any unresolved failures.
 - Whether the PR was squash-merged or remains open awaiting CI remediation approval.
