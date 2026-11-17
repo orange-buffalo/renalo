@@ -10,6 +10,16 @@ import filtersDesktop from "../../../assets/screenshots/desktop/06-expense-filte
 import filtersMobile from "../../../assets/screenshots/mobile/06-expense-filters.png";
 import dateWarningDesktop from "../../../assets/screenshots/desktop/32-overview-large-date-range-warning.png";
 import dateWarningMobile from "../../../assets/screenshots/mobile/32-overview-large-date-range-warning.png";
+import refundFormDesktop from "../../../assets/screenshots/desktop/40-expense-refund-form.png";
+import refundFormMobile from "../../../assets/screenshots/mobile/40-expense-refund-form.png";
+import refundPeriodDesktop from "../../../assets/screenshots/desktop/41-expense-refund-period.png";
+import refundPeriodMobile from "../../../assets/screenshots/mobile/41-expense-refund-period.png";
+import refundSelectionDesktop from "../../../assets/screenshots/desktop/42-expense-refund-selection.png";
+import refundSelectionMobile from "../../../assets/screenshots/mobile/42-expense-refund-selection.png";
+import refundEmptyDesktop from "../../../assets/screenshots/desktop/43-expense-refund-empty.png";
+import refundEmptyMobile from "../../../assets/screenshots/mobile/43-expense-refund-empty.png";
+import refundSeriesDesktop from "../../../assets/screenshots/desktop/44-expense-refund-series.png";
+import refundSeriesMobile from "../../../assets/screenshots/mobile/44-expense-refund-series.png";
 
 Each expense belongs to one account and one expense category. Amounts are positive values; the expense type determines that they reduce the account balance.
 
@@ -26,6 +36,33 @@ Each expense belongs to one account and one expense category. Amounts are positi
 The category dropdown lists the categories with the most associated expenses first. Categories with the same number of expenses are ordered by name.
 
 Dates are date-only values. Today's and past entries affect current balances; future entries appear as planned activity.
+
+## Record a refund
+
+Select **Record refund** on the Expenses page, choose the refund's currency, enter the full amount, and select **Find matches**. Renalo searches all your accounts in that currency, including archived accounts, without currency conversion. Only exact amounts match; partial refunds are not supported.
+
+<ScreenshotPair desktop={refundFormDesktop} mobile={refundFormMobile} alt="Refund form explaining how refunded expenses are removed" />
+
+The search starts with **Last 6 months**. You can choose **Last 3 months**, **Last 6 months**, **Last year**, **Last 2 years**, or **Full history**. Ranges include their starting date and end today in your browser's timezone, independently of the overview's date filter.
+
+<ScreenshotPair desktop={refundPeriodDesktop} mobile={refundPeriodMobile} alt="Refund search period choices" />
+
+Matches can be a single expense, a single recurring payment, or a whole recurring series with at least two recorded payments. For a series, all payments through today must add up to the refund amount and use the selected currency. The series needs a payment in the selected date range, but older payments still count toward its total. Future payments do not count.
+
+Each option shows the dates, amounts, accounts, categories, notes, and recurring schedule, plus how many expenses will be removed. Select the correct option and review the warning before selecting **Record refund**:
+
+- **Single expense:** permanently deletes that expense.
+- **Single recurring payment:** deletes that payment and every following occurrence, including future payments, and ends the schedule there. Earlier occurrences remain.
+- **Whole recurring series:** deletes every occurrence, including older and future payments, and stops the schedule.
+
+This records a refund by removing spending, not by creating income. Deletion cannot be undone. If expenses change after your search, Renalo asks you to search again before saving.
+
+<ScreenshotPair desktop={refundSelectionDesktop} mobile={refundSelectionMobile} alt="Selected recurring refund with payment details and permanent deletion warning" />
+<ScreenshotPair desktop={refundSeriesDesktop} mobile={refundSeriesMobile} alt="Whole recurring series refund showing all recorded payments and cancellation of future payments" />
+
+If no expenses match, check the amount and currency or try a longer period. **Cancel** returns to Expenses without changing anything.
+
+<ScreenshotPair desktop={refundEmptyDesktop} mobile={refundEmptyMobile} alt="Refund search with no exact matching expenses" />
 
 ## Find the right entries
 

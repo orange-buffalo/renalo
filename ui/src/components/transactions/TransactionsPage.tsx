@@ -245,14 +245,25 @@ export function TransactionsPage({
       description={config.description}
       className="overview-page-surface"
       actions={
-        <Button
-          color="secondary"
-          size="sm"
-          iconLeading={Plus}
-          onPress={() => navigate(`${config.routeBasePath}/create`)}
-        >
-          {config.addLabel}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {config.api.type === "EXPENSE" && (
+            <Button
+              color="secondary"
+              size="sm"
+              onPress={() => navigate("/expenses/refund")}
+            >
+              Record refund
+            </Button>
+          )}
+          <Button
+            color="secondary"
+            size="sm"
+            iconLeading={Plus}
+            onPress={() => navigate(`${config.routeBasePath}/create`)}
+          >
+            {config.addLabel}
+          </Button>
+        </div>
       }
     >
       <div className="transaction-filter-row">

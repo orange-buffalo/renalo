@@ -18,6 +18,7 @@ import {
   CreateExpensePage,
   EditExpensePage,
 } from "./routes/ExpenseFormPage.tsx";
+import { ExpenseRefundPage } from "./routes/ExpenseRefundPage.tsx";
 import { ExpensesPage } from "./routes/ExpensesPage.tsx";
 import {
   CreateFundsTransferPage,
@@ -72,6 +73,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedTypes={["USER"]}>
         <ExpensesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/expenses/refund",
+    element: (
+      <ProtectedRoute allowedTypes={["USER"]}>
+        <ExpenseRefundPage />
       </ProtectedRoute>
     ),
   },

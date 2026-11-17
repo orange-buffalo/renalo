@@ -35,6 +35,7 @@
 - Generated recurring expenses are regular `Transaction` rows with type `EXPENSE`, linked to a recurring rule by `recurringRuleId` and `recurringInstanceDate`; there is no separate occurrence model.
 - Recurring expense generation must only run from explicit write/job boundaries, not from read-only list/detail flows.
 - Scoped recurring expense edits/deletes are based on `recurringInstanceDate`, not the current date.
+- Expense refunds remove original expenses rather than creating income. Exact matching is account-currency-based across accounts; whole-series matching sums all recorded payments through browser-local today, with date ranges used only for discovery. Refund discovery and hydration share a repeatable-read snapshot; cache recurring series and suffix fingerprints per search to avoid quadratic processing. Refund saves must revalidate only the selected match under the per-user write lock before applying recurring deletion scopes.
 - User-edited generated expenses use `recurringLocked = true`; scheduled generation must preserve locked rows unless an explicit scoped edit/delete targets them.
 - A regular user must always have at least one `TrackingAccount`; new and migrated users get a default `Main` account in `AUD` with zero initial balance.
 - Income and expense categories are regular-user-bound; new and migrated users get default `General` income and expense categories.
