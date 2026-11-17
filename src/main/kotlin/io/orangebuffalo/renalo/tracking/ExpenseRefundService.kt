@@ -1,6 +1,7 @@
 package io.orangebuffalo.renalo.tracking
 
 import io.micronaut.transaction.annotation.Transactional
+import io.micronaut.transaction.TransactionDefinition.Isolation
 import jakarta.inject.Singleton
 import java.security.MessageDigest
 import java.time.LocalDate
@@ -41,11 +42,22 @@ open class ExpenseRefundService(
     private val transactionService: TransactionService,
     private val projections: TransactionDefaultCurrencyService,
 ) {
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     open fun search(userId: Long, search: RefundSearch, today: LocalDate): List<ExpenseRefundMatch> {
+        val context = MatchContext(userId, today)
+        return discover(userId, search, today).map { (id, kind) -> context.match(id, kind) }
+    }
+
+    private fun discover(
+        userId: Long,
+        search: RefundSearch,
+        today: LocalDate,
+        selection: SaveExpenseRefund? = null,
+    ): List<Pair<Long, RefundMatchKind>> {
         val from = search.period.months?.let(today::minusMonths) ?: LocalDate.of(1, 1, 1)
         // Filter discovery in the database, but sum the entire executed series, not just the date window.
         val sql = """
+            SELECT * FROM (
             SELECT t.id, 'EXPENSE' AS kind
             FROM transactions t
             JOIN tracking_accounts a ON a.id = t.tracking_account_id AND a.user_id = t.user_id
@@ -60,11 +72,15 @@ open class ExpenseRefundService(
             GROUP BY t.recurring_rule_id
             HAVING COUNT(*) > 1 AND COUNT(DISTINCT a.currency) = 1 AND MIN(a.currency) = ?
               AND SUM(t.amount_minor) = ? AND BOOL_OR(t.date >= ?)
+            ) matches
+            ${if (selection != null) "WHERE id = ? AND kind = ?" else ""}
             ORDER BY kind, id
         """.trimIndent()
         val candidates = dataSource.connection.use { connection ->
             connection.prepareStatement(sql).use { statement ->
-                listOf(userId, search.currency, search.amountMinor, from, today, userId, today, search.currency, search.amountMinor, from)
+                val parameters = listOf(userId, search.currency, search.amountMinor, from, today, userId, today, search.currency, search.amountMinor, from) +
+                    (selection?.let { listOf(it.transactionId, it.kind.name) } ?: emptyList())
+                parameters
                     .forEachIndexed { index, value -> statement.setObject(index + 1, value) }
                 statement.executeQuery().use { result ->
                     buildList {
@@ -73,15 +89,16 @@ open class ExpenseRefundService(
                 }
             }
         }
-        return candidates.map { (id, kind) -> match(userId, id, kind, today) }
+        return candidates
     }
 
     @Transactional
     open fun save(userId: Long, request: SaveExpenseRefund, today: LocalDate): Boolean {
         projections.lockForUser(userId)
-        val candidate = search(userId, request.search, today).find {
-            it.transactionId == request.transactionId && it.kind == request.kind && it.fingerprint == request.fingerprint
-        } ?: return false
+        // Only hydrate and fingerprint the selected match while holding the user-wide write lock.
+        val (id, kind) = discover(userId, request.search, today, request).singleOrNull() ?: return false
+        val candidate = MatchContext(userId, today).match(id, kind)
+        if (candidate.fingerprint != request.fingerprint) return false
         val scope = when {
             candidate.kind == RefundMatchKind.RECURRING_SERIES -> RecurringTransactionDeleteScope.ALL_OCCURRENCES
             candidate.stopsRecurrence -> RecurringTransactionDeleteScope.THIS_AND_ALL_FOLLOWING_OCCURRENCES
@@ -95,22 +112,45 @@ open class ExpenseRefundService(
         return true
     }
 
-    private fun match(userId: Long, id: Long, kind: RefundMatchKind, today: LocalDate): ExpenseRefundMatch {
-        val selected = checkNotNull(transactionService.findTransaction(userId, TransactionType.EXPENSE, id))
-        val rule = selected.recurringRule
-        val series = rule?.let { transactions.findByRecurringRuleIdOrderByRecurringInstanceDate(it.id!!) }
-        val removed = when {
-            kind == RefundMatchKind.RECURRING_SERIES -> checkNotNull(series)
-            series != null -> series.filter { it.recurringInstanceDate!! >= selected.transaction.recurringInstanceDate!! }
-            else -> listOf(selected.transaction)
+    private inner class MatchContext(private val userId: Long, private val today: LocalDate) {
+        private val details = mutableMapOf<Long, TransactionDetails>()
+        private val series = mutableMapOf<Long, SeriesSnapshot>()
+
+        private fun details(id: Long): TransactionDetails = details.getOrPut(id) {
+            checkNotNull(transactionService.findTransaction(userId, TransactionType.EXPENSE, id))
         }
-        val payments = if (kind == RefundMatchKind.RECURRING_SERIES) {
-            removed.filter { it.date <= today }.map {
-                checkNotNull(transactionService.findTransaction(userId, TransactionType.EXPENSE, it.id!!)).toResponse()
+
+        fun match(id: Long, kind: RefundMatchKind): ExpenseRefundMatch {
+            val selected = details(id)
+            val rule = selected.recurringRule
+            val snapshot = rule?.let {
+                series.getOrPut(it.id!!) {
+                    val rows = transactions.findByRecurringRuleIdOrderByRecurringInstanceDate(it.id!!)
+                    // Share suffix summaries across matching instances: never rescan/hash a series per match.
+                    var suffix = RemovalSummary(0, "")
+                    val suffixes = rows.asReversed().associate { row ->
+                        suffix = RemovalSummary(suffix.count + 1, hash("$row|${suffix.fingerprint}"))
+                        row.id!! to suffix
+                    }
+                    SeriesSnapshot(rows, suffixes)
+                }
             }
-        } else listOf(selected.toResponse())
-        val fingerprint = MessageDigest.getInstance("SHA-256")
-            .digest("$kind|$rule|$removed|$payments".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
-        return ExpenseRefundMatch(id, kind, fingerprint, payments, removed.size, rule != null)
+            val removed = when {
+                kind == RefundMatchKind.RECURRING_SERIES -> checkNotNull(snapshot).suffixes.getValue(snapshot.rows.first().id!!)
+                snapshot != null -> snapshot.suffixes.getValue(id)
+                else -> RemovalSummary(1, hash(selected.transaction.toString()))
+            }
+            val payments = if (kind == RefundMatchKind.RECURRING_SERIES) {
+                checkNotNull(snapshot).rows.filter { it.date <= today }.map { details(it.id!!).toResponse() }
+            } else listOf(selected.toResponse())
+            val fingerprint = hash("$kind|$rule|${removed.fingerprint}|$payments")
+            return ExpenseRefundMatch(id, kind, fingerprint, payments, removed.count, rule != null)
+        }
     }
+
+    private data class RemovalSummary(val count: Int, val fingerprint: String)
+    private data class SeriesSnapshot(val rows: List<Transaction>, val suffixes: Map<Long, RemovalSummary>)
+
+    private fun hash(value: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 }

@@ -1,6 +1,7 @@
 package io.orangebuffalo.renalo
 
 import com.microsoft.playwright.Page
+import com.microsoft.playwright.Route
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
 import io.kotest.matchers.collections.shouldContainExactly
@@ -86,6 +87,103 @@ class ExpenseRefundPagePlaywrightTest : ExpenseRefundTestSupport() {
         assertThat(page.getByRole(AriaRole.ALERT)).hasText("These expenses have changed. Find matches again before recording the refund.")
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record refund"))).isDisabled()
         transactions.findById(row.id!!).isPresent.shouldBe(true)
+    }
+
+    @Test
+    fun ignoresADelayedSearchResponseAfterANewerSearchCompletes(page: Page) {
+        val f = fixture()
+        expense(f)
+        expense(f, 13000)
+        var delayedRoute: Route? = null
+        var delayedBody: String? = null
+        page.route("**/api/tracking/expense-refunds/search") { route ->
+            if (route.request().postData()!!.contains("\"amountMinor\":12000")) {
+                delayedBody = route.fetch().text()
+                delayedRoute = route
+            } else route.resume()
+        }
+        setStoredToken(page, token(f))
+        page.navigate(server.url.toString() + "/expenses/refund")
+        page.locator("input[name='refundAmount']").fill("120")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Find matches")).click()
+        page.waitForCondition { delayedRoute != null }
+        page.locator("input[name='refundAmount']").fill("130")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Find matches")).click()
+        assertSingleExpenseMatch(page, "130.00")
+        page.getByRole(AriaRole.RADIOGROUP).locator("label p").first().click()
+        page.waitForResponse({ response -> response.url().endsWith("/expense-refunds/search") }) {
+            checkNotNull(delayedRoute).fulfill(
+                Route.FulfillOptions().setStatus(200).setContentType("application/json").setBody(checkNotNull(delayedBody)),
+            )
+        }.finished()
+        // Let the stale response's promise callbacks and any resulting React render finish.
+        page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+        assertSingleExpenseMatch(page, "130.00")
+        assertThat(page.getByRole(AriaRole.RADIO)).isChecked()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record refund"))).isEnabled()
+        transactions.count().shouldBe(2)
+    }
+
+    @Test
+    fun showsGenericSearchFailureAndAllowsRetry(page: Page) {
+        val f = fixture()
+        expense(f)
+        var failSearch = true
+        page.route("**/api/tracking/expense-refunds/search") { route ->
+            if (failSearch) route.fulfill(Route.FulfillOptions().setStatus(500)) else route.resume()
+        }
+        setStoredToken(page, token(f))
+        page.navigate(server.url.toString() + "/expenses/refund")
+        page.locator("input[name='refundAmount']").fill("120")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Find matches")).click()
+        assertThat(page.getByRole(AriaRole.ALERT)).hasText("Could not find matching expenses. Please try again.")
+        assertThat(page.getByRole(AriaRole.RADIO)).hasCount(0)
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record refund"))).isDisabled()
+        failSearch = false
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Find matches")).click()
+        assertSingleExpenseMatch(page, "120.00")
+        assertThat(page.getByRole(AriaRole.ALERT)).hasCount(0)
+        transactions.count().shouldBe(1)
+    }
+
+    @Test
+    fun showsGenericSaveFailureAndPreservesSelectionForRetry(page: Page) {
+        val f = fixture()
+        val row = expense(f)
+        var failSave = true
+        page.route("**/api/tracking/expense-refunds") { route ->
+            if (failSave) route.fulfill(Route.FulfillOptions().setStatus(500)) else route.resume()
+        }
+        setStoredToken(page, token(f))
+        page.navigate(server.url.toString() + "/expenses/refund")
+        page.locator("input[name='refundAmount']").fill("120")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Find matches")).click()
+        assertSingleExpenseMatch(page, "120.00")
+        page.getByRole(AriaRole.RADIOGROUP).locator("label p").first().click()
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record refund")).click()
+        page.shouldEventually {
+            page.getByRole(AriaRole.ALERT).allTextContents().map { it.replace(Regex("\\s+"), " ").trim() }.shouldContainExactly(
+                "Could not record the refund. Please try again.",
+                "This cannot be undone1 expense will be permanently deleted. No income entry will be created.",
+            )
+        }
+        assertThat(page).hasURL(server.url.toString() + "/expenses/refund")
+        assertSingleExpenseMatch(page, "120.00")
+        assertThat(page.getByRole(AriaRole.RADIO)).isChecked()
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record refund"))).isEnabled()
+        transactions.findById(row.id!!).get().shouldBe(row)
+        failSave = false
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record refund")).click()
+        assertThat(page).hasURL(server.url.toString() + "/expenses")
+        transactions.count().shouldBe(0)
+    }
+
+    private fun assertSingleExpenseMatch(page: Page, amount: String) {
+        page.shouldEventually {
+            page.getByRole(AriaRole.RADIOGROUP).locator("label").allTextContents().map { it.replace(Regex("\\s+"), " ").trim() }.shouldContainExactly(
+                "Single expense · A$$amount$today · Shopping · Main · A$$amount · Returned purchaseDeletes 1 expense.",
+            )
+        }
     }
 
     private fun choose(page: Page, label: String, value: String) {

@@ -168,6 +168,73 @@ class ExpenseRefundApiTest : ExpenseRefundTestSupport() {
         response.body().shouldEqualJson("[]")
     }
 
+    @Test
+    fun matchesWholeSeriesAcrossSameCurrencyAccounts() {
+        val f = fixture()
+        val secondAccount = accounts.save(f.account.copy(id = null, name = "Old", isDefault = false, archived = true))
+        val second = f.copy(account = secondAccount)
+        val rule = rule(f)
+        val old = expense(f, 5000, today.minusYears(1), rule)
+        val recent = expense(second, 7000, today, rule)
+        expense(second, 6000, today.plusMonths(1), rule)
+        val unrelated = expense(second, 1234)
+        val response = api().postJson("$endpoint/search", query(), token(f))
+        response.statusCode().shouldBe(200)
+        val match = mapper.readTree(response.body())[0]
+        match["fingerprint"].asText().shouldMatch("[0-9a-f]{64}")
+        response.body().shouldEqualJson("""[{
+          "transactionId":${old.id},"kind":"RECURRING_SERIES","fingerprint":${match["fingerprint"]},
+          "payments":[${payment(f, old, rule)},${payment(second, recent, rule)}],"removedExpenseCount":3,"stopsRecurrence":true
+        }]""")
+        api().postJson(endpoint, saveBody(query(), match), token(f)).statusCode().shouldBe(204)
+        transactions.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!).shouldContainExactly(emptyList())
+        transactions.findByUserIdAndTypeOrderByDateDesc(f.user.id!!, TransactionType.EXPENSE).shouldContainExactly(unrelated)
+        rules.findById(rule.id!!).get().status.shouldBe(RecurringTransactionRuleStatus.DELETED)
+    }
+
+    @Test
+    fun rejectsWholeSeriesSelectionWhenAnOlderPaymentOutsideDiscoveryChanges() {
+        rejectsStaleRecurringSelection { old, _, _ ->
+            transactions.update(old.copy(notes = "Older payment changed"))
+        }
+    }
+
+    @Test
+    fun rejectsWholeSeriesSelectionWhenAFutureOccurrenceChanges() {
+        rejectsStaleRecurringSelection { _, future, _ ->
+            transactions.update(future.copy(amountMinor = 8000, recurringLocked = true))
+        }
+    }
+
+    @Test
+    fun rejectsWholeSeriesSelectionWhenTheRecurrenceRuleChanges() {
+        rejectsStaleRecurringSelection { _, _, rule ->
+            rules.update(rule.copy(notes = "Future schedule changed"))
+        }
+    }
+
+    private fun rejectsStaleRecurringSelection(change: (Transaction, Transaction, RecurringTransactionRule) -> Unit) {
+        val f = fixture()
+        val rule = rule(f)
+        val old = expense(f, 5000, today.minusYears(1), rule)
+        val recent = expense(f, 7000, today, rule)
+        val future = expense(f, 6000, today.plusMonths(1), rule)
+        val response = api().postJson("$endpoint/search", query(), token(f))
+        response.statusCode().shouldBe(200)
+        val match = mapper.readTree(response.body())[0]
+        match["fingerprint"].asText().shouldMatch("[0-9a-f]{64}")
+        response.body().shouldEqualJson("""[{
+          "transactionId":${old.id},"kind":"RECURRING_SERIES","fingerprint":${match["fingerprint"]},
+          "payments":[${payment(f, old, rule)},${payment(f, recent, rule)}],"removedExpenseCount":3,"stopsRecurrence":true
+        }]""")
+        change(old, future, rule)
+        val expectedRows = transactions.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!)
+        val expectedRule = rules.findById(rule.id!!).get()
+        api().postJson(endpoint, saveBody(query(), match), token(f)).statusCode().shouldBe(409)
+        transactions.findByRecurringRuleIdOrderByRecurringInstanceDate(rule.id!!).shouldContainExactly(expectedRows)
+        rules.findById(rule.id!!).get().shouldBe(expectedRule)
+    }
+
     private fun expected(f: RefundFixture, row: Transaction, fingerprint: String): String {
         fingerprint.shouldMatch("[0-9a-f]{64}")
         return """{"transactionId":${row.id},"kind":"EXPENSE","fingerprint":"$fingerprint","payments":[${payment(f, row)}],"removedExpenseCount":1,"stopsRecurrence":false}"""
