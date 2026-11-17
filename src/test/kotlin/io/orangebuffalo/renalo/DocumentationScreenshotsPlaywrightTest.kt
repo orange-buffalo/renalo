@@ -242,6 +242,41 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         }
         capture(page, layout, "07-expense-recurring-form")
 
+        page.navigate(server.url.toString() + "/expenses/refund")
+        assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Currency").setExact(true))).containsText("AUD")
+        capture(page, layout, "40-expense-refund-form")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Search period").setExact(true)).click()
+        assertThat(page.locator(".searchable-dropdown-popover").getByText("Full history")).isVisible()
+        capture(page, layout, "41-expense-refund-period")
+        page.keyboard().press("Escape")
+        page.locator("input[name='refundAmount']").fill("29.99")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Find matches")).click()
+        page.getByRole(AriaRole.RADIOGROUP).locator("label p").first().click()
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("2 expenses will be permanently deleted.")
+        page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+        capture(page, layout, "42-expense-refund-selection")
+        val refundRule = recurringTransactionRuleRepository.findByUserIdAndTransactionTypeAndStatus(
+            fixture.musician.id!!, TransactionType.EXPENSE, RecurringTransactionRuleStatus.ACTIVE,
+        ).single()
+        recurringTransactionRuleRepository.update(refundRule.copy(startDate = today.minusMonths(1)))
+        val earlierPayment = transactionRepository.save(
+            transactionRepository.findByRecurringRuleIdOrderByRecurringInstanceDate(refundRule.id!!).first().copy(
+                id = null, date = today.minusMonths(1), recurringInstanceDate = today.minusMonths(1),
+            ),
+        )
+        page.locator("input[name='refundAmount']").fill("59.98")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Find matches")).click()
+        page.getByRole(AriaRole.RADIOGROUP).locator("label p").first().click()
+        assertThat(page.getByRole(AriaRole.ALERT)).containsText("3 expenses will be permanently deleted.")
+        page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+        capture(page, layout, "44-expense-refund-series")
+        transactionRepository.deleteById(earlierPayment.id!!)
+        recurringTransactionRuleRepository.update(refundRule)
+        page.locator("input[name='refundAmount']").fill("0.01")
+        page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Find matches")).click()
+        assertThat(page.getByText("No matching expenses. Try a longer period or check the amount and currency.")).isVisible()
+        capture(page, layout, "43-expense-refund-empty")
+
         page.navigate(server.url.toString() + "/incomes")
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Incomes"))).isVisible()
         assertThat(page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Grouping: Group by date"))).isVisible()

@@ -170,7 +170,7 @@ private fun parseIdFilter(rawValue: String?): List<Long>? {
         .map { it.toLongOrNull()?.takeIf { id -> id > 0 } ?: return null }
 }
 
-private fun TransactionDetails.toResponse() = TransactionResponse(
+internal fun TransactionDetails.toResponse() = TransactionResponse(
     id = transaction.id ?: error("Transaction must be persisted before it can be returned"),
     trackingAccount = TransactionTrackingAccountResponse(
         id = account.id ?: error("Tracking account must be persisted before it can be returned"),
