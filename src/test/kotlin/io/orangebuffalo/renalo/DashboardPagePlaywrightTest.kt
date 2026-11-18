@@ -94,8 +94,7 @@ class DashboardPagePlaywrightTest : IntegrationTestSupport() {
         page.navigate(server.url.toString() + "/tracking")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record new").setExact(true)).click()
-        assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Expense"))).isVisible()
-        assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Income"))).isVisible()
+        assertThat(page.getByRole(AriaRole.MENUITEM)).hasText(arrayOf("Expense", "Income", "Transfer", "Refund"))
         page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Transfer")).click()
 
         assertThat(page).hasURL(Pattern.compile(".*/transfers/create$"))

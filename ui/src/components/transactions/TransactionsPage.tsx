@@ -246,15 +246,6 @@ export function TransactionsPage({
       className="overview-page-surface"
       actions={
         <div className="flex flex-wrap gap-2">
-          {config.api.type === "EXPENSE" && (
-            <Button
-              color="secondary"
-              size="sm"
-              onPress={() => navigate("/expenses/refund")}
-            >
-              Record refund
-            </Button>
-          )}
           <Button
             color="secondary"
             size="sm"

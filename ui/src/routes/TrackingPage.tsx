@@ -2,6 +2,7 @@ import { getLocalTimeZone, today } from "@internationalized/date";
 import {
   CreditCard02,
   Plus,
+  ReverseLeft,
   SwitchHorizontal01,
   TrendUp02,
 } from "@untitledui/icons";
@@ -531,6 +532,12 @@ function DashboardQuickAddButton({
             icon={SwitchHorizontal01}
             selectionIndicator="none"
             onAction={() => onNavigate("/transfers/create")}
+          />
+          <Dropdown.Item
+            label="Refund"
+            icon={ReverseLeft}
+            selectionIndicator="none"
+            onAction={() => onNavigate("/expenses/refund")}
           />
         </Dropdown.Menu>
       </Dropdown.Popover>

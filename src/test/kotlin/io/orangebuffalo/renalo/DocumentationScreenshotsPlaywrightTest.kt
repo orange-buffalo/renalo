@@ -195,8 +195,10 @@ class DocumentationScreenshotsPlaywrightTest : IntegrationTestSupport() {
         chartPresetDialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Close preset editor")).click()
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Record new").setExact(true)).click()
-        assertThat(page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Expense"))).isVisible()
+        assertThat(page.getByRole(AriaRole.MENUITEM)).hasText(arrayOf("Expense", "Income", "Transfer", "Refund"))
         capture(page, layout, "04-dashboard-record-new")
+        page.getByRole(AriaRole.MENUITEM, Page.GetByRoleOptions().setName("Refund").setExact(true)).click()
+        assertThat(page.getByRole(AriaRole.HEADING, Page.GetByRoleOptions().setName("Record refund"))).isVisible()
 
         page.navigate(server.url.toString() + "/expenses")
         assertThat(page.getByRole(AriaRole.GRID, Page.GetByRoleOptions().setName("Expenses"))).isVisible()
