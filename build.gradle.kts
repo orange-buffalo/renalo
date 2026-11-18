@@ -189,6 +189,7 @@ jib {
         image = "ghcr.io/orange-buffalo/renalo:${project.version}"
     }
     container {
+        user = "10001:10001"
         ports = listOf("8080")
         mainClass = "io.orangebuffalo.renalo.ApplicationKt"
         creationTime = "USE_CURRENT_TIMESTAMP"

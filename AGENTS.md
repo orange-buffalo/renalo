@@ -16,6 +16,7 @@
 - Do not commit newly written code in the same turn it is produced. Leave fresh changes uncommitted for user review, then commit those reviewed changes on the next turn before starting additional feedback work, unless the user explicitly asks to commit immediately.
 - Project versioning is driven by `com.github.jmongard.git-semver-plugin` with release tags formatted as `v%s`; release workflows should use `./gradlew releaseVersion` and `./gradlew -q printVersion`, not manual `version = ...` edits in `build.gradle.kts`.
 - CI publishes release Docker images to `ghcr.io/orange-buffalo/renalo:<version>` via Jib only when `printVersion` on `main` is not a `-SNAPSHOT` version.
+- The application image must explicitly run as non-root UID/GID `10001:10001` via Jib's `container.user`; keep application files root-owned and use `/tmp` for runtime temporary files.
 
 ## Backend
 
