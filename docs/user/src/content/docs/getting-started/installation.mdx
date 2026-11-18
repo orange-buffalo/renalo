@@ -7,6 +7,8 @@ import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
 Renalo is published as `ghcr.io/orange-buffalo/renalo:<version>`. Use an explicit numeric version from the [GitHub releases](https://github.com/orange-buffalo/renalo/releases); Renalo does not publish a floating `latest` tag.
 
+The application image runs as a non-root user (UID/GID `10001:10001`) and listens on port `8080`. It does not need root privileges or an application data volume; persistent data is stored in PostgreSQL.
+
 ## Intended deployment model
 
 Renalo is designed for private use by an individual, household, or small trusted group. Multiple user accounts keep budgeting data separate within the application, but the deployment operator remains trusted and can access the host, database, configuration, and backups. Do not offer one Renalo installation as a public multi-tenant service.

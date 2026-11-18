@@ -91,8 +91,12 @@ Generated files are written to `build/documentation-screenshots/` and must be co
 Build the application image in the local Docker daemon with:
 
 ```bash
-./gradlew jibDockerBuild
+./gradlew jibDockerBuild --no-configuration-cache
 ```
+
+Jib's image-building tasks require disabling Gradle's configuration cache.
+
+The application image runs as the unprivileged numeric UID/GID `10001:10001`, configured through Jib's `container.user`. Application files remain root-owned and read-only to this user; runtime temporary files use `/tmp`. No application data volume is required because persistent state lives in PostgreSQL. Keep the explicit non-root identity when changing the base image.
 
 Build the static documentation image with:
 
